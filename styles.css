@@ -1,0 +1,97 @@
+:root {
+  color-scheme: dark;
+  --bg: #121212;
+  --card: #1f1f1f;
+  --text: #f3f3f3;
+  --muted: #b3b3b3;
+  --accent: #1db954;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid #2a2a2a;
+}
+
+label,
+small {
+  display: block;
+}
+
+input[type='text'] {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  background: #111;
+  color: var(--text);
+  padding: 0.65rem;
+  margin: 0.5rem 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0.6rem 0.8rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: #111;
+}
+
+button.secondary {
+  background: #2d2d2d;
+  color: var(--text);
+}
+
+.context-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 380px;
+  overflow: auto;
+}
+
+.context-item {
+  background: #191919;
+  border: 1px solid #2d2d2d;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+}
+
+.context-label {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+small {
+  color: var(--muted);
+}
