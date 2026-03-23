@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spotify Album & Playlist Shuffler</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://sdk.scdn.co/spotify-player.js" async></script>
+  </head>
+  <body>
+    <main class="app">
+      <h1>Spotify Album & Playlist Shuffler</h1>
+      <p>
+        Shuffle selected albums/playlists as groups. Each album/playlist plays in order,
+        then the app moves on to the next shuffled group.
+      </p>
+
+      <section class="card">
+        <h2>1) Connect Spotify</h2>
+        <label for="client-id">Spotify Client ID</label>
+        <input id="client-id" type="text" placeholder="Paste your Spotify app Client ID" />
+        <small>
+          Create an app at Spotify Developer Dashboard and add this URL as a Redirect URI.
+        </small>
+        <div class="row">
+          <button id="connect-btn">Connect</button>
+          <button id="disconnect-btn" class="secondary">Disconnect</button>
+        </div>
+        <p id="auth-status">Not connected</p>
+      </section>
+
+      <section class="card" id="library-section" hidden>
+        <h2>2) Choose albums & playlists</h2>
+        <div class="row">
+          <button id="refresh-library-btn" class="secondary">Refresh library</button>
+          <button id="select-all-btn" class="secondary">Select all</button>
+          <button id="clear-selection-btn" class="secondary">Clear selection</button>
+        </div>
+        <p id="library-status">Loading…</p>
+        <ul id="context-list" class="context-list"></ul>
+      </section>
+
+      <section class="card" id="play-section" hidden>
+        <h2>3) Start shuffled playback</h2>
+        <div class="row">
+          <button id="start-btn">Shuffle & play</button>
+        </div>
+        <p id="play-status">Waiting to start.</p>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
