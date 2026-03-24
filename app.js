@@ -16,6 +16,9 @@
  * @property {number} index
  * @property {string | null} currentUri
  * @property {boolean} observedCurrentContext
+ * @property {boolean} queueMode
+ * @property {{items: Array<{uri: string; title: string; type: ItemType; start: number; end: number}>; trackUris: string[]} | null} queueManifest
+ * @property {number} queuePlaybackIndex
  */
 
 const SCOPES = [
@@ -68,6 +71,9 @@ const session = {
   index: 0,
   currentUri: null,
   observedCurrentContext: false,
+  queueMode: false,
+  queueManifest: null,
+  queuePlaybackIndex: 0,
 };
 
 let monitorTimer = /** @type {number | null} */ (null);
@@ -433,9 +439,53 @@ async function startShuffleSession() {
   session.queue = shuffledCopy(items);
   session.active = true;
   session.index = 0;
+  session.queueMode = true;
+  session.queueManifest = null;
+  session.queuePlaybackIndex = 0;
 
-  setPlaybackStatus(`Session started with ${session.queue.length} item(s).`);
-  await playCurrentItem();
+  setPlaybackStatus(`Building queue from ${session.queue.length} item(s)...`);
+
+  const queuePlan = await buildQueuePlan(session.queue, token);
+  if (queuePlan.tracks.length === 0) {
+    stopSession('No playable tracks found in the shuffled items.');
+    return;
+  }
+
+  session.queueManifest = {
+    items: queuePlan.manifestItems,
+    trackUris: queuePlan.tracks,
+  };
+
+  await spotifyApi('/me/player/shuffle?state=false', { method: 'PUT' }, token);
+  await spotifyApi('/me/player/repeat?state=off', { method: 'PUT' }, token);
+
+  const firstChunk = queuePlan.tracks.slice(0, 100);
+  await spotifyApi(
+    '/me/player/play',
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        uris: firstChunk,
+      }),
+    },
+    token,
+  );
+
+  let queueFailures = 0;
+  for (const uri of queuePlan.tracks.slice(100)) {
+    const queued = await enqueueTrackWithRetry(uri, token);
+    if (!queued) queueFailures += 1;
+  }
+
+  const baseMessage = `Queued run started with ${queuePlan.tracks.length} track(s) from ${session.queue.length} item(s).`;
+  if (queueFailures > 0) {
+    setPlaybackStatus(
+      `${baseMessage} ${queueFailures} track(s) could not be queued due to API issues. Continuing best-effort playback.`,
+    );
+  } else {
+    setPlaybackStatus(baseMessage);
+  }
+
   startMonitorLoop();
 }
 
@@ -446,6 +496,9 @@ function stopSession(message) {
   session.index = 0;
   session.currentUri = null;
   session.observedCurrentContext = false;
+  session.queueMode = false;
+  session.queueManifest = null;
+  session.queuePlaybackIndex = 0;
   if (monitorTimer !== null) {
     clearInterval(monitorTimer);
     monitorTimer = null;
@@ -456,6 +509,17 @@ function stopSession(message) {
 async function goToNextItem() {
   if (!session.active) {
     setPlaybackStatus('No active session.');
+    return;
+  }
+
+  if (session.queueMode) {
+    const token = getToken();
+    if (!token) {
+      stopSession('Spotify session expired. Please reconnect.');
+      return;
+    }
+    await spotifyApi('/me/player/next', { method: 'POST' }, token);
+    setPlaybackStatus('Skipped to next track in queued run.');
     return;
   }
 
@@ -630,7 +694,8 @@ function startMonitorLoop() {
 }
 
 async function monitorPlayback() {
-  if (!session.active || !session.currentUri) return;
+  if (!session.active) return;
+  if (!session.queueMode && !session.currentUri) return;
   const token = getToken();
   if (!token) {
     stopSession('Spotify session expired. Please reconnect.');
@@ -643,8 +708,31 @@ async function monitorPlayback() {
     return;
   }
 
-  /** @type {{context?: {uri?: string} | null}} */
+  /** @type {{context?: {uri?: string} | null; item?: {uri?: string} | null}} */
   const data = await response.json();
+
+  if (session.queueMode && session.queueManifest) {
+    const currentTrackUri = data?.item?.uri ?? null;
+    if (!currentTrackUri) return;
+
+    const startIndex = Math.max(0, session.queuePlaybackIndex);
+    const fromCurrent = session.queueManifest.trackUris.indexOf(currentTrackUri, startIndex);
+    const fallback =
+      fromCurrent >= 0 ? fromCurrent : session.queueManifest.trackUris.indexOf(currentTrackUri);
+    if (fallback < 0) return;
+
+    session.queuePlaybackIndex = fallback;
+    const currentItem = session.queueManifest.items.find(
+      (item) => fallback >= item.start && fallback < item.end,
+    );
+    if (currentItem) {
+      setPlaybackStatus(
+        `Queued run: now in ${currentItem.type} "${currentItem.title}" (${fallback + 1}/${session.queueManifest.trackUris.length} tracks).`,
+      );
+    }
+    return;
+  }
+
   const contextUri = data?.context?.uri ?? null;
 
   if (contextUri === session.currentUri) {
@@ -656,6 +744,123 @@ async function monitorPlayback() {
     // Current context moved away (likely finished, or user manually changed it).
     await goToNextItem();
   }
+}
+
+/**
+ * @param {ShuffleItem[]} items
+ * @param {string} token
+ * @returns {Promise<{tracks: string[]; manifestItems: Array<{uri: string; title: string; type: ItemType; start: number; end: number}>}>}
+ */
+async function buildQueuePlan(items, token) {
+  /** @type {string[]} */
+  const tracks = [];
+  /** @type {Array<{uri: string; title: string; type: ItemType; start: number; end: number}>} */
+  const manifestItems = [];
+
+  for (const item of items) {
+    const itemTracks = await fetchTrackUrisForItem(item, token);
+    if (itemTracks.length === 0) continue;
+    const start = tracks.length;
+    tracks.push(...itemTracks);
+    manifestItems.push({
+      uri: item.uri,
+      title: item.title,
+      type: item.type,
+      start,
+      end: tracks.length,
+    });
+  }
+
+  return { tracks, manifestItems };
+}
+
+/**
+ * @param {ShuffleItem} item
+ * @param {string} token
+ */
+async function fetchTrackUrisForItem(item, token) {
+  const id = spotifyIdFromUri(item.uri);
+  if (!id) return [];
+
+  const limit = 50;
+  let offset = 0;
+  /** @type {string[]} */
+  const tracks = [];
+
+  while (true) {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+      market: 'from_token',
+    });
+    const path =
+      item.type === 'album'
+        ? `/albums/${id}/tracks?${params.toString()}`
+        : `/playlists/${id}/tracks?${params.toString()}`;
+    const response = await spotifyApi(path, { method: 'GET' }, token, false);
+    if (!response.ok) {
+      const details = await response.text();
+      console.warn(
+        `Unable to fetch tracks for ${item.uri} (${response.status}): ${details || 'Unknown API error.'}`,
+      );
+      break;
+    }
+
+    /** @type {{items?: Array<{uri?: string; track?: {uri?: string} | null}>; next?: string | null}} */
+    const data = await response.json();
+    const pageItems = data.items ?? [];
+    for (const entry of pageItems) {
+      const trackUri = item.type === 'album' ? entry?.uri : entry?.track?.uri;
+      if (trackUri) tracks.push(trackUri);
+    }
+
+    if (!data.next) break;
+    offset += limit;
+  }
+
+  return tracks;
+}
+
+/**
+ * @param {string} uri
+ * @param {string} token
+ */
+async function enqueueTrackWithRetry(uri, token) {
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await spotifyApi(
+      `/me/player/queue?uri=${encodeURIComponent(uri)}`,
+      { method: 'POST' },
+      token,
+      false,
+    );
+    if (response.ok) return true;
+
+    const retryAfter = Number(response.headers.get('Retry-After') ?? 0);
+    const isRateLimited = response.status === 429;
+    const isRetryableServerError = response.status >= 500;
+    if (!isRateLimited && !isRetryableServerError) {
+      const details = await response.text();
+      console.warn(
+        `Queue failed for ${uri} (${response.status}): ${details || 'Non-retryable API error.'}`,
+      );
+      return false;
+    }
+
+    const fallbackDelay = 500 * 2 ** (attempt - 1);
+    const delayMs = Math.max(fallbackDelay, retryAfter * 1000);
+    await sleep(delayMs);
+  }
+
+  console.warn(`Queue failed for ${uri} after retries.`);
+  return false;
+}
+
+/** @param {number} ms */
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 /**
