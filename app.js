@@ -34,6 +34,7 @@ const STORAGE_KEYS = {
   tokenExpiry: 'spotifyShuffler.tokenExpiry',
   tokenScope: 'spotifyShuffler.tokenScope',
   items: 'spotifyShuffler.items',
+  selectedDeviceId: 'spotifyShuffler.selectedDeviceId',
 };
 
 const el = {
@@ -52,6 +53,11 @@ const el = {
   skipBtn: /** @type {HTMLButtonElement} */ (document.getElementById('skip-btn')),
   stopBtn: /** @type {HTMLButtonElement} */ (document.getElementById('stop-btn')),
   playbackStatus: /** @type {HTMLParagraphElement} */ (document.getElementById('playback-status')),
+  deviceSelect: /** @type {HTMLSelectElement} */ (document.getElementById('device-select')),
+  refreshDevicesBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('refresh-devices-btn')
+  ),
+  deviceStatus: /** @type {HTMLParagraphElement} */ (document.getElementById('device-status')),
   exportStorageBtn: /** @type {HTMLButtonElement} */ (
     document.getElementById('export-storage-btn')
   ),
@@ -71,6 +77,8 @@ const session = {
 };
 
 let monitorTimer = /** @type {number | null} */ (null);
+/** @type {Array<{id: string; is_active: boolean; name: string; type?: string}>} */
+let knownDevices = [];
 
 bootstrap().catch((error) => {
   console.error(error);
@@ -85,6 +93,7 @@ async function bootstrap() {
   await handleAuthRedirect();
   renderItemList();
   refreshAuthStatus();
+  await refreshDeviceList();
   await ensureStoredItemTitles();
 }
 
@@ -131,6 +140,19 @@ function hookEvents() {
 
   el.startBtn.addEventListener('click', () => {
     void startShuffleSession();
+  });
+
+  el.refreshDevicesBtn.addEventListener('click', () => {
+    void refreshDeviceList();
+  });
+
+  el.deviceSelect.addEventListener('change', () => {
+    const selectedId = el.deviceSelect.value;
+    if (selectedId) {
+      localStorage.setItem(STORAGE_KEYS.selectedDeviceId, selectedId);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.selectedDeviceId);
+    }
   });
 
   el.importPlaylistBtn.addEventListener('click', () => {
@@ -347,6 +369,7 @@ function importLocalStorageJson() {
   el.clientId.value = localStorage.getItem(STORAGE_KEYS.clientId) ?? '';
   renderItemList();
   refreshAuthStatus();
+  void refreshDeviceList();
   setPlaybackStatus(`Imported ${entries.length} local storage key(s).`);
 }
 
@@ -434,6 +457,7 @@ async function startShuffleSession() {
   session.active = true;
   session.index = 0;
 
+  await refreshDeviceList();
   setPlaybackStatus(`Session started with ${session.queue.length} item(s).`);
   await playCurrentItem();
   startMonitorLoop();
@@ -479,6 +503,7 @@ async function playCurrentItem() {
     return;
   }
 
+  await ensurePlaybackDevice(token);
   await spotifyApi('/me/player/shuffle?state=false', { method: 'PUT' }, token);
   await spotifyApi('/me/player/repeat?state=off', { method: 'PUT' }, token);
 
@@ -498,6 +523,116 @@ async function playCurrentItem() {
   setPlaybackStatus(
     `Now playing ${current.type} ${session.index + 1} of ${session.queue.length}: ${current.title}`,
   );
+}
+
+async function refreshDeviceList() {
+  const token = getToken();
+  knownDevices = [];
+  renderDeviceSelect();
+  if (!token) {
+    setDeviceStatus('Connect Spotify to load playback devices.');
+    return;
+  }
+
+  const response = await spotifyApi('/me/player/devices', { method: 'GET' }, token, false);
+  if (!response.ok) {
+    setDeviceStatus(`Unable to load devices (${response.status}).`);
+    return;
+  }
+
+  /** @type {{devices?: Array<{id?: string; is_active?: boolean; name?: string; type?: string}>}} */
+  const data = await response.json();
+  knownDevices = (data.devices ?? [])
+    .filter((device) => typeof device.id === 'string' && device.id.length > 0)
+    .map((device) => ({
+      id: /** @type {string} */ (device.id),
+      is_active: Boolean(device.is_active),
+      name: device.name?.trim() || 'Unknown device',
+      type: device.type,
+    }));
+  renderDeviceSelect();
+}
+
+function renderDeviceSelect() {
+  el.deviceSelect.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = knownDevices.length === 0 ? 'No devices found' : 'Use active/default';
+  el.deviceSelect.appendChild(placeholder);
+
+  for (const device of knownDevices) {
+    const option = document.createElement('option');
+    option.value = device.id;
+    const activeText = device.is_active ? ' (active)' : '';
+    const typeText = device.type ? ` · ${device.type}` : '';
+    option.textContent = `${device.name}${typeText}${activeText}`;
+    el.deviceSelect.appendChild(option);
+  }
+
+  const storedDeviceId = localStorage.getItem(STORAGE_KEYS.selectedDeviceId) ?? '';
+  const activeDevice = knownDevices.find((device) => device.is_active) ?? null;
+  const defaultDeviceId =
+    (storedDeviceId && knownDevices.some((device) => device.id === storedDeviceId)
+      ? storedDeviceId
+      : activeDevice?.id) ?? '';
+  el.deviceSelect.value = defaultDeviceId;
+  if (defaultDeviceId) {
+    localStorage.setItem(STORAGE_KEYS.selectedDeviceId, defaultDeviceId);
+  }
+
+  if (knownDevices.length === 0) {
+    setDeviceStatus('No available devices. Open Spotify on one of your devices.');
+    return;
+  }
+
+  if (activeDevice) {
+    setDeviceStatus(`Active device: ${activeDevice.name}.`);
+    return;
+  }
+
+  if (defaultDeviceId) {
+    const selected = knownDevices.find((device) => device.id === defaultDeviceId);
+    setDeviceStatus(`No active device. Start will transfer playback to ${selected?.name ?? 'selected device'}.`);
+    return;
+  }
+
+  setDeviceStatus('No active device. Start will transfer playback to the first available device.');
+}
+
+/** @param {string} message */
+function setDeviceStatus(message) {
+  el.deviceStatus.textContent = message;
+}
+
+/** @param {string} token */
+async function ensurePlaybackDevice(token) {
+  if (knownDevices.length === 0) {
+    await refreshDeviceList();
+  }
+
+  const activeDevice = knownDevices.find((device) => device.is_active);
+  if (activeDevice) return;
+  if (knownDevices.length === 0) return;
+
+  const selectedDeviceId = el.deviceSelect.value || localStorage.getItem(STORAGE_KEYS.selectedDeviceId) || '';
+  const targetDevice =
+    knownDevices.find((device) => device.id === selectedDeviceId) ?? knownDevices[0];
+  localStorage.setItem(STORAGE_KEYS.selectedDeviceId, targetDevice.id);
+  el.deviceSelect.value = targetDevice.id;
+
+  await spotifyApi(
+    '/me/player',
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        device_ids: [targetDevice.id],
+        play: false,
+      }),
+    },
+    token,
+  );
+  setDeviceStatus(`Transferred playback to ${targetDevice.name}.`);
 }
 
 async function importAlbumsFromPlaylist() {

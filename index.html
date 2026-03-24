@@ -54,6 +54,14 @@
       <section class="panel">
         <h2>3) Start Shuffle Session</h2>
         <div class="row">
+          <label>
+            Playback Device
+            <select id="device-select"></select>
+          </label>
+          <button id="refresh-devices-btn" type="button" class="secondary">Refresh Devices</button>
+        </div>
+        <p id="device-status" class="small" aria-live="polite"></p>
+        <div class="row">
           <button id="start-btn">Start</button>
           <button id="skip-btn" class="secondary">Skip To Next</button>
           <button id="stop-btn" class="danger">Stop</button>
