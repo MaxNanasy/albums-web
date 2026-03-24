@@ -519,7 +519,7 @@ async function fetchPlaylistAlbums(playlistId, token) {
       const album = extractAlbumFromPlaylistItem(item);
       const albumUri = album?.uri ?? '';
       const albumName = (album?.name ?? '').trim();
-      if (!albumUri || !spotifyIdFromUri(albumUri)) continue;
+      if (!albumUri) continue;
       if (!albumsByUri.has(albumUri)) {
         albumsByUri.set(albumUri, {
           uri: albumUri,
@@ -567,7 +567,7 @@ async function fetchPlaylistAlbumsFromPlaylistObject(playlistId, token, original
       const album = extractAlbumFromPlaylistItem(item);
       const albumUri = album?.uri ?? '';
       const albumName = (album?.name ?? '').trim();
-      if (!albumUri || !spotifyIdFromUri(albumUri)) continue;
+      if (!albumUri) continue;
       if (!albumsByUri.has(albumUri)) {
         albumsByUri.set(albumUri, { uri: albumUri, type: 'album', title: albumName || albumUri });
       }
@@ -621,10 +621,36 @@ function extractAlbumFromPlaylistItem(item) {
 
   const uriFromAlbum = typeof album.uri === 'string' ? album.uri.trim() : '';
   const idFromAlbum = typeof album.id === 'string' ? album.id.trim() : '';
-  const uri = uriFromAlbum || (idFromAlbum ? `spotify:album:${idFromAlbum}` : '');
+  const uriFromUrl = extractSpotifyAlbumUriFromUrl(
+    /** @type {{external_urls?: {spotify?: string}}} */ (album).external_urls?.spotify,
+  );
+  const uri = normalizeAlbumUri(uriFromAlbum) || (idFromAlbum ? `spotify:album:${idFromAlbum}` : '') || uriFromUrl;
   const name = typeof album.name === 'string' ? album.name : '';
   if (!uri) return null;
   return { uri, name };
+}
+
+/** @param {string} raw */
+function normalizeAlbumUri(raw) {
+  if (!raw) return '';
+  if (/^spotify:album:[a-zA-Z0-9]+$/.test(raw)) return raw;
+  return extractSpotifyAlbumUriFromUrl(raw) ?? '';
+}
+
+/** @param {string | undefined} url */
+function extractSpotifyAlbumUriFromUrl(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes('spotify.com')) return null;
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments[0] !== 'album') return null;
+    const albumId = segments[1] ?? '';
+    if (!/^[a-zA-Z0-9]+$/.test(albumId)) return null;
+    return `spotify:album:${albumId}`;
+  } catch {
+    return null;
+  }
 }
 
 /** @param {string} url */
