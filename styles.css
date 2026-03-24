@@ -81,6 +81,12 @@ ul {
   gap: 0.5rem;
 }
 
+#item-list {
+  height: 16rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
 li {
   display: flex;
   gap: 0.5rem;
