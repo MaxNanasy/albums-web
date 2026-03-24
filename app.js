@@ -537,9 +537,7 @@ async function playCurrentItem() {
     token,
   );
 
-  setPlaybackStatus(
-    `Now playing ${current.type} ${session.index + 1} of ${session.queue.length}: ${current.title}`,
-  );
+  setPlaybackStatus(formatNowPlayingStatus(current));
 }
 
 async function importAlbumsFromPlaylist() {
@@ -758,9 +756,8 @@ function restoreRuntimeState() {
     return;
   }
 
-  setPlaybackStatus(
-    `Restored previous runtime (${session.index + 1}/${session.queue.length}). Press Skip to continue or Stop to reset.`,
-  );
+  const current = session.queue[session.index];
+  setPlaybackStatus(formatNowPlayingStatus(current));
   startMonitorLoop();
 }
 
@@ -779,6 +776,14 @@ function persistRuntimeState() {
 
 function clearRuntimeState() {
   localStorage.removeItem(STORAGE_KEYS.runtime);
+}
+
+/**
+ * @param {ShuffleItem} item
+ * @returns {string}
+ */
+function formatNowPlayingStatus(item) {
+  return `Now playing ${item.type} ${session.index + 1} of ${session.queue.length}: ${item.title}`;
 }
 
 /**
