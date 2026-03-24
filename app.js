@@ -32,6 +32,7 @@ const STORAGE_KEYS = {
   verifier: 'spotifyShuffler.pkceVerifier',
   token: 'spotifyShuffler.token',
   tokenExpiry: 'spotifyShuffler.tokenExpiry',
+  tokenScope: 'spotifyShuffler.tokenScope',
   items: 'spotifyShuffler.items',
 };
 
@@ -146,7 +147,19 @@ function refreshAuthStatus() {
   }
   const expiresMs = Number(localStorage.getItem(STORAGE_KEYS.tokenExpiry) ?? 0);
   const minutes = Math.max(0, Math.floor((expiresMs - Date.now()) / 60000));
+  const scopeSet = getGrantedScopes();
+  if (!scopeSet.has('playlist-read-private') || !scopeSet.has('playlist-read-collaborative')) {
+    setAuthStatus(
+      `Connected, but token is missing playlist import scopes. Disconnect and reconnect.`,
+    );
+    return;
+  }
   setAuthStatus(`Connected. Token expires in about ${minutes} minute(s).`);
+}
+
+function getGrantedScopes() {
+  const scopeText = localStorage.getItem(STORAGE_KEYS.tokenScope) ?? '';
+  return new Set(scopeText.split(/\s+/).filter(Boolean));
 }
 
 async function ensureStoredItemTitles() {
@@ -208,6 +221,7 @@ async function startLogin() {
     redirect_uri: location.origin + location.pathname,
     code_challenge_method: 'S256',
     code_challenge: challenge,
+    show_dialog: 'true',
   });
 
   location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
@@ -254,10 +268,11 @@ async function handleAuthRedirect() {
     return;
   }
 
-  /** @type {{access_token: string; expires_in: number}} */
+  /** @type {{access_token: string; expires_in: number; scope?: string}} */
   const data = await response.json();
   localStorage.setItem(STORAGE_KEYS.token, data.access_token);
   localStorage.setItem(STORAGE_KEYS.tokenExpiry, String(Date.now() + data.expires_in * 1000));
+  localStorage.setItem(STORAGE_KEYS.tokenScope, data.scope ?? '');
   localStorage.removeItem(STORAGE_KEYS.verifier);
 
   url.searchParams.delete('code');
@@ -267,6 +282,7 @@ async function handleAuthRedirect() {
 function clearAuth() {
   localStorage.removeItem(STORAGE_KEYS.token);
   localStorage.removeItem(STORAGE_KEYS.tokenExpiry);
+  localStorage.removeItem(STORAGE_KEYS.tokenScope);
   localStorage.removeItem(STORAGE_KEYS.verifier);
 }
 
@@ -489,7 +505,7 @@ async function fetchPlaylistAlbums(playlistId, token) {
         return {
           albums: [],
           errorMessage:
-            'Spotify denied playlist access (403). Please Disconnect/Connect again to refresh scopes, then retry.',
+            `Spotify denied playlist access (403). ${details || ''} Please Disconnect/Connect again, allow all requested scopes, and retry.`,
         };
       }
       return {
