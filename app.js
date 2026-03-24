@@ -135,7 +135,7 @@ function hookEvents() {
   });
 
   el.stopBtn.addEventListener('click', () => {
-    stopSession('Session stopped.');
+    void stopSession('Session stopped.', { clearPlayback: true });
   });
 }
 
@@ -375,13 +375,24 @@ async function startShuffleSession() {
   startMonitorLoop();
 }
 
-/** @param {string} message */
-function stopSession(message) {
+/**
+ * @param {string} message
+ * @param {{clearPlayback?: boolean}} [options]
+ */
+async function stopSession(message, options = {}) {
   session.active = false;
   session.queue = [];
   session.index = 0;
   session.currentUri = null;
   session.observedCurrentContext = false;
+
+  if (options.clearPlayback) {
+    const token = getToken();
+    if (token) {
+      await spotifyApi('/me/player/pause', { method: 'PUT' }, token, false);
+    }
+  }
+
   if (monitorTimer !== null) {
     clearInterval(monitorTimer);
     monitorTimer = null;
@@ -397,7 +408,7 @@ async function goToNextItem() {
 
   session.index += 1;
   if (session.index >= session.queue.length) {
-    stopSession('Finished: all selected albums/playlists were played.');
+    await stopSession('Finished: all selected albums/playlists were played.');
     return;
   }
 
@@ -411,7 +422,7 @@ async function playCurrentItem() {
 
   const token = getToken();
   if (!token) {
-    stopSession('Spotify session expired. Please reconnect.');
+    await stopSession('Spotify session expired. Please reconnect.');
     return;
   }
 
@@ -569,7 +580,7 @@ async function monitorPlayback() {
   if (!session.active || !session.currentUri) return;
   const token = getToken();
   if (!token) {
-    stopSession('Spotify session expired. Please reconnect.');
+    await stopSession('Spotify session expired. Please reconnect.');
     return;
   }
 
