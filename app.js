@@ -490,8 +490,8 @@ async function fetchPlaylistAlbums(playlistId, token) {
     const params = new URLSearchParams({
       limit: String(limit),
       offset: String(offset),
-      fields:
-        'items(track(album(uri,name))),next',
+      additional_types: 'track',
+      market: 'from_token',
     });
     const response = await spotifyApi(
       `/playlists/${playlistId}/items?${params.toString()}`,
@@ -512,9 +512,9 @@ async function fetchPlaylistAlbums(playlistId, token) {
       };
     }
 
-    /** @type {{items?: Array<{track?: {album?: {uri?: string; name?: string} | null} | null}>; next?: string | null}} */
+    /** @type {{items?: unknown; next?: string | null}} */
     const data = await response.json();
-    const tracks = data.items ?? [];
+    const tracks = Array.isArray(data.items) ? data.items : [];
     for (const item of tracks) {
       const album = extractAlbumFromPlaylistItem(item);
       const albumUri = album?.uri ?? '';
@@ -530,7 +530,7 @@ async function fetchPlaylistAlbums(playlistId, token) {
     }
 
     if (!data.next) break;
-    offset += tracks.length;
+    offset += limit;
   }
 
   return { albums: [...albumsByUri.values()], errorMessage: null };
