@@ -701,6 +701,7 @@ async function monitorPlayback() {
  * @param {boolean} throwOnError
  */
 async function spotifyApi(path, init, token, throwOnError = true) {
+  /** @param {string} bearerToken */
   const makeRequest = (bearerToken) =>
     fetch(`https://api.spotify.com/v1${path}`, {
       ...init,
