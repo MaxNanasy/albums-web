@@ -516,8 +516,9 @@ async function fetchPlaylistAlbums(playlistId, token) {
     const data = await response.json();
     const tracks = data.items ?? [];
     for (const item of tracks) {
-      const albumUri = item?.track?.album?.uri ?? '';
-      const albumName = (item?.track?.album?.name ?? '').trim();
+      const album = extractAlbumFromPlaylistItem(item);
+      const albumUri = album?.uri ?? '';
+      const albumName = (album?.name ?? '').trim();
       if (!albumUri || !spotifyIdFromUri(albumUri)) continue;
       if (!albumsByUri.has(albumUri)) {
         albumsByUri.set(albumUri, {
@@ -563,8 +564,9 @@ async function fetchPlaylistAlbumsFromPlaylistObject(playlistId, token, original
     const data = await response.json();
     const { items: tracks, nextUrl } = extractPlaylistTrackItemsAndNext(data);
     for (const item of tracks) {
-      const albumUri = item?.track?.album?.uri ?? '';
-      const albumName = (item?.track?.album?.name ?? '').trim();
+      const album = extractAlbumFromPlaylistItem(item);
+      const albumUri = album?.uri ?? '';
+      const albumName = (album?.name ?? '').trim();
       if (!albumUri || !spotifyIdFromUri(albumUri)) continue;
       if (!albumsByUri.has(albumUri)) {
         albumsByUri.set(albumUri, { uri: albumUri, type: 'album', title: albumName || albumUri });
@@ -601,6 +603,28 @@ function extractPlaylistTrackItemsAndNext(payload) {
     items: Array.isArray(payload?.items) ? payload.items : [],
     nextUrl: typeof payload?.next === 'string' ? payload.next : null,
   };
+}
+
+/**
+ * @param {unknown} item
+ * @returns {{uri: string; name: string} | null}
+ */
+function extractAlbumFromPlaylistItem(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const candidate =
+    /** @type {{track?: {album?: {uri?: string; id?: string; name?: string} | null} | null; album?: {uri?: string; id?: string; name?: string} | null}} */ (
+      item
+    );
+  const album = candidate.track?.album ?? candidate.album ?? null;
+  if (!album) return null;
+
+  const uriFromAlbum = typeof album.uri === 'string' ? album.uri.trim() : '';
+  const idFromAlbum = typeof album.id === 'string' ? album.id.trim() : '';
+  const uri = uriFromAlbum || (idFromAlbum ? `spotify:album:${idFromAlbum}` : '');
+  const name = typeof album.name === 'string' ? album.name : '';
+  if (!uri) return null;
+  return { uri, name };
 }
 
 /** @param {string} url */
