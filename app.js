@@ -706,33 +706,42 @@ function restoreRuntimeState() {
   if (!raw) return;
 
   /** @type {unknown} */
-  let parsed;
+  let parsedUnknown;
   try {
-    parsed = JSON.parse(raw);
+    parsedUnknown = JSON.parse(raw);
   } catch {
     localStorage.removeItem(STORAGE_KEYS.runtime);
     return;
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+  if (!parsedUnknown || typeof parsedUnknown !== 'object' || Array.isArray(parsedUnknown)) {
     localStorage.removeItem(STORAGE_KEYS.runtime);
     return;
   }
+  /** @type {Record<string, unknown>} */
+  const parsed = /** @type {Record<string, unknown>} */ (parsedUnknown);
 
-  const restoredQueue = Array.isArray(parsed.queue)
-    ? parsed.queue.filter(
-        (item) =>
-          item &&
-          typeof item === 'object' &&
-          (item.type === 'album' || item.type === 'playlist') &&
-          typeof item.uri === 'string' &&
-          typeof item.title === 'string',
+  const queueValue = parsed.queue;
+  const restoredQueue = Array.isArray(queueValue)
+    ? queueValue.filter(
+        /** @param {unknown} item */
+        (item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+          /** @type {Record<string, unknown>} */
+          const runtimeItem = /** @type {Record<string, unknown>} */ (item);
+          return (
+            (runtimeItem.type === 'album' || runtimeItem.type === 'playlist') &&
+            typeof runtimeItem.uri === 'string' &&
+            typeof runtimeItem.title === 'string'
+          );
+        },
       )
     : [];
 
+  const indexValue = parsed.index;
   const restoredIndex =
-    typeof parsed.index === 'number' && Number.isInteger(parsed.index) && parsed.index >= 0
-      ? parsed.index
+    typeof indexValue === 'number' && Number.isInteger(indexValue) && indexValue >= 0
+      ? indexValue
       : 0;
   const restoredCurrentUri = typeof parsed.currentUri === 'string' ? parsed.currentUri : null;
   const restoredObserved = parsed.observedCurrentContext === true;
