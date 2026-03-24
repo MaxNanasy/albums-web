@@ -502,11 +502,9 @@ async function fetchPlaylistAlbums(playlistId, token) {
     if (!response.ok) {
       const details = await response.text();
       if (response.status === 403) {
-        return {
-          albums: [],
-          errorMessage:
-            `Spotify denied playlist access (403). ${details || ''} Please Disconnect/Connect again, allow all requested scopes, and retry.`,
-        };
+        // Some public playlists return 403 on /tracks for user tokens.
+        // Fallback to /playlists/{id} payload shape.
+        return fetchPlaylistAlbumsFromPlaylistObject(playlistId, token, details);
       }
       return {
         albums: [],
@@ -535,6 +533,70 @@ async function fetchPlaylistAlbums(playlistId, token) {
   }
 
   return { albums: [...albumsByUri.values()], errorMessage: null };
+}
+
+/**
+ * @param {string} playlistId
+ * @param {string} token
+ * @param {string} original403Details
+ * @returns {Promise<{albums: ShuffleItem[]; errorMessage: string | null}>}
+ */
+async function fetchPlaylistAlbumsFromPlaylistObject(playlistId, token, original403Details) {
+  /** @type {Map<string, ShuffleItem>} */
+  const albumsByUri = new Map();
+  const firstParams = new URLSearchParams({
+    fields: 'tracks.items(track(album(uri,name))),tracks.next',
+    market: 'from_token',
+  });
+  let nextPath = `/playlists/${playlistId}?${firstParams.toString()}`;
+
+  while (nextPath) {
+    const response = await spotifyApi(nextPath, { method: 'GET' }, token, false);
+    if (!response.ok) {
+      const details = await response.text();
+      return {
+        albums: [],
+        errorMessage:
+          `Spotify denied playlist access (403). ${original403Details || details || ''} ` +
+          `Fallback endpoint also failed (${response.status}).`,
+      };
+    }
+
+    /** @type {{tracks?: {items?: Array<{track?: {album?: {uri?: string; name?: string} | null} | null}>; next?: string | null}}} */
+    const data = await response.json();
+    const tracks = data?.tracks?.items ?? [];
+    for (const item of tracks) {
+      const albumUri = item?.track?.album?.uri ?? '';
+      const albumName = (item?.track?.album?.name ?? '').trim();
+      if (!albumUri || !spotifyIdFromUri(albumUri)) continue;
+      if (!albumsByUri.has(albumUri)) {
+        albumsByUri.set(albumUri, { uri: albumUri, type: 'album', title: albumName || albumUri });
+      }
+    }
+
+    const nextUrl = data?.tracks?.next ?? null;
+    nextPath = nextUrl ? spotifyApiPathFromAbsoluteUrl(nextUrl) : null;
+    if (nextUrl && !nextPath) {
+      return {
+        albums: [],
+        errorMessage: 'Spotify returned an unexpected pagination URL format during playlist import.',
+      };
+    }
+  }
+
+  return { albums: [...albumsByUri.values()], errorMessage: null };
+}
+
+/** @param {string} url */
+function spotifyApiPathFromAbsoluteUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin !== 'https://api.spotify.com') return null;
+    if (!parsed.pathname.startsWith('/v1/')) return null;
+    return parsed.pathname.slice('/v1'.length) + parsed.search;
+  } catch {
+    return null;
+  }
 }
 
 /**
