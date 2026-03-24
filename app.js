@@ -22,6 +22,9 @@ const SCOPES = [
   // control playback + read active playback context
   'user-modify-playback-state',
   'user-read-playback-state',
+  // read playlist metadata/tracks for importing albums
+  'playlist-read-private',
+  'playlist-read-collaborative',
 ];
 
 const STORAGE_KEYS = {
@@ -434,12 +437,12 @@ async function importAlbumsFromPlaylist() {
 
   const existingItems = getItems();
   const existingUris = new Set(existingItems.map((item) => item.uri));
-  const albumsFromPlaylist = await fetchPlaylistAlbums(parsedPlaylist.id, token);
-
-  if (albumsFromPlaylist === null) {
-    setPlaybackStatus('Unable to import albums from that playlist. Please try again.');
+  const importResult = await fetchPlaylistAlbums(parsedPlaylist.id, token);
+  if (importResult.errorMessage) {
+    setPlaybackStatus(importResult.errorMessage);
     return;
   }
+  const albumsFromPlaylist = importResult.albums;
 
   let added = 0;
   for (const album of albumsFromPlaylist) {
@@ -459,7 +462,7 @@ async function importAlbumsFromPlaylist() {
 /**
  * @param {string} playlistId
  * @param {string} token
- * @returns {Promise<ShuffleItem[] | null>}
+ * @returns {Promise<{albums: ShuffleItem[]; errorMessage: string | null}>}
  */
 async function fetchPlaylistAlbums(playlistId, token) {
   /** @type {Map<string, ShuffleItem>} */
@@ -474,8 +477,26 @@ async function fetchPlaylistAlbums(playlistId, token) {
       fields:
         'items(track(album(uri,name))),next',
     });
-    const response = await spotifyApi(`/playlists/${playlistId}/tracks?${params.toString()}`, { method: 'GET' }, token, false);
-    if (!response.ok) return null;
+    const response = await spotifyApi(
+      `/playlists/${playlistId}/tracks?${params.toString()}`,
+      { method: 'GET' },
+      token,
+      false,
+    );
+    if (!response.ok) {
+      const details = await response.text();
+      if (response.status === 403) {
+        return {
+          albums: [],
+          errorMessage:
+            'Spotify denied playlist access (403). Please Disconnect/Connect again to refresh scopes, then retry.',
+        };
+      }
+      return {
+        albums: [],
+        errorMessage: `Unable to import albums from that playlist (${response.status}). ${details || 'Please try again.'}`,
+      };
+    }
 
     /** @type {{items?: Array<{track?: {album?: {uri?: string; name?: string} | null} | null}>; next?: string | null}} */
     const data = await response.json();
@@ -497,7 +518,7 @@ async function fetchPlaylistAlbums(playlistId, token) {
     offset += tracks.length;
   }
 
-  return [...albumsByUri.values()];
+  return { albums: [...albumsByUri.values()], errorMessage: null };
 }
 
 /**
