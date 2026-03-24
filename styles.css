@@ -84,7 +84,9 @@ ul {
 #item-list {
   height: 16rem;
   overflow-y: auto;
-  padding-right: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in oklab, canvasText 30%, canvas 70%);
+  border-radius: 0.5rem;
 }
 
 li {
