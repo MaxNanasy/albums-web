@@ -170,8 +170,6 @@ function refreshAuthStatus() {
     setAuthStatus('Not connected.');
     return;
   }
-  const expiresMs = Number(localStorage.getItem(STORAGE_KEYS.tokenExpiry) ?? 0);
-  const minutes = Math.max(0, Math.floor((expiresMs - Date.now()) / 60000));
   const scopeSet = getGrantedScopes();
   if (!scopeSet.has('playlist-read-private') || !scopeSet.has('playlist-read-collaborative')) {
     setAuthStatus(
@@ -179,7 +177,7 @@ function refreshAuthStatus() {
     );
     return;
   }
-  setAuthStatus(`Connected. Token expires in about ${minutes} minute(s).`);
+  setAuthStatus('Connected.');
 }
 
 function getGrantedScopes() {
