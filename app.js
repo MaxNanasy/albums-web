@@ -95,12 +95,7 @@ async function bootstrap() {
 }
 
 async function ensureValidAccessToken() {
-  if (getToken()) return;
-
-  const hasRefreshToken = Boolean(localStorage.getItem(STORAGE_KEYS.refreshToken));
-  if (!hasRefreshToken) return;
-
-  await refreshSpotifyAccessToken();
+  await getUsableAccessToken();
 }
 
 function hookEvents() {
@@ -126,7 +121,7 @@ function hookEvents() {
       setPlaybackStatus('Item is already in your list.');
       return;
     }
-    const token = getToken();
+    const token = await getUsableAccessToken();
     if (!token) {
       setPlaybackStatus('Connect Spotify first so the app can load item titles.');
       return;
@@ -196,7 +191,7 @@ async function ensureStoredItemTitles() {
   const items = getItems();
   if (items.length === 0) return;
 
-  const token = getToken();
+  const token = await getUsableAccessToken();
   if (!token) return;
 
   let changed = false;
@@ -409,6 +404,16 @@ function getToken() {
   return token;
 }
 
+async function getUsableAccessToken() {
+  const token = getToken();
+  if (token) return token;
+
+  const hasRefreshToken = Boolean(localStorage.getItem(STORAGE_KEYS.refreshToken));
+  if (!hasRefreshToken) return null;
+
+  return refreshSpotifyAccessToken();
+}
+
 /** @returns {ShuffleItem[]} */
 function getItems() {
   const raw = localStorage.getItem(STORAGE_KEYS.items);
@@ -468,7 +473,7 @@ function renderItemList() {
 }
 
 async function startShuffleSession() {
-  const token = getToken();
+  const token = await getUsableAccessToken();
   if (!token) {
     setPlaybackStatus('Connect Spotify first.');
     return;
@@ -530,7 +535,7 @@ async function playCurrentItem() {
   session.observedCurrentContext = false;
   persistRuntimeState();
 
-  const token = getToken();
+  const token = await getUsableAccessToken();
   if (!token) {
     stopSession('Spotify session expired. Please reconnect.');
     return;
@@ -556,7 +561,7 @@ async function playCurrentItem() {
 }
 
 async function importAlbumsFromPlaylist() {
-  const token = getToken();
+  const token = await getUsableAccessToken();
   if (!token) {
     setPlaybackStatus('Connect Spotify first so the app can import albums.');
     return;
@@ -686,7 +691,7 @@ function startMonitorLoop() {
 
 async function monitorPlayback() {
   if (!session.active || !session.currentUri) return;
-  const token = getToken();
+  const token = await getUsableAccessToken();
   if (!token) {
     stopSession('Spotify session expired. Please reconnect.');
     return;
