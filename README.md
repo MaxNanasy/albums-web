@@ -21,7 +21,7 @@ Then open `http://localhost:4173`.
 
 1. In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), create an app.
 2. Add your redirect URI (shown in the app UI) to the app settings.
-3. Copy the Client ID into the app.
+3. Keep using app ID `5082b1452bc24cc3a0955f2d1c4e5560` (already hardcoded in this project).
 
 ## Requested Spotify scopes (minimal)
 
