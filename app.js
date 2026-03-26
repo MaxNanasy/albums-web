@@ -80,6 +80,8 @@ const ERROR_TOAST_COOLDOWN_MS = 45000;
 /** @type {Map<string, number>} */
 const errorToastLastShownAt = new Map();
 
+/** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
+
 bootstrap().catch((error) => {
   reportError(error, {
     context: 'startup',
@@ -291,8 +293,9 @@ function setPlaybackStatus(message) {
 /**
  * @param {string} message
  * @param {'success' | 'info' | 'error'} [type]
+ * @param {{ action?: ToastAction }} [options]
  */
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', options = {}) {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.role = type === 'error' ? 'alert' : 'status';
@@ -306,6 +309,22 @@ function showToast(message, type = 'info') {
   closeButton.className = 'toast-close';
   closeButton.setAttribute('aria-label', 'Close notification');
   closeButton.textContent = '×';
+
+  const actions = document.createElement('div');
+  actions.className = 'toast-actions';
+
+  if (options.action) {
+    const actionButton = document.createElement('button');
+    actionButton.type = 'button';
+    actionButton.className = 'secondary toast-action';
+    actionButton.textContent = options.action.actionLabel;
+    actionButton.addEventListener('click', () => {
+      options.action?.onAction();
+      removeToast();
+    });
+    actions.appendChild(actionButton);
+  }
+  actions.appendChild(closeButton);
 
   /** @type {number | null} */
   let timeoutId = window.setTimeout(removeToast, TOAST_DURATION_MS);
@@ -334,7 +353,7 @@ function showToast(message, type = 'info') {
   toast.addEventListener('mouseenter', clearDismissTimer);
   toast.addEventListener('mouseleave', restartDismissTimer);
 
-  toast.append(body, closeButton);
+  toast.append(body, actions);
   el.toastStack.appendChild(toast);
 }
 
@@ -585,8 +604,34 @@ function renderItemList() {
     removeButton.className = 'danger';
     removeButton.textContent = 'Remove';
     removeButton.addEventListener('click', () => {
-      saveItems(getItems().filter((candidate) => candidate.uri !== item.uri));
+      const items = getItems();
+      const removedIndex = items.findIndex((candidate) => candidate.uri === item.uri);
+      if (removedIndex < 0) return;
+
+      const [removedItem] = items.splice(removedIndex, 1);
+      saveItems(items);
       renderItemList();
+
+      showToast(`Removed “${removedItem.title}”.`, 'info', {
+        action: {
+          actionLabel: 'Undo',
+          onAction: () => {
+            const restoredItems = getItems();
+            const existingIndex = restoredItems.findIndex(
+              (candidate) => candidate.uri === removedItem.uri,
+            );
+            if (existingIndex >= 0) {
+              showToast('Item is already in your list.', 'info');
+              return;
+            }
+
+            restoredItems.splice(removedIndex, 0, removedItem);
+            saveItems(restoredItems);
+            renderItemList();
+            showToast(`Restored “${removedItem.title}”.`, 'success');
+          },
+        },
+      });
     });
 
     actions.appendChild(removeButton);
