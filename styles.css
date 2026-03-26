@@ -151,6 +151,16 @@ code {
   padding: 0.15rem 0.45rem;
 }
 
+.toast-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.toast-action {
+  padding: 0.15rem 0.55rem;
+}
+
 .toast-info {
   border-color: #3a76c5;
 }
