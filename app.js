@@ -42,7 +42,6 @@ const el = {
   loginBtn: /** @type {HTMLButtonElement} */ (document.getElementById('login-btn')),
   logoutBtn: /** @type {HTMLButtonElement} */ (document.getElementById('logout-btn')),
   authStatus: /** @type {HTMLParagraphElement} */ (document.getElementById('auth-status')),
-  redirectUri: /** @type {HTMLElement} */ (document.getElementById('redirect-uri')),
   addForm: /** @type {HTMLFormElement} */ (document.getElementById('add-form')),
   itemUri: /** @type {HTMLInputElement} */ (document.getElementById('item-uri')),
   importPlaylistBtn: /** @type {HTMLButtonElement} */ (
@@ -95,8 +94,6 @@ bootstrap().catch(
 );
 
 async function bootstrap() {
-  el.redirectUri.textContent = location.origin + location.pathname;
-
   hookEvents();
   restoreRuntimeState();
   await handleAuthRedirect();
