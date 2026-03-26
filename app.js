@@ -588,25 +588,25 @@ function getItems() {
     const parsedItems = parsed;
     return parsedItems
       .filter(
-        /** @param {unknown} item */
-        (item) =>
-          item &&
-          typeof item === 'object' &&
-          (item.type === 'album' || item.type === 'playlist') &&
-          typeof item.uri === 'string',
-      )
-      .map(
-        /** @param {unknown} item */
+        /**
+         * @param {unknown} item
+         * @returns {item is {type: ItemType; uri: string; title?: unknown}}
+         */
         (item) => {
-        /** @type {{type: ItemType; uri: string; title?: unknown}} */
-        const parsedItem = /** @type {{type: ItemType; uri: string; title?: unknown}} */ (item);
-        return {
-          type: parsedItem.type,
-          uri: parsedItem.uri,
-          title: typeof parsedItem.title === 'string' ? parsedItem.title : parsedItem.uri,
-        };
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+          /** @type {Record<string, unknown>} */
+          const parsedItem = /** @type {Record<string, unknown>} */ (item);
+          return (
+            (parsedItem.type === 'album' || parsedItem.type === 'playlist') &&
+            typeof parsedItem.uri === 'string'
+          );
         },
-      );
+      )
+      .map((item) => ({
+        type: item.type,
+        uri: item.uri,
+        title: typeof item.title === 'string' ? item.title : item.uri,
+      }));
   } catch {
     return [];
   }
@@ -989,7 +989,10 @@ function restoreRuntimeState() {
   const queueItems = Array.isArray(queueValue) ? queueValue : [];
   /** @type {ShuffleItem[]} */
   const restoredQueue = queueItems.filter(
-        /** @param {unknown} item */
+        /**
+         * @param {unknown} item
+         * @returns {item is ShuffleItem}
+         */
         (item) => {
           if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
           /** @type {Record<string, unknown>} */
