@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+tsc_status=0
+npx tsc || tsc_status=$?
+
+tc_status=0
+tc_output=$(npx type-coverage 2>&1) || tc_status=$?
+
+if [ "$tc_status" -ne 0 ]; then
+  printf '%s\n' "$tc_output"
+fi
+
+[ "$tsc_status" -eq 0 ] && [ "$tc_status" -eq 0 ]
