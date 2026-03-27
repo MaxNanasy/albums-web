@@ -1,5 +1,3 @@
-// @ts-check
-
 /** @typedef {'album' | 'playlist'} ItemType */
 
 /**
