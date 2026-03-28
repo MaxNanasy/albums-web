@@ -13,7 +13,7 @@ required_files=(
   "build.gradle.kts"
   "app/build.gradle.kts"
   "app/src/main/AndroidManifest.xml"
-  "app/src/main/java/com/example/shufflebyalbum/MainActivity.kt"
+  "app/src/main/java/io/github/maxnanasy/shufflebyalbum/MainActivity.kt"
   "app/src/main/res/layout/activity_main.xml"
 )
 

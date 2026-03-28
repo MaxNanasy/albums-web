@@ -1,4 +1,4 @@
-package com.example.shufflebyalbum
+package io.github.maxnanasy.shufflebyalbum
 
 import android.content.ActivityNotFoundException
 import android.content.Context
