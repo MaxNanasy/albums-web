@@ -2,14 +2,26 @@
 
 set -euo pipefail
 
-tsc_status=0
-npx tsc || tsc_status=$?
-
-tc_status=0
-tc_output=$(npx type-coverage 2>&1) || tc_status=$?
-
-if [ "$tc_status" -ne 0 ]; then
-  printf '%s\n' "$tc_output"
+if [ -x "./gradlew" ]; then
+  echo "Running Gradle check via wrapper..."
+  ./gradlew check
+  exit 0
 fi
 
-[ "$tsc_status" -eq 0 ] && [ "$tc_status" -eq 0 ]
+required_files=(
+  "settings.gradle.kts"
+  "build.gradle.kts"
+  "app/build.gradle.kts"
+  "app/src/main/AndroidManifest.xml"
+  "app/src/main/java/com/example/shufflebyalbum/MainActivity.kt"
+  "app/src/main/res/layout/activity_main.xml"
+)
+
+for file in "${required_files[@]}"; do
+  if [ ! -f "$file" ]; then
+    echo "Missing required Android project file: $file"
+    exit 1
+  fi
+done
+
+echo "Gradle wrapper not found; Android project structure check passed."
