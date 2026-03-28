@@ -1,32 +1,28 @@
-# Spotify Album + Playlist Shuffler
+# Shuffle By Album (Android)
 
-A no-build web app that:
+This repository now contains a native Android project that replaces the previous web app.
 
-- Connects directly to Spotify with OAuth PKCE.
-- Lets you maintain a local list of album + playlist URIs in `localStorage`.
-- Randomizes the order of those selected items.
-- Plays each selected album/playlist in track order before advancing to the next.
+## Where are the equivalents to `index.html` and `app.js`?
 
-## Run locally
+- `index.html` equivalent: `app/src/main/res/layout/activity_main.xml` (all primary screen structure and controls).
+- `app.js` equivalent: `app/src/main/java/com/example/shufflebyalbum/MainActivity.kt` (state management, URI parsing, shuffle session flow, storage import/export).
 
-Because OAuth redirect URIs must match exactly, serve this directory with any static server.
+## Project layout
 
-```bash
-python3 -m http.server 4173
-```
+- `app/`: Android application module.
+- `build.gradle.kts`: Root Gradle build configuration.
+- `settings.gradle.kts`: Gradle settings and module declarations.
 
-Then open `http://localhost:4173`.
+## Open in Android Studio
 
-## Spotify app setup
+1. Open Android Studio.
+2. Choose **Open** and select this repository root.
+3. Let Gradle sync.
+4. Run the `app` configuration on an emulator or Android device.
 
-No manual Spotify app setup is required for this project. The app ID is fixed to
-`5082b1452bc24cc3a0955f2d1c4e5560`, and the OAuth redirect URI is derived from the current page URL.
+## Implemented Android behavior
 
-## Requested Spotify scopes (minimal)
-
-This app requests only:
-
-- `user-modify-playback-state` (start playback, turn shuffle off, turn repeat off)
-- `user-read-playback-state` (monitor active context and detect when to move to next item)
-
-No library-read scopes are required because the user provides album/playlist URIs manually.
+- Add/remove Spotify album or playlist references.
+- Parse either Spotify URI format or open.spotify.com URLs.
+- Build and step through a shuffled queue.
+- Export/import persisted item storage as JSON.

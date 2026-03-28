@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shuffle By Album</string>
+    <string name="app_subtitle">Android equivalent of the old index.html + app.js workflow.</string>
+
+    <string name="section_manage">1) Manage Album/Playlist List</string>
+    <string name="section_session">2) Start Shuffle Session</string>
+    <string name="section_storage">3) Import / Export Storage</string>
+
+    <string name="item_uri_hint">spotify:album:… or spotify:playlist:…</string>
+    <string name="add">Add</string>
+    <string name="remove_selected">Remove Selected</string>
+    <string name="start">Start</string>
+    <string name="skip">Skip</string>
+    <string name="stop">Stop</string>
+    <string name="export_storage">Export Storage JSON</string>
+    <string name="import_storage">Import Storage JSON</string>
+    <string name="storage_hint">{&quot;spotifyShuffler.items&quot;:&quot;[...]&quot;}</string>
+
+    <string name="status_idle">Session inactive.</string>
+    <string name="status_no_items">No saved items.</string>
+    <string name="status_session_finished">Session completed.</string>
+    <string name="status_now_playing">Now playing %1$s %2$d of %3$d: %4$s</string>
+
+    <string name="invalid_spotify_ref">Enter a valid Spotify album/playlist URI or URL.</string>
+    <string name="item_already_exists">Item is already in your list.</string>
+    <string name="select_item_to_remove">Select an item to remove.</string>
+    <string name="add_items_first">Add at least one item first.</string>
+    <string name="no_active_session">No active session to skip.</string>
+
+    <string name="storage_exported">Storage exported to JSON.</string>
+    <string name="storage_import_empty">Paste JSON before importing.</string>
+    <string name="storage_import_invalid">Invalid JSON object.</string>
+    <string name="storage_imported">Storage imported.</string>
+</resources>
