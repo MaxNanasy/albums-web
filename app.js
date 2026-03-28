@@ -816,7 +816,8 @@ async function playCurrentItem() {
       fallbackMessage: 'Unable to start playback on Spotify.',
       playbackStatusMessage: 'Could not start playback. Ensure an active Spotify device is available.',
     });
-    if (isUnrecoverableSpotifyError(error)) {
+    const errorText = error instanceof Error ? error.message : '';
+    if (isUnrecoverableSpotifyError(error) || /not found/i.test(errorText)) {
       transitionToDetached('Playback detached due to a Spotify error. Reattach when ready.');
       return;
     }
@@ -1289,9 +1290,27 @@ function spotifyStatusMessage(status, fallbackMessage) {
  * @returns {boolean}
  */
 function isUnrecoverableSpotifyError(error) {
-  if (!(error instanceof Error)) return false;
-  const status = /** @type {Error & {spotifyStatus?: unknown}} */ (error).spotifyStatus;
+  const status = spotifyStatusFromError(error);
   return typeof status === 'number' && isUnrecoverableSpotifyStatus(status);
+}
+
+/**
+ * @param {unknown} error
+ * @returns {number | null}
+ */
+function spotifyStatusFromError(error) {
+  if (!(error instanceof Error)) return null;
+  const status = /** @type {Error & {spotifyStatus?: unknown}} */ (error).spotifyStatus;
+  if (typeof status === 'number') {
+    return status;
+  }
+
+  const match = error.message.match(/\b\((\d{3})\)\b/);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number(match[1]);
+  return Number.isInteger(parsed) ? parsed : null;
 }
 
 /**
