@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+if [ -x "./gradlew" ]; then
+  echo "Running Gradle check via wrapper..."
+  ./gradlew check
+  exit 0
+fi
+
 required_files=(
   "settings.gradle.kts"
   "build.gradle.kts"
@@ -18,4 +24,4 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-echo "Android project structure check passed."
+echo "Gradle wrapper not found; Android project structure check passed."
