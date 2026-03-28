@@ -1,1 +1,1 @@
-Ensure `npm run check` succeeds after any changes
+Ensure `scripts/check` succeeds after any changes
