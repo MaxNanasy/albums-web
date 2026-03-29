@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val code = uri.getQueryParameter("code") ?: return
-        val verifier = prefs.getString(KEY_VERIFIER, null)
+        val verifier = getStringPref(KEY_VERIFIER)
         if (verifier.isNullOrBlank()) {
             authStatus.text = "Missing PKCE verifier. Connect again."
             return
@@ -388,7 +388,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun exportStorageJson() {
         val data = JSONObject().apply {
-            prefs.all.forEach { (key, value) -> put(key, value?.toString() ?: "") }
+            prefs.all.forEach { (key, value) ->
+                when (value) {
+                    null -> put(key, JSONObject.NULL)
+                    is Set<*> -> put(key, JSONArray(value.toList()))
+                    else -> put(key, value)
+                }
+            }
         }
         storageJsonInput.setText(data.toString(2))
         toast("Exported ${prefs.all.size} key(s) to JSON.")
@@ -404,12 +410,35 @@ class MainActivity : AppCompatActivity() {
             return toast("Invalid JSON.")
         }
 
-        prefs.edit().clear().apply()
+        val editor = prefs.edit().clear()
         val keys = parsed.keys()
         while (keys.hasNext()) {
             val key = keys.next()
-            prefs.edit().putString(key, parsed.optString(key, "")).apply()
+            when (val value = parsed.opt(key)) {
+                JSONObject.NULL, null -> editor.remove(key)
+                is Boolean -> editor.putBoolean(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is Double -> {
+                    if (value % 1.0 == 0.0 && value in Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble()) {
+                        editor.putInt(key, value.toInt())
+                    } else if (value % 1.0 == 0.0 && value in Long.MIN_VALUE.toDouble()..Long.MAX_VALUE.toDouble()) {
+                        editor.putLong(key, value.toLong())
+                    } else {
+                        editor.putFloat(key, value.toFloat())
+                    }
+                }
+                is JSONArray -> {
+                    val items = mutableSetOf<String>()
+                    for (index in 0 until value.length()) {
+                        items.add(value.optString(index, ""))
+                    }
+                    editor.putStringSet(key, items)
+                }
+                else -> editor.putString(key, value.toString())
+            }
         }
+        editor.apply()
 
         stopSession("Storage imported. Session reset.")
         refreshAuthStatus()
@@ -418,7 +447,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getItems(): List<ShuffleItem> {
-        val raw = prefs.getString(KEY_ITEMS, null) ?: return emptyList()
+        val raw = getStringPref(KEY_ITEMS) ?: return emptyList()
         return try {
             val array = JSONArray(raw)
             buildList {
@@ -446,8 +475,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getToken(): String? {
-        val token = prefs.getString(KEY_TOKEN, null)
-        val expiry = prefs.getLong(KEY_TOKEN_EXPIRY, 0L)
+        val token = getStringPref(KEY_TOKEN)
+        val expiry = getLongPref(KEY_TOKEN_EXPIRY, 0L)
         return if (!token.isNullOrBlank() && System.currentTimeMillis() < expiry) token else null
     }
 
@@ -459,7 +488,7 @@ class MainActivity : AppCompatActivity() {
     private fun saveToken(token: TokenResponse) {
         prefs.edit()
             .putString(KEY_TOKEN, token.accessToken)
-            .putString(KEY_REFRESH_TOKEN, token.refreshToken ?: prefs.getString(KEY_REFRESH_TOKEN, null))
+            .putString(KEY_REFRESH_TOKEN, token.refreshToken ?: getStringPref(KEY_REFRESH_TOKEN))
             .putLong(KEY_TOKEN_EXPIRY, System.currentTimeMillis() + token.expiresIn * 1000L)
             .putString(KEY_TOKEN_SCOPE, token.scope ?: "")
             .apply()
@@ -489,7 +518,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun refreshSpotifyAccessToken(): String? {
-        val refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null) ?: return null
+        val refreshToken = getStringPref(KEY_REFRESH_TOKEN) ?: return null
         val params = mapOf(
             "grant_type" to "refresh_token",
             "refresh_token" to refreshToken,
@@ -576,7 +605,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restoreRuntimeState() {
-        val raw = prefs.getString(KEY_RUNTIME, null) ?: return
+        val raw = getStringPref(KEY_RUNTIME) ?: return
         val parsed = try {
             JSONObject(raw)
         } catch (_: Exception) {
@@ -701,6 +730,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun getStringPref(key: String): String? {
+        return when (val value = prefs.all[key]) {
+            null -> null
+            is String -> value
+            else -> value.toString()
+        }
+    }
+
+    private fun getLongPref(key: String, defaultValue: Long): Long {
+        return when (val value = prefs.all[key]) {
+            is Long -> value
+            is Int -> value.toLong()
+            is String -> value.toLongOrNull() ?: defaultValue
+            is Double -> value.toLong()
+            else -> defaultValue
+        }
     }
 
     companion object {
