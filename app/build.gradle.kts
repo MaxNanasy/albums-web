@@ -43,7 +43,6 @@ android {
         warningsAsErrors = true
         abortOnError = true
         disable += setOf(
-            "Autofill",
             "ButtonStyle",
             "GradleDependency",
             "HardcodedText",
