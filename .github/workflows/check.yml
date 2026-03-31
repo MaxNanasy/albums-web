@@ -24,8 +24,5 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Verify installed SDK platforms
-        run: sdkmanager --list_installed | sed -n '/Installed packages:/,$p'
-
       - name: Run repository checks
         run: ./gradlew --no-daemon check
