@@ -61,7 +61,20 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/debug-signing.jks"
+          printf %s "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/debug-signing.jks"
+
+      - name: Validate debug keystore entry
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/debug-signing.jks
+          KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          keytool -list \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            > /dev/null
 
       - name: Build debug APK
         env:
@@ -126,7 +139,20 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-signing.jks"
+          printf %s "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-signing.jks"
+
+      - name: Validate release keystore entry
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release-signing.jks
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          keytool -list \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            > /dev/null
 
       - name: Build release APK
         env:
