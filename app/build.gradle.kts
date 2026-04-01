@@ -42,16 +42,10 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
+        baseline = file("lint-baseline.xml")
         disable += setOf(
-            "ButtonStyle",
-            "GradleDependency",
             "HardcodedText",
-            "MonochromeLauncherIcon",
-            "NotifyDataSetChanged",
-            "ObsoleteSdkInt",
             "SetTextI18n",
-            "TextFields",
-            "UnusedResources",
         )
     }
 }
