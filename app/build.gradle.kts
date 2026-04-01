@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.compile.JavaCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -35,6 +38,32 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        disable += setOf(
+            "ButtonStyle",
+            "GradleDependency",
+            "HardcodedText",
+            "MonochromeLauncherIcon",
+            "NotifyDataSetChanged",
+            "ObsoleteSdkInt",
+            "SetTextI18n",
+            "TextFields",
+            "UnusedResources",
+        )
+    }
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+    }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-Werror")
 }
 
 dependencies {

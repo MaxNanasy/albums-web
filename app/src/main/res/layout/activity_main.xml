@@ -96,7 +96,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="spotify:album:... or spotify:playlist:..." />
+                    android:hint="spotify:album:... or spotify:playlist:..."
+                    android:importantForAutofill="no" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -248,7 +249,8 @@
                     android:gravity="top|start"
                     android:hint="{&quot;spotifyShuffler.items&quot;:&quot;[...]&quot;}"
                     android:inputType="textMultiLine"
-                    android:scrollbars="vertical" />
+                    android:scrollbars="vertical"
+                    android:importantForAutofill="no" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
