@@ -62,14 +62,30 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          for required_secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS; do
-            if [ -z "${!required_secret}" ]; then
+
+          if [ "$VARIANT" = "debug" ]; then
+            EXPECTED_KEYSTORE_BASE64_SECRET="DEBUG_KEYSTORE_BASE64"
+            EXPECTED_KEYSTORE_PASSWORD_SECRET="DEBUG_KEYSTORE_PASSWORD"
+            EXPECTED_KEY_ALIAS_SECRET="DEBUG_KEY_ALIAS"
+          else
+            EXPECTED_KEYSTORE_BASE64_SECRET="RELEASE_KEYSTORE_BASE64"
+            EXPECTED_KEYSTORE_PASSWORD_SECRET="RELEASE_KEYSTORE_PASSWORD"
+            EXPECTED_KEY_ALIAS_SECRET="RELEASE_KEY_ALIAS"
+          fi
+
+          while IFS='=' read -r required_secret required_value; do
+            if [ -z "$required_value" ]; then
               echo "Missing required secret: ${required_secret}"
               exit 1
             fi
-          done
+          done <<EOF
+${EXPECTED_KEYSTORE_BASE64_SECRET}=${KEYSTORE_BASE64}
+${EXPECTED_KEYSTORE_PASSWORD_SECRET}=${KEYSTORE_PASSWORD}
+${EXPECTED_KEY_ALIAS_SECRET}=${KEY_ALIAS}
+EOF
 
       - name: Decode keystore
         env:
