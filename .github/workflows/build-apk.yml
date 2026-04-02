@@ -24,6 +24,9 @@ jobs:
     uses: ./.github/workflows/build-signed-apk.yml
     with:
       variant: debug
+      keystore_base64_secret_name: DEBUG_KEYSTORE_BASE64
+      keystore_password_secret_name: DEBUG_KEYSTORE_PASSWORD
+      key_alias_secret_name: DEBUG_KEY_ALIAS
     secrets:
       KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
@@ -41,6 +44,9 @@ jobs:
     uses: ./.github/workflows/build-signed-apk.yml
     with:
       variant: release
+      keystore_base64_secret_name: RELEASE_KEYSTORE_BASE64
+      keystore_password_secret_name: RELEASE_KEYSTORE_PASSWORD
+      key_alias_secret_name: RELEASE_KEY_ALIAS
     secrets:
       KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
