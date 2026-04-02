@@ -24,5 +24,6 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+
       - name: Run repository checks
         run: ./gradlew --no-daemon check

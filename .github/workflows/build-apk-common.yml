@@ -96,6 +96,7 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+
       - name: Set up keystore
         env:
           KEYSTORE_BASE64: ${{ env.KEYSTORE_BASE64 }}
