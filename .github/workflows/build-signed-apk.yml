@@ -7,22 +7,6 @@ on:
         description: Build variant (debug or release)
         required: true
         type: string
-      keystore_filename:
-        description: Keystore filename under RUNNER_TEMP
-        required: true
-        type: string
-      gradle_task:
-        description: Gradle task to run
-        required: true
-        type: string
-      artifact_name:
-        description: Artifact name to upload
-        required: true
-        type: string
-      artifact_path:
-        description: Artifact path glob to upload
-        required: true
-        type: string
     secrets:
       KEYSTORE_BASE64:
         required: true
@@ -42,6 +26,24 @@ jobs:
       ANDROID_HOME: ${{ github.workspace }}/.android-sdk
 
     steps:
+      - name: Resolve variant-derived settings
+        env:
+          VARIANT: ${{ inputs.variant }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "$VARIANT" != "debug" ] && [ "$VARIANT" != "release" ]; then
+            echo "Invalid variant: '$VARIANT'. Expected 'debug' or 'release'."
+            exit 1
+          fi
+
+          variant_capitalized="$(printf '%s' "$VARIANT" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+
+          echo "KEYSTORE_FILENAME=${VARIANT}-signing.jks" >> "$GITHUB_ENV"
+          echo "GRADLE_TASK=assemble${variant_capitalized}" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=app-${VARIANT}-apk-${RUN_ID}" >> "$GITHUB_ENV"
+          echo "ARTIFACT_PATH=app/build/outputs/apk/${VARIANT}/*.apk" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -72,14 +74,14 @@ jobs:
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PATH: ${{ runner.temp }}/${{ inputs.keystore_filename }}
+          KEYSTORE_PATH: ${{ runner.temp }}/${{ env.KEYSTORE_FILENAME }}
         run: |
           set -euo pipefail
           printf %s "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
 
       - name: Validate keystore entry
         env:
-          KEYSTORE_PATH: ${{ runner.temp }}/${{ inputs.keystore_filename }}
+          KEYSTORE_PATH: ${{ runner.temp }}/${{ env.KEYSTORE_FILENAME }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
@@ -91,7 +93,7 @@ jobs:
 
       - name: Validate signing alias type
         env:
-          KEYSTORE_PATH: ${{ runner.temp }}/${{ inputs.keystore_filename }}
+          KEYSTORE_PATH: ${{ runner.temp }}/${{ env.KEYSTORE_FILENAME }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
@@ -106,7 +108,7 @@ jobs:
 
       - name: Resolve key password for keystore type
         env:
-          KEYSTORE_PATH: ${{ runner.temp }}/${{ inputs.keystore_filename }}
+          KEYSTORE_PATH: ${{ runner.temp }}/${{ env.KEYSTORE_FILENAME }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           VARIANT: ${{ inputs.variant }}
@@ -126,15 +128,15 @@ jobs:
 
       - name: Build APK
         env:
-          SIGNING_STORE_FILE: ${{ runner.temp }}/${{ inputs.keystore_filename }}
+          SIGNING_STORE_FILE: ${{ runner.temp }}/${{ env.KEYSTORE_FILENAME }}
           SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ env.EFFECTIVE_SIGNING_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon ${{ inputs.gradle_task }}
+        run: ./gradlew --no-daemon ${{ env.GRADLE_TASK }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.artifact_name }}
-          path: ${{ inputs.artifact_path }}
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_PATH }}
           retention-days: 1

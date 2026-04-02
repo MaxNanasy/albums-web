@@ -24,10 +24,6 @@ jobs:
     uses: ./.github/workflows/build-signed-apk.yml
     with:
       variant: debug
-      keystore_filename: debug-signing.jks
-      gradle_task: assembleDebug
-      artifact_name: app-debug-apk-${{ github.run_id }}
-      artifact_path: app/build/outputs/apk/debug/*.apk
     secrets:
       KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
@@ -45,10 +41,6 @@ jobs:
     uses: ./.github/workflows/build-signed-apk.yml
     with:
       variant: release
-      keystore_filename: release-signing.jks
-      gradle_task: assembleRelease
-      artifact_name: app-release-apk-${{ github.run_id }}
-      artifact_path: app/build/outputs/apk/release/*.apk
     secrets:
       KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
