@@ -21,7 +21,7 @@ jobs:
     if: >-
       (github.event_name == 'push' && github.ref != 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.build_type == 'debug')
-    uses: ./.github/workflows/build-signed-apk.yml
+    uses: ./.github/workflows/build-apk-common.yml
     with:
       variant: debug
     secrets: inherit
@@ -34,7 +34,7 @@ jobs:
         (github.event_name == 'push') ||
         (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release')
       )
-    uses: ./.github/workflows/build-signed-apk.yml
+    uses: ./.github/workflows/build-apk-common.yml
     with:
       variant: release
     secrets: inherit

@@ -1,4 +1,4 @@
-name: Build Signed APK (Reusable)
+name: Build APK Common (Reusable)
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ on:
         type: string
 
 jobs:
-  build-signed-apk:
+  build-apk-common:
     runs-on: ubuntu-24.04
     env:
       # Use fresh SDK root for build stability
