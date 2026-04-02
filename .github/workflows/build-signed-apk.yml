@@ -63,16 +63,18 @@ jobs:
             expected_key_alias_secret_name="RELEASE_KEY_ALIAS"
           fi
 
-          while IFS='=' read -r required_secret required_value; do
+          check_required_secret() {
+            local required_secret="$1"
+            local required_value="$2"
             if [ -z "$required_value" ]; then
               echo "Missing required secret: ${required_secret}"
               exit 1
             fi
-          done <<EOF
-${expected_keystore_base64_secret_name}=${resolved_keystore_base64}
-${expected_keystore_password_secret_name}=${resolved_keystore_password}
-${expected_key_alias_secret_name}=${resolved_key_alias}
-EOF
+          }
+
+          check_required_secret "$expected_keystore_base64_secret_name" "$resolved_keystore_base64"
+          check_required_secret "$expected_keystore_password_secret_name" "$resolved_keystore_password"
+          check_required_secret "$expected_key_alias_secret_name" "$resolved_key_alias"
 
           echo "KEYSTORE_BASE64=$resolved_keystore_base64" >> "$GITHUB_ENV"
           echo "KEYSTORE_PASSWORD=$resolved_keystore_password" >> "$GITHUB_ENV"
