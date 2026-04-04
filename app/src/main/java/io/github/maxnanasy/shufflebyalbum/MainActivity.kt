@@ -14,6 +14,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playbackStatus: TextView
     private lateinit var itemUriInput: EditText
     private lateinit var storageJsonInput: EditText
+    private lateinit var undoBannerContainer: LinearLayout
 
     private lateinit var loginButton: Button
     private lateinit var logoutButton: Button
@@ -58,6 +60,8 @@ class MainActivity : AppCompatActivity() {
 
     private val itemAdapter = ItemAdapter(onRemove = ::removeItem)
     private val queueAdapter = QueueAdapter()
+    private val pendingRemovals = mutableMapOf<Long, PendingRemoval>()
+    private var nextPendingRemovalId: Long = 0
 
     private var session = SessionState()
 
@@ -105,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         playbackStatus = findViewById(R.id.playbackStatus)
         itemUriInput = findViewById(R.id.itemUriInput)
         storageJsonInput = findViewById(R.id.storageJsonInput)
+        undoBannerContainer = findViewById(R.id.undoBannerContainer)
 
         loginButton = findViewById(R.id.loginButton)
         logoutButton = findViewById(R.id.logoutButton)
@@ -402,10 +407,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun removeItem(item: ShuffleItem) {
-        val next = getItems().toMutableList().apply { removeAll { it.uri == item.uri } }
+        val next = getItems().toMutableList()
+        val removedIndex = next.indexOfFirst { it.uri == item.uri }
+        if (removedIndex == -1) return
+
+        next.removeAt(removedIndex)
         saveItems(next)
         renderItemList()
-        toast("Removed ${item.title}.")
+        showUndoBanner(item, removedIndex)
+    }
+
+    private fun showUndoBanner(item: ShuffleItem, removedIndex: Int) {
+        val bannerView = layoutInflater.inflate(R.layout.undo_banner_row, undoBannerContainer, false)
+        val messageView = bannerView.findViewById<TextView>(R.id.undoMessage)
+        val undoButton = bannerView.findViewById<Button>(R.id.undoButton)
+        val removalId = nextPendingRemovalId++
+        messageView.text = "Removed ${item.title}."
+
+        val dismissRunnable = Runnable {
+            clearPendingRemoval(removalId)
+        }
+        val removal = PendingRemoval(
+            id = removalId,
+            item = item,
+            index = removedIndex,
+            bannerView = bannerView,
+            dismissRunnable = dismissRunnable,
+        )
+        pendingRemovals[removalId] = removal
+        undoBannerContainer.addView(bannerView, 0)
+        undoButton.setOnClickListener { undoPendingRemoval(removalId) }
+        monitorHandler.postDelayed(dismissRunnable, UNDO_BANNER_DURATION_MS)
+    }
+
+    private fun undoPendingRemoval(removalId: Long) {
+        val removal = pendingRemovals.remove(removalId) ?: return
+        monitorHandler.removeCallbacks(removal.dismissRunnable)
+        undoBannerContainer.removeView(removal.bannerView)
+        val currentItems = getItems().toMutableList()
+        if (currentItems.any { it.uri == removal.item.uri }) {
+            renderItemList()
+            toast("${removal.item.title} is already in your list.")
+            return
+        }
+
+        val insertIndex = removal.index.coerceIn(0, currentItems.size)
+        currentItems.add(insertIndex, removal.item)
+        saveItems(currentItems)
+        renderItemList()
+        toast("Restored ${removal.item.title}.")
+    }
+
+    private fun clearPendingRemoval(removalId: Long) {
+        val removal = pendingRemovals.remove(removalId) ?: return
+        undoBannerContainer.removeView(removal.bannerView)
     }
 
     private fun renderItemList() {
@@ -820,6 +875,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_TOKEN_SCOPE = "spotifyShuffler.tokenScope"
         private const val KEY_ITEMS = "spotifyShuffler.items"
         private const val KEY_RUNTIME = "spotifyShuffler.runtime"
+        private const val UNDO_BANNER_DURATION_MS = 5_000L
     }
 }
 
@@ -846,6 +902,14 @@ data class ShuffleItem(
     val type: String,
     val uri: String,
     val title: String,
+)
+
+data class PendingRemoval(
+    val id: Long,
+    val item: ShuffleItem,
+    val index: Int,
+    val bannerView: View,
+    val dismissRunnable: Runnable,
 )
 
 enum class ActivationState(val value: String) {
