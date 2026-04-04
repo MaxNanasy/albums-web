@@ -82,8 +82,11 @@ class MainActivity : AppCompatActivity() {
         renderItemList()
         renderQueue()
         renderPlaybackControls()
-        refreshAuthStatus()
-        handleAuthRedirect(intent?.data)
+
+        appScope.launch {
+            bootstrapAuthState(intent?.data)
+            restoreSessionMonitoringIfNeeded()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -179,6 +182,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleAuthRedirect(uri: Uri?) {
         if (uri == null || uri.scheme != "shufflebyalbum") return
+        appScope.launch {
+            processAuthRedirect(uri)
+        }
+    }
+
+    private suspend fun bootstrapAuthState(uri: Uri?) {
+        if (uri != null && uri.scheme == "shufflebyalbum") {
+            processAuthRedirect(uri)
+            return
+        }
+
+        if (getToken() != null) {
+            refreshAuthStatus()
+            return
+        }
+
+        if (getStringPref(KEY_REFRESH_TOKEN).isNullOrBlank()) {
+            refreshAuthStatus()
+            return
+        }
+
+        authStatus.text = "Restoring Spotify session..."
+        val token = refreshSpotifyAccessToken()
+        if (token == null) {
+            authStatus.text = "Not connected."
+            return
+        }
+        refreshAuthStatus()
+    }
+
+    private suspend fun processAuthRedirect(uri: Uri) {
         val error = uri.getQueryParameter("error")
         if (error != null) {
             authStatus.text = "Spotify authorization error: $error"
@@ -191,18 +225,16 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        appScope.launch {
-            val token = exchangeCodeForToken(code, verifier)
-            if (token == null) {
-                authStatus.text = "Failed to exchange Spotify code for token."
-                return@launch
-            }
-            saveToken(token)
-            prefs.edit().remove(KEY_VERIFIER).apply()
-            refreshAuthStatus()
-            toast("Connected to Spotify.")
-            renderItemList()
+        val token = exchangeCodeForToken(code, verifier)
+        if (token == null) {
+            authStatus.text = "Failed to exchange Spotify code for token."
+            return
         }
+        saveToken(token)
+        prefs.edit().remove(KEY_VERIFIER).apply()
+        refreshAuthStatus()
+        toast("Connected to Spotify.")
+        renderItemList()
     }
 
     private suspend fun addItem() {
@@ -394,6 +426,16 @@ class MainActivity : AppCompatActivity() {
         stopButton.isEnabled = !inactive
         reattachButton.visibility = if (detached) View.VISIBLE else View.GONE
         reattachButton.isEnabled = detached
+    }
+
+    private fun restoreSessionMonitoringIfNeeded() {
+        if (session.activationState != ActivationState.ACTIVE) return
+        if (getToken() == null) {
+            transitionDetached("Spotify session expired. Reconnect.")
+            return
+        }
+        playbackStatus.text = "Restored active session."
+        startMonitorLoop()
     }
 
     private fun exportStorageJson() {
