@@ -768,7 +768,8 @@ class MainActivity : AppCompatActivity() {
             val items = body.optJSONArray("items") ?: JSONArray()
             for (i in 0 until items.length()) {
                 val entry = items.optJSONObject(i) ?: continue
-                val album = entry.optJSONObject("track")?.optJSONObject("album") ?: continue
+                val item = entry.optJSONObject("item") ?: continue
+                val album = item.optJSONObject("album") ?: continue
                 val albumUri = album.optString("uri")
                 if (albumUri.isBlank()) continue
                 val name = album.optString("name", albumUri)
