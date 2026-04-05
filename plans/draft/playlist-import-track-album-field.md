@@ -6,8 +6,6 @@ Android currently treats playlist import as if the playlist items response were 
 
 Update the playlist import plan so it is based on the actual shape of the Spotify playlist-items endpoint.
 
-Describe the code change at a high level as:
-
 - the import logic should treat each element in the playlist-items response as a playlist entry object
 - album extraction should follow the nested path inside the entry's `item` object, rather than assuming album data is exposed at a different level
 - the parsing logic should clearly reflect that the playlist-items endpoint returns entry wrappers around the actual playlist item payload
