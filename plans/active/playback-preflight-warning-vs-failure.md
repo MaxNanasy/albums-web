@@ -10,6 +10,6 @@ Make the pre-playback control calls follow the same decision model as the web ap
 - if either request fails with an unrecoverable Spotify status, detach the session with a Spotify-specific message
 - if either request fails with another error, stop the session instead of continuing blindly
 - only attempt `/me/player/play` after both preflight requests succeed
-- reuse the same playback-result return type used by the start and reattach plan drafts
+- reuse the same playback-result return type described in `start-session-detached-overwrite.md` and `reattach-detached-overwrite.md`
 
 This gives Android the same stricter playback-start contract as the web app.

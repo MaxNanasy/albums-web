@@ -6,7 +6,7 @@
 
 Refactor `reattachSession()` and `playCurrentItem()` so reattachment respects the playback-start outcome:
 
-- use the same explicit return type proposed for playback start results
+- use the same explicit return type described in `start-session-detached-overwrite.md` for playback start results
 - only transition back to active monitoring when reattach either confirms the expected current context or successfully restarts playback
 - if playback restart detaches or stops the session, leave that state intact and do not overwrite the status text
 - keep the success toast only for the actual successful reattach paths

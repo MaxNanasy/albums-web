@@ -7,11 +7,11 @@ The web app's startup sequence restores runtime state, handles auth redirect, va
 Refactor Android startup into an explicit bootstrap sequence that mirrors the web app's decision order as closely as the platform allows:
 
 - keep view binding and list wiring first
-- restore runtime state before any playback-monitor restart decision
-- process auth redirect if present, otherwise validate or refresh the token if possible
-- refresh auth status using the new scope-aware status function
+- restore runtime state as described in `session-restore-parity.md` before any playback-monitor restart decision
+- process auth redirect using the flow described in `auth-redirect-flow-parity.md` if present, otherwise validate or refresh the token if possible
+- refresh auth status using the scope-aware status function described in `missing-playlist-scope-status.md`
 - render item list, queue, and controls after auth bootstrap settles
-- run saved-title backfill after auth is usable
+- run the saved-title backfill described in `saved-item-title-backfill.md` after auth is usable
 - only then decide whether to resume playback monitoring
 
 This should make Android startup behavior easier to reason about and closer to web semantics.
