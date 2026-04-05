@@ -310,12 +310,13 @@ class MainActivity : AppCompatActivity() {
         renderQueue()
         renderPlaybackControls()
         playCurrentItem(token)
-        startMonitorLoop()
+        transitionActive("Monitoring playback.")
     }
 
     private suspend fun reattachSession() {
         if (session.activationState != ActivationState.DETACHED) return
-        if (getUsableAccessToken() == null) {
+        val token = getUsableAccessToken()
+        if (token == null) {
             playbackStatus.text = "Cannot reattach: Spotify session expired. Reconnect."
             toast("Reattach failed: Spotify session expired.")
             return
@@ -325,10 +326,33 @@ class MainActivity : AppCompatActivity() {
             toast("Reattach failed: queue is empty.")
             return
         }
-        session = session.copy(activationState = ActivationState.ACTIVE)
-        renderPlaybackControls()
-        startMonitorLoop()
-        playbackStatus.text = "Session reattached. Monitoring playback."
+
+        val snapshotResult = fetchCurrentPlaybackSnapshot(token)
+        if (!snapshotResult.ok) {
+            transitionDetached("Cannot reattach: ${snapshotResult.describeFailure()}.")
+            toast("Reattach failed: ${snapshotResult.describeFailure()}.")
+            return
+        }
+
+        val current = session.queue.getOrNull(session.index) ?: run {
+            stopSession("Cannot reattach: current queue item missing.")
+            toast("Reattach failed: current queue item missing.")
+            return
+        }
+        val expectedUri = session.currentUri ?: current.uri
+        val snapshot = snapshotResult.snapshot
+
+        if (snapshot?.contextUri == expectedUri) {
+            session = session.copy(
+                observedCurrentContext = true,
+            )
+            persistRuntimeState()
+            playbackStatus.text = "Reattached to current Spotify playback."
+        } else {
+            playCurrentItem(token)
+        }
+
+        transitionActive("Session reattached. Monitoring playback.")
         toast("Session reattached.")
     }
 
@@ -352,7 +376,10 @@ class MainActivity : AppCompatActivity() {
         val current = session.queue.getOrNull(session.index)
             ?: return stopSession("Finished: all selected albums/playlists were played.")
 
-        session = session.copy(currentUri = current.uri, observedCurrentContext = false)
+        session = session.copy(
+            currentUri = current.uri,
+            observedCurrentContext = false,
+        )
         persistRuntimeState()
         renderPlaybackControls()
         renderQueue()
@@ -385,19 +412,17 @@ class MainActivity : AppCompatActivity() {
         if (session.activationState != ActivationState.ACTIVE || session.currentUri == null) return
         val token = getUsableAccessToken() ?: return transitionDetached("Spotify session expired. Reconnect.")
 
-        val response = spotifyApi("/me/player", "GET", token, null)
-        if (response.status == 204) return
-        if (!response.ok) {
-            transitionDetached("Playback monitoring paused: ${response.describeFailure()}.")
+        val snapshotResult = fetchCurrentPlaybackSnapshot(token)
+        if (snapshotResult.status == 204) return
+        if (!snapshotResult.ok) {
+            transitionDetached("Playback monitoring paused: ${snapshotResult.describeFailure()}.")
             return
         }
-
-        val body = response.body ?: run {
+        val snapshot = snapshotResult.snapshot ?: run {
             transitionDetached("Playback monitoring paused: Spotify returned an empty status payload.")
             return
         }
-        val context = JSONObject(body).optJSONObject("context")
-        val contextUri = if (context == null || context.isNull("uri")) null else context.optString("uri")
+        val contextUri = snapshot.contextUri
 
         if (contextUri == session.currentUri) {
             session = session.copy(observedCurrentContext = true)
@@ -422,6 +447,14 @@ class MainActivity : AppCompatActivity() {
         session = session.copy(activationState = ActivationState.DETACHED)
         persistRuntimeState()
         renderPlaybackControls()
+        playbackStatus.text = message
+    }
+
+    private fun transitionActive(message: String) {
+        session = session.copy(activationState = ActivationState.ACTIVE)
+        persistRuntimeState()
+        renderPlaybackControls()
+        startMonitorLoop()
         playbackStatus.text = message
     }
 
@@ -526,8 +559,29 @@ class MainActivity : AppCompatActivity() {
             transitionDetached("Spotify session expired. Reconnect.")
             return
         }
-        playbackStatus.text = "Restored active session."
-        startMonitorLoop()
+        transitionActive("Restored active session.")
+    }
+
+    private suspend fun fetchCurrentPlaybackSnapshot(token: String): PlaybackSnapshotResult {
+        val response = spotifyApi("/me/player", "GET", token, null)
+        if (!response.ok || response.status == 204) return PlaybackSnapshotResult(response.status, null, response.ok, response.failureReason, response.body)
+        val body = response.body ?: return PlaybackSnapshotResult(
+            status = response.status,
+            snapshot = null,
+            ok = true,
+            failureReason = response.failureReason,
+            body = null,
+        )
+        val json = JSONObject(body)
+        val context = json.optJSONObject("context")
+        val contextUri = if (context == null || context.isNull("uri")) null else context.optString("uri")
+        return PlaybackSnapshotResult(
+            status = response.status,
+            snapshot = PlaybackSnapshot(contextUri = contextUri),
+            ok = true,
+            failureReason = response.failureReason,
+            body = response.body,
+        )
     }
 
     private fun exportStorageJson() {
@@ -986,7 +1040,37 @@ private data class PlaylistAlbumImportResult(
     val failureMessage: String?,
 )
 
+private data class PlaybackSnapshot(
+    val contextUri: String?,
+)
+
+private data class PlaybackSnapshotResult(
+    val status: Int,
+    val snapshot: PlaybackSnapshot?,
+    val ok: Boolean,
+    val failureReason: String?,
+    val body: String?,
+)
+
 private fun HttpResult.describeFailure(): String {
+    failureReason?.let { return it }
+    val statusPart = if (status >= 0) "status $status" else "request failed"
+    val detail = runCatching {
+        if (body.isNullOrBlank()) return@runCatching null
+        val json = JSONObject(body)
+        val errorObject = json.optJSONObject("error")
+        when {
+            errorObject != null -> errorObject.optString("message").ifBlank { null }
+            else -> json.optString("error_description").ifBlank {
+                json.optString("message").ifBlank { null }
+            }
+        }
+    }.getOrNull()
+
+    return if (detail.isNullOrBlank()) statusPart else "$statusPart: $detail"
+}
+
+private fun PlaybackSnapshotResult.describeFailure(): String {
     failureReason?.let { return it }
     val statusPart = if (status >= 0) "status $status" else "request failed"
     val detail = runCatching {
