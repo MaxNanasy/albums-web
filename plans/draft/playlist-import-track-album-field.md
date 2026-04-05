@@ -1,14 +1,17 @@
 ## Issue
 
-The web app reads playlist import albums from `entry.item.album`, while Android reads them from `entry.track.album`. If Spotify returns data in the shape expected by the web app, Android can miss albums that the web app imports.
+Android currently treats playlist import as if the Spotify response were shaped around a track-level `album` field. Spotify's playlist-items API actually returns playlist entry objects, with the imported item nested inside the entry. Because of that difference in response shape, Android can read the wrong nested field or skip albums that are present in the playlist-items response.
 
 ## Solution
 
-Audit the Spotify playlist-items response shape used by the web implementation and align Android's parser with it. In `fetchPlaylistAlbums()`:
+Update the playlist import plan so it is based on the Spotify playlist-items endpoint itself, rather than on a track-centered assumption.
 
-- inspect both candidate paths while refactoring: the current `track.album` path and the web app's `item.album` path
-- choose one canonical extraction path that matches the web implementation and the actual API payload
-- add a small helper that extracts the album URI and title from one playlist item object so the mapping logic is explicit and testable
-- keep URI-based deduplication unchanged
+Describe the code change at a high level as:
 
-The goal is for the same playlist payload to produce the same imported album set on both platforms.
+- the playlist import logic should follow the Spotify playlist-items response shape, where each result is a playlist entry object containing the imported item
+- album extraction should be aligned with that endpoint's nested response structure
+- the parsing logic should be refactored so the expected endpoint shape is handled explicitly in one place
+- entries that do not contain album data in the shape returned by the playlist-items endpoint should be ignored intentionally
+- URI-based deduplication and pagination behavior should remain unchanged
+
+The goal is to make Android's playlist import behavior match the Spotify playlist-items API contract, instead of assuming a different nested object layout.
