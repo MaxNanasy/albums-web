@@ -361,12 +361,19 @@ class MainActivity : AppCompatActivity() {
             )
             persistRuntimeState()
             playbackStatus.text = "Reattached to current Spotify playback."
+            transitionActive("Session reattached. Monitoring playback.")
+            toast("Session reattached.")
         } else {
-            playCurrentItem(token)
+            when (playCurrentItem(token)) {
+                PlaybackStartResult.STARTED -> {
+                    transitionActive("Session reattached. Monitoring playback.")
+                    toast("Session reattached.")
+                }
+                PlaybackStartResult.DETACHED,
+                PlaybackStartResult.STOPPED,
+                -> Unit
+            }
         }
-
-        transitionActive("Session reattached. Monitoring playback.")
-        toast("Session reattached.")
     }
 
     private suspend fun goToNextItem() {
