@@ -10,7 +10,7 @@ Update Android's import/export labels, placeholder text, and helper copy so the 
 - change the export button text from `Export JSON` to `Export Data JSON`
 - change the import button text from `Import JSON` to `Import Data JSON`
 - add a visible field label above the multiline text box: `Data JSON`
-- change the text box placeholder to a web-compatible example beginning with `{"shuffle-by-album.items":[{"type":"album","uri":...`
+- change the text box placeholder to the web-compatible example `{"shuffle-by-album.items":[{"type":"album","uri":...`
 - add helper copy under the text box matching the web app's meaning: export copies saved items into the text box, and import replaces saved items with the data in the text box
 - make sure any success/error toasts in this section use the wording defined in `match-web-import-export-validation-and-effects.md` rather than the older `local storage` wording
 
