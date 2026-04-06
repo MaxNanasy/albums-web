@@ -269,7 +269,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         val token = getUsableAccessToken() ?: return toast("Connect Spotify first or reconnect if your session expired.")
-        val titled = withItemTitle(parsed, token) ?: parsed.copy(title = parsed.uri)
+        val titled = withItemTitle(parsed, token)
+            ?: return toast("Unable to load title for that item. Please try another URI.")
         items.add(titled)
         saveItems(items)
         renderItemList()
