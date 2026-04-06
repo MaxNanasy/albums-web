@@ -628,11 +628,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun restoreSessionMonitoringIfNeeded() {
         if (session.activationState != ActivationState.ACTIVE) return
+        if (session.queue.isEmpty() || session.currentUri.isNullOrBlank()) {
+            stopSession("Restored session is incomplete. Start or reattach to continue.")
+            return
+        }
         if (getToken() == null) {
             transitionDetached("Spotify session expired. Reconnect.")
             return
         }
-        transitionActive("Restored active session.")
+        renderPlaybackControls()
+        startMonitorLoop()
+        playbackStatus.text = "Restored active session."
     }
 
     private suspend fun fetchCurrentPlaybackSnapshot(token: String): PlaybackSnapshotResult {
