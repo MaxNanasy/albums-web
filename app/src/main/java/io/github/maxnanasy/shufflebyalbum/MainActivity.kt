@@ -317,8 +317,12 @@ class MainActivity : AppCompatActivity() {
         persistRuntimeState()
         renderQueue()
         renderPlaybackControls()
-        playCurrentItem(token)
-        transitionActive("Monitoring playback.")
+        when (playCurrentItem(token)) {
+            PlaybackStartResult.STARTED -> transitionActive("Monitoring playback.")
+            PlaybackStartResult.DETACHED,
+            PlaybackStartResult.STOPPED,
+            -> Unit
+        }
     }
 
     private suspend fun reattachSession() {
@@ -381,9 +385,12 @@ class MainActivity : AppCompatActivity() {
         playCurrentItem(token)
     }
 
-    private suspend fun playCurrentItem(token: String) {
+    private suspend fun playCurrentItem(token: String): PlaybackStartResult {
         val current = session.queue.getOrNull(session.index)
-            ?: return stopSession("Finished: all selected albums/playlists were played.")
+            ?: run {
+                stopSession("Finished: all selected albums/playlists were played.")
+                return PlaybackStartResult.STOPPED
+            }
 
         session = session.copy(
             currentUri = current.uri,
@@ -425,10 +432,11 @@ class MainActivity : AppCompatActivity() {
             if (isUnrecoverableSpotifyStatus(response.status)) {
                 reportError(toastMessage = "Playback detached: $failure.")
             }
-            return
+            return PlaybackStartResult.DETACHED
         }
 
         playbackStatus.text = formatNowPlayingStatus(current)
+        return PlaybackStartResult.STARTED
     }
 
     private suspend fun monitorPlayback() {
@@ -1260,6 +1268,12 @@ enum class ActivationState(val value: String) {
     INACTIVE("inactive"),
     ACTIVE("active"),
     DETACHED("detached"),
+}
+
+private enum class PlaybackStartResult {
+    STARTED,
+    DETACHED,
+    STOPPED,
 }
 
 data class SessionState(
