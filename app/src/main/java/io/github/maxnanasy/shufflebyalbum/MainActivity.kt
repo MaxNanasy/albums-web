@@ -97,7 +97,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleAuthRedirect(intent.data)
+        appScope.launch {
+            processAuthRedirect(intent.data)
+        }
     }
 
     override fun onDestroy() {
@@ -199,16 +201,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleAuthRedirect(uri: Uri?) {
-        if (uri == null || uri.scheme != "shufflebyalbum") return
-        appScope.launch {
-            processAuthRedirect(uri)
-        }
-    }
-
     private suspend fun bootstrapAuthState(uri: Uri?) {
-        if (uri != null && uri.scheme == "shufflebyalbum") {
-            processAuthRedirect(uri)
+        if (processAuthRedirect(uri)) {
             return
         }
 
@@ -232,30 +226,37 @@ class MainActivity : AppCompatActivity() {
         refreshAuthStatus()
     }
 
-    private suspend fun processAuthRedirect(uri: Uri) {
+    private suspend fun processAuthRedirect(uri: Uri?): Boolean {
+        if (uri == null || uri.scheme != "shufflebyalbum") return false
         val error = uri.getQueryParameter("error")
         if (error != null) {
             authStatus.text = "Spotify authorization error: $error"
-            return
+            prefs.edit().remove(KEY_VERIFIER).apply()
+            return true
         }
         val code = uri.getQueryParameter("code")
         if (code.isNullOrBlank()) {
             authStatus.text = "Spotify authorization failed: missing authorization code."
-            toast("Spotify login did not return an authorization code.")
-            return
+            reportError(toastMessage = "Spotify login did not return an authorization code.")
+            prefs.edit().remove(KEY_VERIFIER).apply()
+            return true
         }
         val verifier = getStringPref(KEY_VERIFIER)
         if (verifier.isNullOrBlank()) {
             authStatus.text = "Missing PKCE verifier. Connect again."
-            return
+            return true
         }
 
-        val token = exchangeCodeForToken(code, verifier) ?: return
+        val token = exchangeCodeForToken(code, verifier) ?: run {
+            prefs.edit().remove(KEY_VERIFIER).apply()
+            return true
+        }
         saveToken(token)
         prefs.edit().remove(KEY_VERIFIER).apply()
         refreshAuthStatus()
         toast("Connected to Spotify.")
         renderItemList()
+        return true
     }
 
     private suspend fun addItem() {
