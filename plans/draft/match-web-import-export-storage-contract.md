@@ -18,7 +18,3 @@ Change the Android import/export feature so its external contract matches the we
 - keep auth-related prefs and runtime/session prefs Android-local; this change is only for the saved-items data contract
 
 Implementation is complete when Android can round-trip the same JSON shape that the web app produces and consumes without including any unrelated preference data.
-
-## Depends On
-
-- `match-web-import-export-validation-and-effects.md`: this file only changes the external storage contract; the validation/effects plan defines the exact accepted payload shape and the import/export side effects that must sit on top of that contract
