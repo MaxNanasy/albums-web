@@ -823,6 +823,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun spotifyApi(path: String, method: String, token: String, body: String?): HttpResult {
+        val firstAttempt = runSpotifyApiRequest(path, method, token, body)
+        if (firstAttempt.status != 401) return firstAttempt
+
+        val refreshedToken = refreshSpotifyAccessToken() ?: run {
+            handleExpiredApiSession()
+            return firstAttempt
+        }
+        val replayed = runSpotifyApiRequest(path, method, refreshedToken, body)
+        if (replayed.status == 401) {
+            handleExpiredApiSession()
+        }
+        return replayed
+    }
+
+    private suspend fun runSpotifyApiRequest(path: String, method: String, token: String, body: String?): HttpResult {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL("https://api.spotify.com/v1$path")
@@ -844,6 +859,21 @@ class MainActivity : AppCompatActivity() {
                 HttpResult(status = -1, body = null, failureReason = networkFailureReason(e))
             }
         }
+    }
+
+    private fun handleExpiredApiSession() {
+        clearAuth()
+        refreshAuthStatus()
+        val message = "Spotify session expired. Reconnect."
+        if (session.activationState == ActivationState.ACTIVE || session.activationState == ActivationState.DETACHED) {
+            transitionDetached(message)
+        } else {
+            playbackStatus.text = message
+        }
+        reportError(
+            toastMessage = "Spotify session expired. Please reconnect.",
+            cooldownKey = "auth-expired",
+        )
     }
 
     private suspend fun formPost(url: String, form: Map<String, String>): HttpResult {
