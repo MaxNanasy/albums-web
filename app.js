@@ -27,13 +27,13 @@ const SCOPES = [
 const SPOTIFY_APP_ID = '5082b1452bc24cc3a0955f2d1c4e5560';
 
 const STORAGE_KEYS = {
-  verifier: 'spotifyShuffler.pkceVerifier',
-  token: 'spotifyShuffler.token',
-  refreshToken: 'spotifyShuffler.refreshToken',
-  tokenExpiry: 'spotifyShuffler.tokenExpiry',
-  tokenScope: 'spotifyShuffler.tokenScope',
-  items: 'spotifyShuffler.items',
-  runtime: 'spotifyShuffler.runtime',
+  verifier: 'shuffle-by-album.pkceVerifier',
+  token: 'shuffle-by-album.token',
+  refreshToken: 'shuffle-by-album.refreshToken',
+  tokenExpiry: 'shuffle-by-album.tokenExpiry',
+  tokenScope: 'shuffle-by-album.tokenScope',
+  items: 'shuffle-by-album.items',
+  runtime: 'shuffle-by-album.runtime',
 };
 
 const el = {
