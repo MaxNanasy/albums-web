@@ -1140,8 +1140,6 @@ function restoreRuntimeState() {
     activationStateValue === 'inactive'
   ) {
     restoredActivationState = activationStateValue;
-  } else if (parsed.active === true) {
-    restoredActivationState = 'active';
   }
   if (restoredQueue.length === 0) {
     restoredActivationState = 'inactive';
