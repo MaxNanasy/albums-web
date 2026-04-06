@@ -480,17 +480,25 @@ class MainActivity : AppCompatActivity() {
         if (snapshotResult.status == 204) return
         if (!snapshotResult.ok) {
             val failure = spotifyFailureMessage(snapshotResult.status, snapshotResult.failureReason)
-            transitionDetached("Playback monitoring paused: $failure.")
-            reportError(
-                toastMessage = "Playback monitoring paused: $failure.",
-                cooldownKey = "monitor-failure",
-            )
+            if (isUnrecoverableMonitorStatus(snapshotResult.status)) {
+                transitionDetached("Playback monitoring paused: $failure.")
+                reportError(
+                    toastMessage = "Playback monitoring paused: $failure.",
+                    cooldownKey = "monitor-failure-detached",
+                )
+            } else {
+                playbackStatus.text = "Playback monitoring temporary error: $failure."
+                reportError(
+                    toastMessage = "Playback monitoring temporary error: $failure.",
+                    cooldownKey = "monitor-failure-recoverable",
+                )
+            }
             return
         }
         val snapshot = snapshotResult.snapshot ?: run {
-            transitionDetached("Playback monitoring paused: Spotify returned an empty status payload.")
+            playbackStatus.text = "Playback monitoring temporary error: Spotify returned an empty status payload."
             reportError(
-                toastMessage = "Playback monitoring paused: Spotify returned an empty status payload.",
+                toastMessage = "Playback monitoring temporary error: Spotify returned an empty status payload.",
                 cooldownKey = "monitor-empty-payload",
             )
             return
@@ -1155,6 +1163,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun isUnrecoverableSpotifyStatus(status: Int): Boolean {
         return status in setOf(400, 401, 403, 404)
+    }
+
+    private fun isUnrecoverableMonitorStatus(status: Int): Boolean {
+        return status in setOf(401, 403, 404)
     }
 
     private fun normalizeNetworkError(reason: String): String {
