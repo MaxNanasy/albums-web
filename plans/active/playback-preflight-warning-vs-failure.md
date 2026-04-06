@@ -13,3 +13,8 @@ Make the pre-playback control calls follow the same decision model as the web ap
 - reuse the same playback-result return type described in `start-session-detached-overwrite.md` and `reattach-detached-overwrite.md`
 
 This gives Android the same stricter playback-start contract as the web app.
+
+## Depends On
+
+- `start-session-detached-overwrite.md`: defines the playback-start result contract that this plan's preflight failures should feed into instead of being overwritten by a later unconditional activation step
+- `reattach-detached-overwrite.md`: keeps the preflight failure contract consistent with the reattach path, which also reuses the same `playCurrentItem()` outcome model

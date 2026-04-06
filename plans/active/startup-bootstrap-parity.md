@@ -15,3 +15,10 @@ Refactor Android startup into an explicit bootstrap sequence that mirrors the we
 - only then decide whether to resume playback monitoring
 
 This should make Android startup behavior easier to reason about and closer to web semantics.
+
+## Depends On
+
+- `auth-redirect-flow-parity.md`: startup bootstrap needs a defined callback-handling sequence for launches that arrive through the Spotify auth redirect
+- `missing-playlist-scope-status.md`: startup bootstrap refreshes auth status, so the scope-aware auth-status behavior needs to be defined before the startup sequence can rely on it
+- `saved-item-title-backfill.md`: startup bootstrap explicitly runs saved-title backfill after auth becomes usable, so that backfill behavior must be defined first
+- `session-restore-parity.md`: startup bootstrap restores runtime state before deciding whether monitoring should resume, so it depends on the restore-time state and activation rules from that plan

@@ -12,3 +12,7 @@ Refactor `reattachSession()` and `playCurrentItem()` so reattachment respects th
 - keep the success toast only for the actual successful reattach paths
 
 This aligns reattach semantics with the web app, which only resumes monitoring if the session is still active after the reattach attempt.
+
+## Depends On
+
+- `start-session-detached-overwrite.md`: defines the explicit `playCurrentItem()` result contract and activation rules that the reattach path should reuse instead of inventing a separate outcome model
