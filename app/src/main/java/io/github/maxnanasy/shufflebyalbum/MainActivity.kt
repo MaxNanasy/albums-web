@@ -85,12 +85,12 @@ class MainActivity : AppCompatActivity() {
         wireEvents()
 
         restoreRuntimeState()
-        renderItemList()
-        renderQueue()
-        renderPlaybackControls()
 
         appScope.launch {
             bootstrapAuthState(intent?.data)
+            renderItemList()
+            renderQueue()
+            renderPlaybackControls()
             ensureStoredItemTitles()
             restoreSessionMonitoringIfNeeded()
         }
