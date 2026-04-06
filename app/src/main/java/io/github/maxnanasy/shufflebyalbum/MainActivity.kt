@@ -407,24 +407,16 @@ class MainActivity : AppCompatActivity() {
         renderPlaybackControls()
         renderQueue()
 
-        val shuffleResponse = spotifyApi("/me/player/shuffle?state=false", "PUT", token, null)
-        if (!shuffleResponse.ok) {
-            reportError(
-                statusView = playbackStatus,
-                statusMessage = "Playback warning: failed to disable shuffle (${spotifyFailureMessage(shuffleResponse.status, shuffleResponse.failureReason)}).",
-                toastMessage = "Playback warning: failed to disable shuffle.",
-                cooldownKey = "playback-warning-shuffle",
-            )
-        }
-
-        val repeatResponse = spotifyApi("/me/player/repeat?state=off", "PUT", token, null)
-        if (!repeatResponse.ok) {
-            reportError(
-                statusView = playbackStatus,
-                statusMessage = "Playback warning: failed to disable repeat (${spotifyFailureMessage(repeatResponse.status, repeatResponse.failureReason)}).",
-                toastMessage = "Playback warning: failed to disable repeat.",
-                cooldownKey = "playback-warning-repeat",
-            )
+        val preflightResult = runPlaybackPreflight(token)
+        if (!preflightResult.ok) {
+            if (preflightResult.detach) {
+                transitionDetached(preflightResult.message)
+                reportError(toastMessage = preflightResult.message)
+                return PlaybackStartResult.DETACHED
+            }
+            stopSession(preflightResult.message)
+            reportError(toastMessage = preflightResult.message)
+            return PlaybackStartResult.STOPPED
         }
 
         val payload = JSONObject()
@@ -444,6 +436,40 @@ class MainActivity : AppCompatActivity() {
 
         playbackStatus.text = formatNowPlayingStatus(current)
         return PlaybackStartResult.STARTED
+    }
+
+    private suspend fun runPlaybackPreflight(token: String): PlaybackPreflightResult {
+        val steps = listOf(
+            PlaybackPreflightStep(
+                path = "/me/player/shuffle?state=false",
+                action = "disable shuffle",
+            ),
+            PlaybackPreflightStep(
+                path = "/me/player/repeat?state=off",
+                action = "disable repeat",
+            ),
+        )
+
+        for (step in steps) {
+            val response = spotifyApi(step.path, "PUT", token, null)
+            if (response.ok) continue
+
+            val failure = spotifyFailureMessage(response.status, response.failureReason)
+            val message = "Playback preflight failed: could not ${step.action} ($failure)."
+            if (isUnrecoverableSpotifyStatus(response.status)) {
+                return PlaybackPreflightResult(
+                    ok = false,
+                    detach = true,
+                    message = "Playback detached: $message",
+                )
+            }
+            return PlaybackPreflightResult(
+                ok = false,
+                detach = false,
+                message = "Playback stopped: $message",
+            )
+        }
+        return PlaybackPreflightResult(ok = true, detach = false, message = "")
     }
 
     private suspend fun monitorPlayback() {
@@ -1226,6 +1252,17 @@ private data class PlaybackSnapshotResult(
     val ok: Boolean,
     val failureReason: String?,
     val body: String?,
+)
+
+private data class PlaybackPreflightStep(
+    val path: String,
+    val action: String,
+)
+
+private data class PlaybackPreflightResult(
+    val ok: Boolean,
+    val detach: Boolean,
+    val message: String,
 )
 
 private fun HttpResult.describeFailure(): String {
