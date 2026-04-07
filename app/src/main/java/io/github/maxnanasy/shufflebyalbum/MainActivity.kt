@@ -318,8 +318,9 @@ class MainActivity : AppCompatActivity() {
         persistRuntimeState()
         renderQueue()
         renderPlaybackControls()
+        playbackStatus.text = "Session started with ${session.queue.size} item(s)."
         when (playCurrentItem(token)) {
-            PlaybackStartResult.STARTED -> transitionActive("Monitoring playback.")
+            PlaybackStartResult.STARTED -> transitionActive(startMonitoring = true)
             PlaybackStartResult.DETACHED,
             PlaybackStartResult.STOPPED,
             -> Unit
@@ -330,12 +331,12 @@ class MainActivity : AppCompatActivity() {
         if (session.activationState != ActivationState.DETACHED) return
         val token = getUsableAccessToken()
         if (token == null) {
-            playbackStatus.text = "Cannot reattach: Spotify session expired. Reconnect."
+            playbackStatus.text = "Spotify session expired. Please reconnect."
             toast("Reattach failed: Spotify session expired.")
             return
         }
         if (session.queue.isEmpty()) {
-            stopSession("Cannot reattach: queue is empty.")
+            stopSession("No queued item available to reattach.")
             toast("Reattach failed: queue is empty.")
             return
         }
@@ -358,16 +359,19 @@ class MainActivity : AppCompatActivity() {
 
         if (snapshot?.contextUri == expectedUri) {
             session = session.copy(
+                activationState = ActivationState.ACTIVE,
+                currentUri = expectedUri,
                 observedCurrentContext = true,
             )
             persistRuntimeState()
-            playbackStatus.text = "Reattached to current Spotify playback."
-            transitionActive("Session reattached. Monitoring playback.")
+            renderPlaybackControls()
+            playbackStatus.text = formatNowPlayingStatus(current)
+            startMonitorLoop()
             toast("Session reattached.")
         } else {
             when (playCurrentItem(token)) {
                 PlaybackStartResult.STARTED -> {
-                    transitionActive("Session reattached. Monitoring playback.")
+                    transitionActive(startMonitoring = true)
                     toast("Session reattached.")
                 }
                 PlaybackStartResult.DETACHED,
@@ -532,12 +536,15 @@ class MainActivity : AppCompatActivity() {
         playbackStatus.text = message
     }
 
-    private fun transitionActive(message: String) {
+    private fun transitionActive(startMonitoring: Boolean) {
         session = session.copy(activationState = ActivationState.ACTIVE)
         persistRuntimeState()
         renderPlaybackControls()
-        startMonitorLoop()
-        playbackStatus.text = message
+        if (startMonitoring) {
+            startMonitorLoop()
+        } else {
+            stopMonitorLoop()
+        }
     }
 
     private fun stopSession(message: String) {
@@ -636,18 +643,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restoreSessionMonitoringIfNeeded() {
-        if (session.activationState != ActivationState.ACTIVE) return
-        if (session.queue.isEmpty() || session.currentUri.isNullOrBlank()) {
-            stopSession("Restored session is incomplete. Start or reattach to continue.")
+        val restoredState = session.activationState
+        if (restoredState == ActivationState.INACTIVE) return
+
+        val current = session.queue.getOrNull(session.index)
+        if (current == null) {
+            session = SessionState()
+            clearRuntimeState()
+            renderQueue()
+            renderPlaybackControls()
+            playbackStatus.text = "No active session."
             return
         }
-        if (getToken() == null) {
-            transitionDetached("Spotify session expired. Reconnect.")
-            return
-        }
+
+        session = session.copy(currentUri = current.uri)
+        persistRuntimeState()
+        renderQueue()
         renderPlaybackControls()
-        startMonitorLoop()
-        playbackStatus.text = "Restored active session."
+        playbackStatus.text = formatNowPlayingStatus(current)
+
+        if (restoredState == ActivationState.ACTIVE) {
+            if (getToken() == null) {
+                transitionDetached("Spotify session expired. Reconnect.")
+                return
+            }
+            startMonitorLoop()
+        } else {
+            stopMonitorLoop()
+        }
     }
 
     private suspend fun fetchCurrentPlaybackSnapshot(token: String): PlaybackSnapshotResult {
