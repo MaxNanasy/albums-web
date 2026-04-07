@@ -4,15 +4,15 @@ On a successful reattach, Android currently shows Android-specific status text s
 
 ## Solution
 
-Make successful reattach reuse the same user-visible playback state as the web app.
+Make successful reattach reuse the same user-visible playback state as the web app, while still defining the target behavior explicitly.
 
-- when the expected Spotify context is already active, mark the session active, set `currentUri` and `observedCurrentContext`, and set the playback status with `formatNowPlayingStatus(current)`
-- when reattach needs to restart playback, let `playCurrentItem()` own the final success status text and do not overwrite it with `Session reattached. Monitoring playback.`
+- when the expected Spotify context is already active, mark the session active, set `currentUri` and `observedCurrentContext`, and set the playback status with `Now playing TYPE INDEX of TOTAL: TITLE`
+- when reattach needs to restart playback, let the playback-start path own the final success status text and do not overwrite it with `Session reattached. Monitoring playback.`
 - only restart monitor polling if the reattach attempt leaves the session active
 - remove the success toast and any other Android-only success copy that has no web equivalent
-- align the direct reattach failure strings with the web app where there is a clear equivalent, including `No queued item available to reattach.` and `Spotify session expired. Please reconnect.`
+- align the direct reattach failure strings with the web app where there is a clear equivalent, including `No queued item available to reattach.` and `Spotify session expired. Please reconnect.` for those specific cases
 
-This should make successful reattach look the same as a normal resumed playback path instead of surfacing separate Android-specific success messaging.
+Implementation is complete when a successful reattach is indistinguishable from a normal active playback state except for the resumed monitor loop.
 
 ## Depends On
 

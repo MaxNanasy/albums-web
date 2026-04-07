@@ -4,16 +4,16 @@ Android still uses different user-facing copy for several item-list and playlist
 
 ## Solution
 
-Align item-list and playlist-import action messages with the web app.
+Align item-list and playlist-import action messages with the web app and the following target behavior.
 
 - when add-item title loading cannot begin because there is no usable token, show `Connect Spotify first so the app can load item titles.`
 - when playlist import cannot begin because there is no usable token, show `Connect Spotify first so the app can import albums.`
 - before scanning playlist tracks, show the informational message `Importing albums from playlist...`
 - keep the playlist-import success message in the web app's form: `Imported X album(s) from playlist (Y unique album(s) found).`
-- align playlist-import failure formatting with the web app's structure `Unable to import albums from that playlist (STATUS). DETAILS`
-- review nearby item-list and playlist-import success/failure strings so they use web wording rather than Android-specific reconnect phrasing when the web app does not mention reconnect
+- format playlist-import failures with the web app's structure `Unable to import albums from that playlist (STATUS). DETAILS`, omitting `DETAILS` only when no detail text is available
+- review nearby item-list and playlist-import success or failure strings and remove Android-specific reconnect wording when the target behavior above does not call for it
 
-This should make the item-list and playlist-import actions read the same way on Android as they do on the web app.
+Implementation is complete when add-item and playlist-import flows use these exact messages and no longer depend on Android-specific wording for the cases covered here.
 
 ## Depends On
 

@@ -1,12 +1,12 @@
 ## Issue
 
-Outside the data import/export section, Android still relies on native `Toast` notifications plus a separate undo banner container for item removal. The web app uses a single in-app toast stack for success/info/error messages, supports an inline action button for `Undo`, and keeps all transient notifications in one UI surface.
+Android still relies on native `Toast` notifications plus a separate undo banner container for item removal. The target behavior, matching the web app's approach, is a single in-app notification surface that shows transient success, info, and error messages and can embed an `Undo` action in the same notification.
 
 ## Solution
 
-Replace Android's current notification and undo UI with a single in-app notification system that matches the web app's model as closely as practical.
+Replace the current notification and undo UI with one shared in-app notification system modeled on the web app's transient notification behavior.
 
-- add an in-app notification stack to the main screen instead of relying on platform `Toast.makeText(...)`
+- add an in-app notification stack to the main screen instead of relying on `Toast.makeText(...)`
 - support success, info, and error variants so playback, auth, item-list, and playlist-import messages can share one presentation model
 - support an optional action button so removal notifications can offer `Undo` in the notification itself instead of using a separate banner area
 - support explicit dismissal and timed auto-dismiss behavior for notifications
