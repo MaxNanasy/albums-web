@@ -220,7 +220,6 @@ class MainActivity : AppCompatActivity() {
 
         val token = refreshSpotifyAccessToken()
         if (token == null) {
-            authStatus.text = "Unable to validate Spotify session. Please reconnect."
             return
         }
         refreshAuthStatus()
@@ -857,7 +856,7 @@ class MainActivity : AppCompatActivity() {
         val token = parseTokenResponse(response.body) ?: run {
             reportError(
                 statusView = authStatus,
-                statusMessage = "Spotify token refresh failed: invalid token response.",
+                statusMessage = "Unable to validate Spotify session. Please reconnect.",
             )
             return null
         }
