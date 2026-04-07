@@ -1,0 +1,5 @@
+- Template: `TEMPLATE.md`
+- Draft: `draft/`
+- Active: `active/`
+- Completed: `archive/completed/`
+- Canceled: `archive/canceled/`
