@@ -138,17 +138,3 @@ Implementation notes:
 Covered by section 4 above. Use exactly:
 
 `Missing PKCE verifier. Try connecting again.`
-
-### 10. Regression coverage
-
-Add or update tests for the following copy expectations:
-
-1. Hero description matches the exact target sentence.
-2. URI helper copy is present and exact.
-3. Missing PKCE verifier text matches exactly.
-4. Add/import/start no-auth prompts match the exact task-specific strings.
-5. Wrong-context playback warning matches exactly.
-6. Network/Spotify status helpers map the covered cases to the target user-facing wording.
-7. Playlist import shows the in-progress text and wraps failures with import-specific wording.
-8. Startup/session validation failure uses the generic validation wording.
-9. No login-success toast is shown after a successful auth redirect.
