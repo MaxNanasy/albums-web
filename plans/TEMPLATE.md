@@ -8,5 +8,5 @@
 
 ## Depends On [Optional]
 
-- `[Dependent plan's base filename]`: [Rationale for dependency]
+- `[Dependent plan's base filename].md`: [Rationale for dependency]
 - ...
