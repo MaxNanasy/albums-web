@@ -49,8 +49,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var storageJsonInput: EditText
     private lateinit var undoBannerContainer: LinearLayout
 
-    private lateinit var loginButton: Button
-    private lateinit var logoutButton: Button
+    private lateinit var connectButton: Button
+    private lateinit var disconnectButton: Button
     private lateinit var addButton: Button
     private lateinit var importPlaylistButton: Button
     private lateinit var startButton: Button
@@ -117,8 +117,8 @@ class MainActivity : AppCompatActivity() {
         storageJsonInput = findViewById(R.id.storageJsonInput)
         undoBannerContainer = findViewById(R.id.undoBannerContainer)
 
-        loginButton = findViewById(R.id.loginButton)
-        logoutButton = findViewById(R.id.logoutButton)
+        connectButton = findViewById(R.id.connectButton)
+        disconnectButton = findViewById(R.id.disconnectButton)
         addButton = findViewById(R.id.addButton)
         importPlaylistButton = findViewById(R.id.importPlaylistButton)
         startButton = findViewById(R.id.startButton)
@@ -141,8 +141,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun wireEvents() {
-        loginButton.setOnClickListener { startLogin() }
-        logoutButton.setOnClickListener {
+        connectButton.setOnClickListener { startConnect() }
+        disconnectButton.setOnClickListener {
             clearAuth()
             refreshAuthStatus()
             toast("Disconnected from Spotify.")
@@ -181,7 +181,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun startLogin() {
+    private fun startConnect() {
         val verifier = randomString(64)
         prefs.edit().putString(KEY_VERIFIER, verifier).apply()
         val challenge = codeChallengeFromVerifier(verifier)
