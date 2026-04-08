@@ -85,7 +85,7 @@ Unrecoverable monitor statuses should remain detach-worthy:
 - 403
 - 404
 
-These should continue transitioning the session to detached state, but the text for those cases is covered by the text-normalization plan.
+These should continue transitioning the session to detached state, but the text for those cases is covered by `normalize-android-copy-to-web-auth-playback-import.md`.
 
 ### 4. Normalize playlist import progress behavior
 
@@ -100,4 +100,4 @@ These should continue transitioning the session to detached state, but the text 
 
 ## Depends On
 
-- `normalize-android-copy-to-web-auth-playback-import`: Supplies the exact target strings for the normalized UI states in this plan.
+- `normalize-android-copy-to-web-auth-playback-import.md`: Supplies the exact target strings for the normalized UI states in this plan.
