@@ -157,7 +157,7 @@ class MainActivity : AppCompatActivity() {
             refreshAuthStatus()
             toast("Disconnected from Spotify.")
         }
-        addButton.setOnClickListener { appScope.launch { addItem() } }
+        addButton.setOnClickListener { launchUiAction("Add item") { addItem() } }
         itemUriInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 addButton.performClick()
@@ -166,10 +166,12 @@ class MainActivity : AppCompatActivity() {
                 false
             }
         }
-        importPlaylistButton.setOnClickListener { appScope.launch { importAlbumsFromPlaylist() } }
-        startButton.setOnClickListener { appScope.launch { startShuffleSession() } }
-        reattachButton.setOnClickListener { appScope.launch { reattachSession() } }
-        skipButton.setOnClickListener { appScope.launch { goToNextItem() } }
+        importPlaylistButton.setOnClickListener {
+            launchUiAction("Import playlist albums") { importAlbumsFromPlaylist() }
+        }
+        startButton.setOnClickListener { launchUiAction("Start playback") { startShuffleSession() } }
+        reattachButton.setOnClickListener { launchUiAction("Reattach session") { reattachSession() } }
+        skipButton.setOnClickListener { launchUiAction("Skip item") { goToNextItem() } }
         stopButton.setOnClickListener { stopSession("Session stopped.") }
         exportStorageButton.setOnClickListener { exportStorageJson() }
         importStorageButton.setOnClickListener { importStorageJson() }
@@ -189,6 +191,22 @@ class MainActivity : AppCompatActivity() {
         } else {
             "Connected, but token is missing playlist import scopes. Disconnect and reconnect."
         }
+    }
+
+    private fun launchUiAction(actionLabel: String, block: suspend () -> Unit) {
+        appScope.launch {
+            try {
+                block()
+            } catch (error: Throwable) {
+                handleUiActionFailure(actionLabel, error)
+            }
+        }
+    }
+
+    private fun handleUiActionFailure(actionLabel: String, error: Throwable) {
+        val message = "$actionLabel failed: ${describeAppRemoteError(error)}"
+        playbackStatus.text = message
+        toast(message)
     }
 
     private fun handleAppRemoteConnectionFailure(error: Throwable) {
