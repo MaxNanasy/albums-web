@@ -19,13 +19,19 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.spotify.android.appremote.api.ConnectionParams
+import com.spotify.android.appremote.api.Connector
+import com.spotify.android.appremote.api.SpotifyAppRemote
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -67,6 +73,8 @@ class MainActivity : AppCompatActivity() {
     private var nextPendingRemovalId: Long = 0
 
     private var session = SessionState()
+    private var spotifyAppRemote: SpotifyAppRemote? = null
+    private var connectingAppRemote = false
 
     private val monitorHandler = Handler(Looper.getMainLooper())
     private val monitorTask = object : Runnable {
@@ -102,6 +110,11 @@ class MainActivity : AppCompatActivity() {
         appScope.launch {
             processAuthRedirect(intent.data)
         }
+    }
+
+    override fun onStop() {
+        disconnectAppRemote()
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -147,7 +160,7 @@ class MainActivity : AppCompatActivity() {
             refreshAuthStatus()
             toast("Disconnected from Spotify.")
         }
-        addButton.setOnClickListener { appScope.launch { addItem() } }
+        addButton.setOnClickListener { launchUiAction("Add item") { addItem() } }
         itemUriInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 addButton.performClick()
@@ -156,10 +169,12 @@ class MainActivity : AppCompatActivity() {
                 false
             }
         }
-        importPlaylistButton.setOnClickListener { appScope.launch { importAlbumsFromPlaylist() } }
-        startButton.setOnClickListener { appScope.launch { startShuffleSession() } }
-        reattachButton.setOnClickListener { appScope.launch { reattachSession() } }
-        skipButton.setOnClickListener { appScope.launch { goToNextItem() } }
+        importPlaylistButton.setOnClickListener {
+            launchUiAction("Import playlist albums") { importAlbumsFromPlaylist() }
+        }
+        startButton.setOnClickListener { launchUiAction("Start playback") { startShuffleSession() } }
+        reattachButton.setOnClickListener { launchUiAction("Reattach session") { reattachSession() } }
+        skipButton.setOnClickListener { launchUiAction("Skip item") { goToNextItem() } }
         stopButton.setOnClickListener { stopSession("Session stopped.") }
         exportStorageButton.setOnClickListener { exportStorageJson() }
         importStorageButton.setOnClickListener { importStorageJson() }
@@ -179,6 +194,36 @@ class MainActivity : AppCompatActivity() {
         } else {
             "Connected, but token is missing playlist import scopes. Disconnect and reconnect."
         }
+    }
+
+    private fun launchUiAction(actionLabel: String, block: suspend () -> Unit) {
+        appScope.launch {
+            try {
+                block()
+            } catch (error: Throwable) {
+                handleUiActionFailure(actionLabel, error)
+            }
+        }
+    }
+
+    private fun handleUiActionFailure(actionLabel: String, error: Throwable) {
+        val message = "$actionLabel failed: ${describeAppRemoteError(error)}"
+        playbackStatus.text = message
+        toast(message)
+    }
+
+    private fun handleAppRemoteConnectionFailure(error: Throwable) {
+        val message = "Spotify app connection failed: ${describeAppRemoteError(error)}"
+        runOnUiThread {
+            playbackStatus.text = message
+        }
+    }
+
+    private fun describeAppRemoteError(error: Throwable): String {
+        val type = error::class.java.simpleName.ifBlank { "UnknownError" }
+        val detail = sequenceOf(error.message?.trim(), error.cause?.message?.trim())
+            .firstOrNull { !it.isNullOrBlank() }
+        return if (detail == null || detail == type) type else "$type: $detail"
     }
 
     private fun startConnect() {
@@ -201,6 +246,91 @@ class MainActivity : AppCompatActivity() {
         } catch (_: ActivityNotFoundException) {
             toast("Unable to open browser for Spotify login.")
         }
+    }
+
+    private suspend fun connectAppRemote(): SpotifyAppRemote {
+        spotifyAppRemote?.let { return it }
+        if (connectingAppRemote) {
+            throw IllegalStateException("Spotify app connection is already in progress")
+        }
+        if (!SpotifyAppRemote.isSpotifyInstalled(this)) {
+            throw IllegalStateException("Spotify app is not installed on this device")
+        }
+
+        connectingAppRemote = true
+
+        val params = ConnectionParams.Builder(SPOTIFY_APP_ID)
+            .setRedirectUri(REDIRECT_URI)
+            .showAuthView(false)
+            .build()
+
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                SpotifyAppRemote.connect(
+                    this,
+                    params,
+                    object : Connector.ConnectionListener {
+                        override fun onConnected(remote: SpotifyAppRemote) {
+                            connectingAppRemote = false
+                            spotifyAppRemote = remote
+                            if (continuation.isActive) {
+                                continuation.resume(remote)
+                            }
+                        }
+
+                        override fun onFailure(error: Throwable) {
+                            connectingAppRemote = false
+                            spotifyAppRemote = null
+                            if (continuation.isActive) {
+                                continuation.resumeWithException(error)
+                            }
+                        }
+                    },
+                )
+            } catch (t: Throwable) {
+                connectingAppRemote = false
+                spotifyAppRemote = null
+                if (continuation.isActive) {
+                    continuation.resumeWithException(t)
+                }
+            }
+        }
+    }
+
+    private suspend fun awaitAppRemoteCall(
+        action: (SpotifyAppRemote) -> com.spotify.protocol.client.CallResult<*>,
+    ) {
+        val remote = connectAppRemote()
+
+        suspendCancellableCoroutine<Unit> { continuation ->
+            try {
+                action(remote)
+                    .setResultCallback {
+                        if (continuation.isActive) {
+                            continuation.resume(Unit)
+                        }
+                    }
+                    .setErrorCallback { error ->
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(error)
+                        }
+                    }
+            } catch (t: Throwable) {
+                if (continuation.isActive) {
+                    continuation.resumeWithException(t)
+                }
+            }
+        }
+    }
+
+    private suspend fun playUriWithAppRemote(uri: String) {
+        awaitAppRemoteCall { remote -> remote.playerApi.play(uri) }
+    }
+
+    private fun disconnectAppRemote() {
+        spotifyAppRemote?.also { SpotifyAppRemote.disconnect(it) }
+        spotifyAppRemote = null
+        connectingAppRemote = false
     }
 
     private suspend fun ensureUsableStartupAuth(uri: Uri?) {
@@ -303,7 +433,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun startShuffleSession() {
-        val token = getUsableAccessToken() ?: return toast("Connect Spotify first.")
+        getUsableAccessToken() ?: return toast("Connect Spotify first.")
         val items = getItems()
         if (items.isEmpty()) return toast("Add at least one album or playlist first.")
 
@@ -316,7 +446,7 @@ class MainActivity : AppCompatActivity() {
         renderQueue()
         renderPlaybackControls()
         playbackStatus.text = "Session started with ${session.queue.size} item(s)."
-        when (playCurrentItem(token)) {
+        when (playCurrentItem()) {
             PlaybackStartResult.STARTED -> transitionActive(startMonitoring = true)
             PlaybackStartResult.DETACHED,
             PlaybackStartResult.STOPPED,
@@ -366,7 +496,7 @@ class MainActivity : AppCompatActivity() {
             startMonitorLoop()
             toast("Session reattached.")
         } else {
-            when (playCurrentItem(token)) {
+            when (playCurrentItem()) {
                 PlaybackStartResult.STARTED -> {
                     transitionActive(startMonitoring = true)
                     toast("Session reattached.")
@@ -390,11 +520,11 @@ class MainActivity : AppCompatActivity() {
         }
         persistRuntimeState()
         renderQueue()
-        val token = getUsableAccessToken() ?: return stopSession("Spotify session expired. Reconnect to continue.")
-        playCurrentItem(token)
+        getUsableAccessToken() ?: return stopSession("Spotify session expired. Reconnect to continue.")
+        playCurrentItem()
     }
 
-    private suspend fun playCurrentItem(token: String): PlaybackStartResult {
+    private suspend fun playCurrentItem(): PlaybackStartResult {
         val current = session.queue.getOrNull(session.index)
             ?: run {
                 stopSession("Finished: all selected albums/playlists were played.")
@@ -409,7 +539,7 @@ class MainActivity : AppCompatActivity() {
         renderPlaybackControls()
         renderQueue()
 
-        val preflightResult = runPlaybackPreflight(token)
+        val preflightResult = runPlaybackPreflight()
         if (!preflightResult.ok) {
             if (preflightResult.detach) {
                 transitionDetached(preflightResult.message)
@@ -421,18 +551,12 @@ class MainActivity : AppCompatActivity() {
             return PlaybackStartResult.STOPPED
         }
 
-        val payload = JSONObject()
-            .put("context_uri", current.uri)
-            .put("offset", JSONObject().put("position", 0))
-            .put("position_ms", 0)
-
-        val response = spotifyApi("/me/player/play", "PUT", token, payload.toString())
-        if (!response.ok) {
-            val failure = spotifyFailureMessage(response.status, response.failureReason)
+        try {
+            playUriWithAppRemote(current.uri)
+        } catch (error: Throwable) {
+            val failure = describeAppRemoteError(error)
             transitionDetached("Playback detached: $failure.")
-            if (isUnrecoverableSpotifyStatus(response.status)) {
-                reportError(toastMessage = "Playback detached: $failure.")
-            }
+            reportError(toastMessage = "Playback detached: $failure.")
             return PlaybackStartResult.DETACHED
         }
 
@@ -440,37 +564,31 @@ class MainActivity : AppCompatActivity() {
         return PlaybackStartResult.STARTED
     }
 
-    private suspend fun runPlaybackPreflight(token: String): PlaybackPreflightResult {
-        val steps = listOf(
-            PlaybackPreflightStep(
-                path = "/me/player/shuffle?state=false",
-                action = "disable shuffle",
-            ),
-            PlaybackPreflightStep(
-                path = "/me/player/repeat?state=off",
-                action = "disable repeat",
-            ),
-        )
-
-        for (step in steps) {
-            val response = spotifyApi(step.path, "PUT", token, null)
-            if (response.ok) continue
-
-            val failure = spotifyFailureMessage(response.status, response.failureReason)
-            val message = "Playback preflight failed: could not ${step.action} ($failure)."
-            if (isUnrecoverableSpotifyStatus(response.status)) {
-                return PlaybackPreflightResult(
-                    ok = false,
-                    detach = true,
-                    message = "Playback detached: $message",
-                )
-            }
+    private suspend fun runPlaybackPreflight(): PlaybackPreflightResult {
+        try {
+            awaitAppRemoteCall { remote -> remote.playerApi.setShuffle(false) }
+        } catch (error: Throwable) {
+            val failure = describeAppRemoteError(error)
             return PlaybackPreflightResult(
                 ok = false,
-                detach = false,
-                message = "Playback stopped: $message",
+                detach = true,
+                message = "Playback detached: Playback preflight failed: could not disable shuffle ($failure).",
             )
         }
+
+        try {
+            awaitAppRemoteCall { remote ->
+                remote.playerApi.setRepeat(com.spotify.protocol.types.Repeat.OFF)
+            }
+        } catch (error: Throwable) {
+            val failure = describeAppRemoteError(error)
+            return PlaybackPreflightResult(
+                ok = false,
+                detach = true,
+                message = "Playback detached: Playback preflight failed: could not disable repeat ($failure).",
+            )
+        }
+
         return PlaybackPreflightResult(ok = true, detach = false, message = "")
     }
 
@@ -801,6 +919,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearAuth() {
+        disconnectAppRemote()
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
@@ -1227,6 +1346,7 @@ class MainActivity : AppCompatActivity() {
             "user-read-playback-state",
             "playlist-read-private",
             "playlist-read-collaborative",
+            "app-remote-control",
         )
 
         private const val KEY_VERIFIER = "shuffle-by-album.pkceVerifier"
@@ -1293,11 +1413,6 @@ private data class PlaybackSnapshotResult(
     val ok: Boolean,
     val failureReason: String?,
     val body: String?,
-)
-
-private data class PlaybackPreflightStep(
-    val path: String,
-    val action: String,
 )
 
 private data class PlaybackPreflightResult(
