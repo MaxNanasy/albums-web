@@ -510,6 +510,9 @@ class MainActivity : AppCompatActivity() {
         if (contextUri == session.currentUri) {
             session = session.copy(observedCurrentContext = true)
             persistRuntimeState()
+            session.queue.getOrNull(session.index)?.let { current ->
+                playbackStatus.text = formatNowPlayingStatus(current)
+            }
             return
         }
 
