@@ -191,6 +191,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun handleAppRemoteConnectionFailure(error: Throwable) {
+        val message = "Spotify app connection failed: ${describeAppRemoteError(error)}"
+        runOnUiThread {
+            playbackStatus.text = message
+        }
+    }
+
+    private fun describeAppRemoteError(error: Throwable): String {
+        val type = error::class.java.simpleName.ifBlank { "UnknownError" }
+        val detail = sequenceOf(error.message?.trim(), error.cause?.message?.trim())
+            .firstOrNull { !it.isNullOrBlank() }
+        return if (detail == null || detail == type) type else "$type: $detail"
+    }
+
     private fun startConnect() {
         val verifier = randomString(64)
         prefs.edit().putString(KEY_VERIFIER, verifier).apply()
@@ -223,7 +237,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (connectingAppRemote) return
         if (!SpotifyAppRemote.isSpotifyInstalled(this)) {
-            onFailure?.invoke(IllegalStateException("Spotify app is not installed"))
+            val error = IllegalStateException("Spotify app is not installed on this device")
+            handleAppRemoteConnectionFailure(error)
+            onFailure?.invoke(error)
             return
         }
 
@@ -248,6 +264,7 @@ class MainActivity : AppCompatActivity() {
                     override fun onFailure(error: Throwable) {
                         connectingAppRemote = false
                         spotifyAppRemote = null
+                        handleAppRemoteConnectionFailure(error)
                         onFailure?.invoke(error)
                     }
                 },
@@ -255,6 +272,7 @@ class MainActivity : AppCompatActivity() {
         } catch (t: Throwable) {
             connectingAppRemote = false
             spotifyAppRemote = null
+            handleAppRemoteConnectionFailure(t)
             onFailure?.invoke(t)
         }
     }
@@ -372,14 +390,7 @@ class MainActivity : AppCompatActivity() {
         val items = getItems()
         if (items.isEmpty()) return toast("Add at least one album or playlist first.")
 
-        connectAppRemote(
-            onFailure = {
-                runOnUiThread {
-                    playbackStatus.text =
-                        "Spotify app connection failed. Open Spotify on this device and try again."
-                }
-            },
-        )
+        connectAppRemote()
 
         session = session.copy(
             activationState = ActivationState.ACTIVE,
