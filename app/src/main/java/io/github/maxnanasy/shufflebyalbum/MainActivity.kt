@@ -273,7 +273,7 @@ class MainActivity : AppCompatActivity() {
         saveItems(items)
         renderItemList()
         itemUriInput.setText("")
-        toast("Item added.")
+        toast("Added ${quotedTitle(titled.title)}.")
     }
 
     private suspend fun importAlbumsFromPlaylist() {
