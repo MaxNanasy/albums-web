@@ -19,6 +19,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.spotify.android.appremote.api.ConnectionParams
+import com.spotify.android.appremote.api.Connector
+import com.spotify.android.appremote.api.SpotifyAppRemote
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +70,8 @@ class MainActivity : AppCompatActivity() {
     private var nextPendingRemovalId: Long = 0
 
     private var session = SessionState()
+    private var spotifyAppRemote: SpotifyAppRemote? = null
+    private var connectingAppRemote = false
 
     private val monitorHandler = Handler(Looper.getMainLooper())
     private val monitorTask = object : Runnable {
@@ -105,6 +110,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        disconnectAppRemote()
         super.onDestroy()
         stopMonitorLoop()
         appScope.cancel()
@@ -203,6 +209,48 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun connectAppRemote(
+        onConnected: (() -> Unit)? = null,
+        onFailure: ((Throwable) -> Unit)? = null,
+    ) {
+        if (spotifyAppRemote != null) {
+            onConnected?.invoke()
+            return
+        }
+        if (connectingAppRemote) return
+
+        connectingAppRemote = true
+
+        val params = ConnectionParams.Builder(SPOTIFY_APP_ID)
+            .setRedirectUri(REDIRECT_URI)
+            .showAuthView(true)
+            .build()
+
+        SpotifyAppRemote.connect(
+            this,
+            params,
+            object : Connector.ConnectionListener {
+                override fun onConnected(remote: SpotifyAppRemote) {
+                    connectingAppRemote = false
+                    spotifyAppRemote = remote
+                    onConnected?.invoke()
+                }
+
+                override fun onFailure(error: Throwable) {
+                    connectingAppRemote = false
+                    spotifyAppRemote = null
+                    onFailure?.invoke(error)
+                }
+            },
+        )
+    }
+
+    private fun disconnectAppRemote() {
+        spotifyAppRemote?.also { SpotifyAppRemote.disconnect(it) }
+        spotifyAppRemote = null
+        connectingAppRemote = false
+    }
+
     private suspend fun ensureUsableStartupAuth(uri: Uri?) {
         if (processAuthRedirect(uri)) {
             return
@@ -253,6 +301,14 @@ class MainActivity : AppCompatActivity() {
         saveToken(token)
         prefs.edit().remove(KEY_VERIFIER).apply()
         refreshAuthStatus()
+        connectAppRemote(
+            onFailure = {
+                runOnUiThread {
+                    playbackStatus.text =
+                        "Connected to Spotify account, but could not attach to the Spotify app on this device."
+                }
+            },
+        )
         renderItemList()
         return true
     }
@@ -306,6 +362,15 @@ class MainActivity : AppCompatActivity() {
         val token = getUsableAccessToken() ?: return toast("Connect Spotify first.")
         val items = getItems()
         if (items.isEmpty()) return toast("Add at least one album or playlist first.")
+
+        connectAppRemote(
+            onFailure = {
+                runOnUiThread {
+                    playbackStatus.text =
+                        "Spotify app connection failed. Open Spotify on this device and try again."
+                }
+            },
+        )
 
         session = session.copy(
             activationState = ActivationState.ACTIVE,
@@ -801,6 +866,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearAuth() {
+        disconnectAppRemote()
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
