@@ -1,6 +1,6 @@
 ## Issue
 
-The playback monitor currently advances only when Spotify stops reporting the expected context, but recent `/me/player` responses show a different terminal state for completed albums/playlists: playback is paused at the beginning of the first track in the same context. The web app needs a replacement detector that treats that reset state as completion without adding debounce.
+The playback monitor currently advances only when Spotify stops reporting the expected context, but recent `/me/player` responses show a different terminal state for completed albums/playlists: playback is paused at the beginning of the first track in the same context. The web app needs a replacement detector that treats that reset state as completion.
 
 ## Solution
 
