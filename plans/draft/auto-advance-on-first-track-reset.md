@@ -5,11 +5,11 @@ The playback monitor currently advances only when Spotify stops reporting the ex
 ## Solution
 
 - Add a persisted runtime boolean `observedPastFirstTrack`, initialized to `false` whenever a session starts a new item, detaches, stops, or otherwise resets playback state.
-- Add a helper `isInitialPosition(playerResponse)` that returns `true` only when `playerResponse.actions.disallows.skipping_prev` is truthy and `playerResponse.progress_ms === 0`.
+- Add a helper `isFirstTrack(playerResponse)` that returns `true` only when `playerResponse.actions.disallows.skipping_prev` is truthy.
 - Update the playback monitor so that, when Spotify reports the expected context:
   - it continues to set `observedCurrentContext = true`;
-  - it sets `observedPastFirstTrack = true` once the current player response is not at the first track for that context;
-  - it triggers `goToNextItem()` immediately when all of the following are true on a single poll: `observedCurrentContext`, `observedPastFirstTrack`, `isInitialPosition(playerResponse)`, and `playerResponse.is_playing === false`;
+  - it sets `observedPastFirstTrack = true` once `isFirstTrack(player response)` is false;
+  - it triggers `goToNextItem()` immediately when all of the following are true on a single poll: `observedCurrentContext`, `observedPastFirstTrack`, `isFirstTrack(playerResponse)`, `playerResponse.progress_ms === 0` and `playerResponse.is_playing === false`;
   - it resets `observedPastFirstTrack = false` when the expected context returns to the first track in any case that does not trigger the next album/playlist, so a manual restart does not stay armed.
 - Keep the existing no-debounce behavior: a single qualifying monitor response advances immediately.
 - Preserve the existing detached-session behavior when Spotify reports a different non-null context than the one the app expects.
