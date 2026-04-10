@@ -14,6 +14,7 @@
  * @property {number} index
  * @property {string | null} currentUri
  * @property {boolean} observedCurrentContext
+ * @property {boolean} observedPastFirstTrack
  */
 
 const SCOPES = [
@@ -69,6 +70,7 @@ const session = {
   index: 0,
   currentUri: null,
   observedCurrentContext: false,
+  observedPastFirstTrack: false,
 };
 
 let monitorTimer = /** @type {number | null} */ (null);
@@ -722,6 +724,7 @@ function transitionToInactive(message) {
   session.index = 0;
   session.currentUri = null;
   session.observedCurrentContext = false;
+  session.observedPastFirstTrack = false;
   clearRuntimeState();
   renderSessionQueue();
   renderPlaybackControls();
@@ -735,6 +738,7 @@ function transitionToDetached(message) {
   }
   stopMonitorLoop();
   session.activationState = 'detached';
+  session.observedPastFirstTrack = false;
   persistRuntimeState();
   renderPlaybackControls();
   setPlaybackStatus(message);
@@ -816,6 +820,7 @@ async function reattachSession() {
   } else {
     session.currentUri = current.uri;
     session.observedCurrentContext = true;
+    session.observedPastFirstTrack = false;
     session.activationState = 'active';
     persistRuntimeState();
     renderPlaybackControls();
@@ -834,6 +839,7 @@ async function playCurrentItem() {
   }
   session.currentUri = current.uri;
   session.observedCurrentContext = false;
+  session.observedPastFirstTrack = false;
   session.activationState = 'active';
   persistRuntimeState();
   renderPlaybackControls();
@@ -1045,7 +1051,9 @@ async function monitorPlayback() {
 
   const data = await runWithReportedError(
     async () =>
-      /** @type {{context?: {uri?: string} | null}} */ (await response.json()),
+      /** @type {{context?: {uri?: string} | null; actions?: {disallows?: {skipping_prev?: unknown} | null} | null; progress_ms?: number; is_playing?: boolean}} */ (
+        await response.json()
+      ),
     {
       context: 'monitor',
       fallbackMessage: 'Unexpected playback response from Spotify.',
@@ -1061,6 +1069,22 @@ async function monitorPlayback() {
 
   if (contextUri === session.currentUri) {
     session.observedCurrentContext = true;
+    if (!isFirstTrack(data)) {
+      session.observedPastFirstTrack = true;
+      persistRuntimeState();
+      return;
+    }
+
+    if (
+      session.observedPastFirstTrack &&
+      data.progress_ms === 0 &&
+      data.is_playing === false
+    ) {
+      await goToNextItem();
+      return;
+    }
+
+    session.observedPastFirstTrack = false;
     persistRuntimeState();
     return;
   }
@@ -1132,6 +1156,7 @@ function restoreRuntimeState() {
       : 0;
   const restoredCurrentUri = typeof parsed.currentUri === 'string' ? parsed.currentUri : null;
   const restoredObserved = parsed.observedCurrentContext === true;
+  const restoredObservedPastFirstTrack = parsed.observedPastFirstTrack === true;
   const activationStateValue = parsed.activationState;
   let restoredActivationState = /** @type {'inactive' | 'active' | 'detached'} */ ('inactive');
   if (
@@ -1149,6 +1174,7 @@ function restoreRuntimeState() {
   session.index = Math.min(restoredIndex, Math.max(0, restoredQueue.length - 1));
   session.currentUri = restoredCurrentUri;
   session.observedCurrentContext = restoredObserved;
+  session.observedPastFirstTrack = restoredObservedPastFirstTrack;
   session.activationState = restoredActivationState;
 
   if (session.activationState === 'inactive') {
@@ -1175,8 +1201,17 @@ function persistRuntimeState() {
       index: session.index,
       currentUri: session.currentUri,
       observedCurrentContext: session.observedCurrentContext,
+      observedPastFirstTrack: session.observedPastFirstTrack,
     }),
   );
+}
+
+/**
+ * @param {{actions?: {disallows?: {skipping_prev?: unknown} | null} | null}} playbackState
+ * @returns {boolean}
+ */
+function isFirstTrack(playbackState) {
+  return playbackState.actions?.disallows?.skipping_prev === true;
 }
 
 function clearRuntimeState() {
