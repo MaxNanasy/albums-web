@@ -15,26 +15,23 @@ export class SpotifyApiHttpError extends Error {
   }
 }
 
+/**
+ * @typedef {{
+ * getAccessToken?: () => Promise<string | null>;
+ * refreshSpotifyAccessToken?: () => Promise<string | null>;
+ * clearAuth?: () => void;
+ * transitionToDetached?: (message: string) => void;
+ * setAuthStatus?: (message: string) => void;
+ * spotifyStatusMessage?: (status: number, fallbackMessage: string) => string;
+ * }} SpotifyApiDeps
+ */
+
 export class SpotifyApi {
-  /** @type {{
-   * getAccessToken?: () => Promise<string | null>;
-   * refreshSpotifyAccessToken?: () => Promise<string | null>;
-   * clearAuth?: () => void;
-   * transitionToDetached?: (message: string) => void;
-   * setAuthStatus?: (message: string) => void;
-   * spotifyStatusMessage?: (status: number, fallbackMessage: string) => string;
-   * }} */
+  /** @type {SpotifyApiDeps} */
   deps;
 
   /**
-   * @param {{
-   * getAccessToken?: () => Promise<string | null>;
-   * refreshSpotifyAccessToken?: () => Promise<string | null>;
-   * clearAuth?: () => void;
-   * transitionToDetached?: (message: string) => void;
-   * setAuthStatus?: (message: string) => void;
-   * spotifyStatusMessage?: (status: number, fallbackMessage: string) => string;
-   * }} deps
+   * @param {SpotifyApiDeps} deps
    */
   constructor(deps) {
     this.deps = deps;
