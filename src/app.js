@@ -82,6 +82,7 @@ const errorToastLastShownAt = new Map();
 /** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
 
 const spotifyApi = new SpotifyApi({
+  getAccessToken: getUsableAccessToken,
   refreshSpotifyAccessToken,
   clearAuth,
   transitionToDetached,
@@ -155,7 +156,7 @@ function hookEvents() {
         return;
       }
 
-      const titledItem = await withItemTitle(parsed, token);
+      const titledItem = await withItemTitle(parsed);
       if (!titledItem) {
         showToast('Unable to load title for that item. Please try another URI.', 'error');
         return;
@@ -263,7 +264,7 @@ async function ensureStoredItemTitles() {
       continue;
     }
 
-    const titledItem = await withItemTitle(item, token);
+    const titledItem = await withItemTitle(item);
     if (!titledItem) {
       updated.push({ ...item, title: item.uri });
     } else {
@@ -785,7 +786,7 @@ async function reattachSession() {
     return;
   }
 
-  const response = await spotifyApi.request('/me/player', { method: 'GET' }, token, false);
+  const response = await spotifyApi.request('/me/player', { method: 'GET' }, false);
   if (!response.ok && response.status !== 204) {
     if (isUnrecoverableSpotifyStatus(response.status)) {
       transitionToDetached(spotifyStatusMessage(response.status, 'Unable to reattach playback state.'));
@@ -838,8 +839,8 @@ async function playCurrentItem() {
   }
 
   try {
-    await spotifyApi.request('/me/player/shuffle?state=false', { method: 'PUT' }, token);
-    await spotifyApi.request('/me/player/repeat?state=off', { method: 'PUT' }, token);
+    await spotifyApi.request('/me/player/shuffle?state=false', { method: 'PUT' });
+    await spotifyApi.request('/me/player/repeat?state=off', { method: 'PUT' });
 
     await spotifyApi.request(
       '/me/player/play',
@@ -850,8 +851,7 @@ async function playCurrentItem() {
           offset: { position: 0 },
           position_ms: 0,
         }),
-      },
-      token,
+      }
     );
   } catch (error) {
     reportError(error, {
@@ -887,7 +887,7 @@ async function importAlbumsFromPlaylist() {
 
   const existingItems = getItems();
   const existingUris = new Set(existingItems.map((item) => item.uri));
-  const importResult = await fetchPlaylistAlbums(parsedPlaylist.id, token);
+  const importResult = await fetchPlaylistAlbums(parsedPlaylist.id);
   if (importResult.errorMessage) {
     showToast(importResult.errorMessage, 'error');
     return;
@@ -912,10 +912,9 @@ async function importAlbumsFromPlaylist() {
 
 /**
  * @param {string} playlistId
- * @param {string} token
  * @returns {Promise<{albums: ShuffleItem[]; errorMessage: string | null}>}
  */
-async function fetchPlaylistAlbums(playlistId, token) {
+async function fetchPlaylistAlbums(playlistId) {
   /** @type {Map<string, ShuffleItem>} */
   const albumsByUri = new Map();
   let offset = 0;
@@ -931,7 +930,6 @@ async function fetchPlaylistAlbums(playlistId, token) {
     const response = await spotifyApi.request(
       `/playlists/${playlistId}/items?${params.toString()}`,
       { method: 'GET' },
-      token,
       false,
     );
     if (!response.ok) {
@@ -968,15 +966,14 @@ async function fetchPlaylistAlbums(playlistId, token) {
 
 /**
  * @param {{uri: string; type: ItemType; title?: string}} item
- * @param {string} token
  * @returns {Promise<ShuffleItem | null>}
  */
-async function withItemTitle(item, token) {
+async function withItemTitle(item) {
   const id = spotifyIdFromUri(item.uri);
   if (!id) return null;
 
   const path = item.type === 'album' ? `/albums/${id}` : `/playlists/${id}`;
-  const response = await spotifyApi.request(path, { method: 'GET' }, token, false);
+  const response = await spotifyApi.request(path, { method: 'GET' }, false);
   if (!response.ok) return null;
 
   /** @type {{name?: string}} */
@@ -1014,7 +1011,7 @@ async function monitorPlayback() {
     return;
   }
 
-  const response = await spotifyApi.request('/me/player', { method: 'GET' }, token, false);
+  const response = await spotifyApi.request('/me/player', { method: 'GET' }, false);
   if (response.status === 204) {
     // nothing currently playing/active
     return;

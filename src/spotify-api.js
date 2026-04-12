@@ -17,6 +17,7 @@ export class SpotifyApiHttpError extends Error {
 
 export class SpotifyApi {
   /** @type {{
+   * getAccessToken?: () => Promise<string | null>;
    * refreshSpotifyAccessToken?: () => Promise<string | null>;
    * clearAuth?: () => void;
    * transitionToDetached?: (message: string) => void;
@@ -27,6 +28,7 @@ export class SpotifyApi {
 
   /**
    * @param {{
+   * getAccessToken?: () => Promise<string | null>;
    * refreshSpotifyAccessToken?: () => Promise<string | null>;
    * clearAuth?: () => void;
    * transitionToDetached?: (message: string) => void;
@@ -41,10 +43,15 @@ export class SpotifyApi {
   /**
    * @param {string} path
    * @param {RequestInit} init
-   * @param {string} token
    * @param {boolean} throwOnError
    */
-  async request(path, init, token, throwOnError = true) {
+  async request(path, init, throwOnError = true) {
+    /** @param {number} status */
+    const statusMessage = (status) =>
+      this.deps.spotifyStatusMessage
+        ? this.deps.spotifyStatusMessage(status, `Spotify API request failed for ${path}.`)
+        : `Spotify API request failed for ${path}.`;
+
     /** @param {string} bearerToken */
     const makeRequest = (bearerToken) =>
       fetch(`https://api.spotify.com/v1${path}`, {
@@ -55,6 +62,14 @@ export class SpotifyApi {
           ...(init.headers ?? {}),
         },
       });
+
+    const token = await this.deps.getAccessToken?.();
+    if (!token) {
+      this.deps.clearAuth?.();
+      this.deps.transitionToDetached?.('Spotify session expired. Please reconnect.');
+      this.deps.setAuthStatus?.('Spotify session expired. Please reconnect.');
+      throw new SpotifyApiHttpError(401, statusMessage(401));
+    }
 
     let response = await makeRequest(token);
     if (response.status === 401) {
@@ -72,10 +87,7 @@ export class SpotifyApi {
 
     if (!response.ok && throwOnError) {
       const body = await response.text();
-      const fallbackMessage = `Spotify API request failed for ${path}.`;
-      const message = this.deps.spotifyStatusMessage
-        ? this.deps.spotifyStatusMessage(response.status, fallbackMessage)
-        : fallbackMessage;
+      const message = statusMessage(response.status);
       throw new SpotifyApiHttpError(response.status, body ? `${message} ${body}` : message);
     }
 
