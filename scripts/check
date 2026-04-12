@@ -5,6 +5,9 @@ set -euo pipefail
 tsc_status=0
 npx tsc || tsc_status=$?
 
+tests_tsc_status=0
+npx tsc -p tests/tsconfig.json || tests_tsc_status=$?
+
 tc_status=0
 tc_output=$(npx type-coverage 2>&1) || tc_status=$?
 
@@ -12,4 +15,18 @@ if [ "$tc_status" -ne 0 ]; then
   printf '%s\n' "$tc_output"
 fi
 
-[ "$tsc_status" -eq 0 ] && [ "$tc_status" -eq 0 ]
+tests_tc_status=0
+tests_tc_output=$(npx type-coverage --project tests/tsconfig.json 2>&1) || tests_tc_status=$?
+
+if [ "$tests_tc_status" -ne 0 ]; then
+  printf '%s\n' "$tests_tc_output"
+fi
+
+test_status=0
+npm test || test_status=$?
+
+[ "$tsc_status" -eq 0 ] \
+  && [ "$tests_tsc_status" -eq 0 ] \
+  && [ "$tc_status" -eq 0 ] \
+  && [ "$tests_tc_status" -eq 0 ] \
+  && [ "$test_status" -eq 0 ]
