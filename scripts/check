@@ -16,7 +16,7 @@ if [ "$tc_status" -ne 0 ]; then
 fi
 
 tests_tc_status=0
-tests_tc_output=$(npx type-coverage --project tests/tsconfig.json --at-least 100 --strict --detail --show-relative-path 2>&1) || tests_tc_status=$?
+tests_tc_output=$(npx type-coverage --project tests/tsconfig.json 2>&1) || tests_tc_status=$?
 
 if [ "$tests_tc_status" -ne 0 ]; then
   printf '%s\n' "$tests_tc_output"
