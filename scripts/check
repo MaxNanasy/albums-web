@@ -8,6 +8,9 @@ npx tsc || tsc_status=$?
 tests_tsc_status=0
 npx tsc -p tests/tsconfig.json || tests_tsc_status=$?
 
+lint_status=0
+npm run lint || lint_status=$?
+
 tc_status=0
 tc_output=$(npx type-coverage 2>&1) || tc_status=$?
 
@@ -27,6 +30,7 @@ npm test || test_status=$?
 
 [ "$tsc_status" -eq 0 ] \
   && [ "$tests_tsc_status" -eq 0 ] \
+  && [ "$lint_status" -eq 0 ] \
   && [ "$tc_status" -eq 0 ] \
   && [ "$tests_tc_status" -eq 0 ] \
   && [ "$test_status" -eq 0 ]
