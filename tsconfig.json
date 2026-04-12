@@ -10,5 +10,5 @@
     "strict": true,
     "types": []
   },
-  "include": ["src/**/*.js"]
+  "include": ["*.js", "src/**/*.js"]
 }
