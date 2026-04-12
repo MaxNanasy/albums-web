@@ -1,4 +1,5 @@
 import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
+import { SpotifyAppApi } from './spotify-app-api.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -89,6 +90,7 @@ const spotifyApi = new SpotifyApi({
   setAuthStatus,
   spotifyStatusMessage,
 });
+const spotifyAppApi = new SpotifyAppApi(spotifyApi);
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -786,23 +788,18 @@ async function reattachSession() {
     return;
   }
 
-  const response = await spotifyApi.request('/me/player', { method: 'GET' }, false);
-  if (!response.ok && response.status !== 204) {
-    if (isUnrecoverableSpotifyStatus(response.status)) {
-      transitionToDetached(spotifyStatusMessage(response.status, 'Unable to reattach playback state.'));
+  const playerState = await spotifyAppApi.getPlayerState();
+  if (!playerState.ok) {
+    if (isUnrecoverableSpotifyStatus(playerState.status)) {
+      transitionToDetached(spotifyStatusMessage(playerState.status, 'Unable to reattach playback state.'));
       return;
     }
-    const details = await response.text();
-    throw new Error(`Unable to check current Spotify playback (${response.status}): ${details}`);
+    throw new Error(
+      `Unable to check current Spotify playback (${playerState.status}): ${playerState.errorText}`,
+    );
   }
 
-  /** @type {string | null} */
-  let contextUri = null;
-  if (response.status !== 204) {
-    /** @type {{context?: {uri?: string} | null}} */
-    const data = await response.json();
-    contextUri = data.context?.uri ?? null;
-  }
+  const contextUri = playerState.contextUri;
 
   if (contextUri !== current.uri) {
     session.activationState = 'active';
@@ -839,20 +836,9 @@ async function playCurrentItem() {
   }
 
   try {
-    await spotifyApi.request('/me/player/shuffle?state=false', { method: 'PUT' });
-    await spotifyApi.request('/me/player/repeat?state=off', { method: 'PUT' });
-
-    await spotifyApi.request(
-      '/me/player/play',
-      {
-        method: 'PUT',
-        body: JSON.stringify({
-          context_uri: current.uri,
-          offset: { position: 0 },
-          position_ms: 0,
-        }),
-      }
-    );
+    await spotifyAppApi.disableShuffle();
+    await spotifyAppApi.disableRepeat();
+    await spotifyAppApi.playContext(current.uri);
   } catch (error) {
     reportError(error, {
       context: 'playback',
@@ -921,43 +907,25 @@ async function fetchPlaylistAlbums(playlistId) {
   const limit = 50;
 
   while (true) {
-    const params = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-      additional_types: 'track',
-      market: 'from_token',
-    });
-    const response = await spotifyApi.request(
-      `/playlists/${playlistId}/items?${params.toString()}`,
-      { method: 'GET' },
-      false,
-    );
-    if (!response.ok) {
-      const details = await response.text();
+    const page = await spotifyAppApi.getPlaylistAlbumsPage(playlistId, offset, limit);
+    if (!page.ok) {
       return {
         albums: [],
-        errorMessage: `Unable to import albums from that playlist (${response.status}). ${details || 'Please try again.'}`,
+        errorMessage: `Unable to import albums from that playlist (${page.status}). ${page.errorText || 'Please try again.'}`,
       };
     }
 
-    /** @type {{items?: Array<{item?: {album?: {uri?: string; id?: string; name?: string} | null} | null}>; next?: string | null}} */
-    const data = await response.json();
-    const items = data.items ?? [];
-    for (const entry of items) {
-      const album = entry?.item?.album;
-      const albumUri = album?.uri ?? (album?.id ? `spotify:album:${album.id}` : '');
-      const albumName = (album?.name ?? '').trim();
-      if (!albumUri) continue;
-      if (!albumsByUri.has(albumUri)) {
-        albumsByUri.set(albumUri, {
-          uri: albumUri,
+    for (const album of page.albums) {
+      if (!albumsByUri.has(album.uri)) {
+        albumsByUri.set(album.uri, {
+          uri: album.uri,
           type: 'album',
-          title: albumName || albumUri,
+          title: album.title || album.uri,
         });
       }
     }
 
-    if (!data.next) break;
+    if (!page.hasNext) break;
     offset += limit;
   }
 
@@ -972,13 +940,7 @@ async function withItemTitle(item) {
   const id = spotifyIdFromUri(item.uri);
   if (!id) return null;
 
-  const path = item.type === 'album' ? `/albums/${id}` : `/playlists/${id}`;
-  const response = await spotifyApi.request(path, { method: 'GET' }, false);
-  if (!response.ok) return null;
-
-  /** @type {{name?: string}} */
-  const data = await response.json();
-  const title = (data.name ?? '').trim();
+  const title = await spotifyAppApi.getItemTitle(item.type, id);
   if (!title) return null;
 
   return { uri: item.uri, type: item.type, title };
@@ -1011,43 +973,23 @@ async function monitorPlayback() {
     return;
   }
 
-  const response = await spotifyApi.request('/me/player', { method: 'GET' }, false);
-  if (response.status === 204) {
-    // nothing currently playing/active
-    return;
-  }
-
-  if (!response.ok) {
-    if (isUnrecoverableSpotifyStatus(response.status)) {
-      transitionToDetached(spotifyStatusMessage(response.status, 'Spotify playback monitor detached.'));
+  const playerState = await spotifyAppApi.getPlayerState();
+  if (!playerState.ok) {
+    if (isUnrecoverableSpotifyStatus(playerState.status)) {
+      transitionToDetached(spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached.'));
       return;
     }
-    const details = await response.text();
-    reportError(new Error(`Playback monitor request failed (${response.status}): ${details}`), {
+    reportError(new Error(`Playback monitor request failed (${playerState.status}): ${playerState.errorText}`), {
       context: 'monitor',
-      fallbackMessage: spotifyStatusMessage(response.status, 'Could not check playback state.'),
+      fallbackMessage: spotifyStatusMessage(playerState.status, 'Could not check playback state.'),
       playbackStatusMessage: 'Unable to check playback state right now.',
       toastMode: 'cooldown',
-      toastKey: `monitor-http-${response.status}`,
+      toastKey: `monitor-http-${playerState.status}`,
     });
     return;
   }
 
-  const data = await runWithReportedError(
-    async () =>
-      /** @type {{context?: {uri?: string} | null}} */ (await response.json()),
-    {
-      context: 'monitor',
-      fallbackMessage: 'Unexpected playback response from Spotify.',
-      playbackStatusMessage: 'Unable to read current playback state.',
-      toastMode: 'cooldown',
-      toastKey: 'monitor-json',
-    },
-  );
-  if (!data) {
-    return;
-  }
-  const contextUri = data.context?.uri ?? null;
+  const contextUri = playerState.contextUri;
 
   if (contextUri === session.currentUri) {
     session.observedCurrentContext = true;
