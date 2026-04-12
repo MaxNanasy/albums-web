@@ -1,3 +1,5 @@
+import { configureSpotifyApi, spotifyApi, SpotifyApiHttpError } from './spotify-api.js';
+
 /** @typedef {'album' | 'playlist'} ItemType */
 
 /**
@@ -77,24 +79,15 @@ const ERROR_TOAST_COOLDOWN_MS = 45000;
 /** @type {Map<string, number>} */
 const errorToastLastShownAt = new Map();
 
-class SpotifyApiHttpError extends Error {
-  /** @type {string} */
-  name;
-  /** @type {number} */
-  status;
-
-  /**
-   * @param {number} status
-   * @param {string} message
-   */
-  constructor(status, message) {
-    super(message);
-    this.name = 'SpotifyApiHttpError';
-    this.status = status;
-  }
-}
-
 /** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
+
+configureSpotifyApi({
+  refreshSpotifyAccessToken,
+  clearAuth,
+  transitionToDetached,
+  setAuthStatus,
+  spotifyStatusMessage,
+});
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -1205,46 +1198,6 @@ function renderSessionQueue() {
  */
 function formatNowPlayingStatus(item) {
   return `Now playing ${item.type} ${session.index + 1} of ${session.queue.length}: ${item.title}`;
-}
-
-/**
- * @param {string} path
- * @param {RequestInit} init
- * @param {string} token
- * @param {boolean} throwOnError
- */
-async function spotifyApi(path, init, token, throwOnError = true) {
-  /** @param {string} bearerToken */
-  const makeRequest = (bearerToken) =>
-    fetch(`https://api.spotify.com/v1${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${bearerToken}`,
-        'Content-Type': 'application/json',
-        ...(init.headers ?? {}),
-      },
-    });
-
-  let response = await makeRequest(token);
-  if (response.status === 401) {
-    const refreshedToken = await refreshSpotifyAccessToken();
-    if (refreshedToken) {
-      response = await makeRequest(refreshedToken);
-    }
-
-    if (response.status === 401) {
-      clearAuth();
-      transitionToDetached('Spotify session expired. Please reconnect.');
-      setAuthStatus('Spotify session expired. Please reconnect.');
-    }
-  }
-
-  if (!response.ok && throwOnError) {
-    const body = await response.text();
-    const message = spotifyStatusMessage(response.status, `Spotify API request failed for ${path}.`);
-    throw new SpotifyApiHttpError(response.status, body ? `${message} ${body}` : message);
-  }
-  return response;
 }
 
 /**
