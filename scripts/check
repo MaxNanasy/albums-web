@@ -15,4 +15,14 @@ if [ "$tc_status" -ne 0 ]; then
   printf '%s\n' "$tc_output"
 fi
 
-[ "$tsc_status" -eq 0 ] && [ "$tests_tsc_status" -eq 0 ] && [ "$tc_status" -eq 0 ]
+tests_tc_status=0
+tests_tc_output=$(npx type-coverage --project tests/tsconfig.json --at-least 100 --strict --detail --show-relative-path 2>&1) || tests_tc_status=$?
+
+if [ "$tests_tc_status" -ne 0 ]; then
+  printf '%s\n' "$tests_tc_output"
+fi
+
+[ "$tsc_status" -eq 0 ] \
+  && [ "$tests_tsc_status" -eq 0 ] \
+  && [ "$tc_status" -eq 0 ] \
+  && [ "$tests_tc_status" -eq 0 ]
