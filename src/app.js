@@ -1,4 +1,4 @@
-import { configureSpotifyApi, spotifyApi, SpotifyApiHttpError } from './spotify-api.js';
+import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -81,7 +81,7 @@ const errorToastLastShownAt = new Map();
 
 /** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
 
-configureSpotifyApi({
+const spotifyApi = new SpotifyApi({
   refreshSpotifyAccessToken,
   clearAuth,
   transitionToDetached,
@@ -785,7 +785,7 @@ async function reattachSession() {
     return;
   }
 
-  const response = await spotifyApi('/me/player', { method: 'GET' }, token, false);
+  const response = await spotifyApi.request('/me/player', { method: 'GET' }, token, false);
   if (!response.ok && response.status !== 204) {
     if (isUnrecoverableSpotifyStatus(response.status)) {
       transitionToDetached(spotifyStatusMessage(response.status, 'Unable to reattach playback state.'));
@@ -838,10 +838,10 @@ async function playCurrentItem() {
   }
 
   try {
-    await spotifyApi('/me/player/shuffle?state=false', { method: 'PUT' }, token);
-    await spotifyApi('/me/player/repeat?state=off', { method: 'PUT' }, token);
+    await spotifyApi.request('/me/player/shuffle?state=false', { method: 'PUT' }, token);
+    await spotifyApi.request('/me/player/repeat?state=off', { method: 'PUT' }, token);
 
-    await spotifyApi(
+    await spotifyApi.request(
       '/me/player/play',
       {
         method: 'PUT',
@@ -928,7 +928,7 @@ async function fetchPlaylistAlbums(playlistId, token) {
       additional_types: 'track',
       market: 'from_token',
     });
-    const response = await spotifyApi(
+    const response = await spotifyApi.request(
       `/playlists/${playlistId}/items?${params.toString()}`,
       { method: 'GET' },
       token,
@@ -976,7 +976,7 @@ async function withItemTitle(item, token) {
   if (!id) return null;
 
   const path = item.type === 'album' ? `/albums/${id}` : `/playlists/${id}`;
-  const response = await spotifyApi(path, { method: 'GET' }, token, false);
+  const response = await spotifyApi.request(path, { method: 'GET' }, token, false);
   if (!response.ok) return null;
 
   /** @type {{name?: string}} */
@@ -1014,7 +1014,7 @@ async function monitorPlayback() {
     return;
   }
 
-  const response = await spotifyApi('/me/player', { method: 'GET' }, token, false);
+  const response = await spotifyApi.request('/me/player', { method: 'GET' }, token, false);
   if (response.status === 204) {
     // nothing currently playing/active
     return;
