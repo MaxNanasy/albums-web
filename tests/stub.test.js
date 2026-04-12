@@ -1,6 +1,15 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+/**
+ * @param {string} _name
+ * @param {() => void} run
+ */
+function test(_name, run) {
+  run();
+}
 
 test('stub unit test', () => {
-  assert.equal(true, true);
+  const actual = true;
+  const expected = true;
+  if (actual !== expected) {
+    throw new Error('Stub unit test failed.');
+  }
 });
