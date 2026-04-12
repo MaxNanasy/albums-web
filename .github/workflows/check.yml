@@ -20,7 +20,20 @@ jobs:
         run: npm ci
 
       - name: Run tsc
+        id: tsc_root
         run: npx tsc
+        continue-on-error: true
+
+      - name: Run tests tsc
+        id: tsc_tests
+        if: ${{ always() }}
+        run: npx tsc -p tests/tsconfig.json
+        continue-on-error: true
+
+      - name: Fail if tsc checks failed
+        if: ${{ always() }}
+        run: |
+          [ "${{ steps.tsc_root.outcome }}" = "success" ] && [ "${{ steps.tsc_tests.outcome }}" = "success" ]
 
   type-coverage:
     runs-on: ubuntu-latest
@@ -38,7 +51,20 @@ jobs:
         run: npm ci
 
       - name: Run type-coverage
+        id: type_coverage_root
         run: npx type-coverage
+        continue-on-error: true
+
+      - name: Run tests type-coverage
+        id: type_coverage_tests
+        if: ${{ always() }}
+        run: npx type-coverage --project tests/tsconfig.json
+        continue-on-error: true
+
+      - name: Fail if type-coverage checks failed
+        if: ${{ always() }}
+        run: |
+          [ "${{ steps.type_coverage_root.outcome }}" = "success" ] && [ "${{ steps.type_coverage_tests.outcome }}" = "success" ]
 
   test:
     runs-on: ubuntu-latest
