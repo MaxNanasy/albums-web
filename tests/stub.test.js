@@ -1,15 +1,6 @@
-/**
- * @param {string} _name
- * @param {() => void} run
- */
-function test(_name, run) {
-  run();
-}
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
 test('stub unit test', () => {
-  const actual = true;
-  const expected = true;
-  if (actual !== expected) {
-    throw new Error('Stub unit test failed.');
-  }
+  assert.equal(true, true);
 });

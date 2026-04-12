@@ -7,6 +7,7 @@
     "check": "scripts/check"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "type-coverage": "^2.29.7",
     "typescript": "^6.0.2"
   },
