@@ -25,54 +25,85 @@ function createApi() {
   return { api, state };
 }
 
-test('throws 401 and calls handleAuthExpired when no access token is available', async () => {
+/** @typedef {{ kind: 'response' | 'error'; status: number }} AuthScenarioOutcome */
+/**
+ * @typedef {{
+ * caseId: 1 | 2 | 3 | 4;
+ * accessToken: string | null;
+ * refreshedToken: string | null;
+ * throwOnError: boolean;
+ * expectedKind: AuthScenarioOutcome['kind'];
+ * expectedFetchCalls: number;
+ * }} AuthScenarioCase
+ */
+
+/**
+ * @param {AuthScenarioCase} scenario
+ * @returns {Promise<{ outcome: AuthScenarioOutcome; handleAuthExpiredCalls: number; fetchCalls: number }>}
+ */
+async function runAuth401Scenario(scenario) {
   const handleAuthExpired = mock.fn();
   const api = new SpotifyApi({
     async getAccessToken() {
-      return null;
+      return scenario.accessToken;
     },
     async refreshSpotifyAccessToken() {
-      return null;
+      return scenario.refreshedToken;
     },
     handleAuthExpired,
   });
 
-  await assert.rejects(
-    () => api.request('/me/player', { method: 'GET' }),
-    /** @param {unknown} error */
-    (error) => {
-      assert.ok(error instanceof SpotifyApiHttpError);
-      assert.equal(error.status, 401);
-      assert.match(error.message, /session expired/i);
-      return true;
-    },
-  );
-  assert.equal(handleAuthExpired.mock.callCount(), 1);
-});
+  const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('', { status: 401 }));
+  /** @type {AuthScenarioOutcome} */
+  let outcome;
+  try {
+    const response = await api.request('/me/player', { method: 'GET' }, scenario.throwOnError);
+    outcome = { kind: 'response', status: response.status };
+  } catch (error) {
+    outcome = {
+      kind: 'error',
+      status: error instanceof SpotifyApiHttpError ? error.status : 500,
+    };
+  }
 
-test('throws 401 when no access token is available even when throwOnError is false', async () => {
-  const handleAuthExpired = mock.fn();
-  const api = new SpotifyApi({
-    async getAccessToken() {
-      return null;
-    },
-    async refreshSpotifyAccessToken() {
-      return null;
-    },
-    handleAuthExpired,
+  return {
+    outcome,
+    handleAuthExpiredCalls: handleAuthExpired.mock.callCount(),
+    fetchCalls: fetchMock.mock.callCount(),
+  };
+}
+
+/** @type {AuthScenarioCase[]} */
+const auth401Scenarios = [
+  { caseId: 1, accessToken: null, refreshedToken: null, throwOnError: false, expectedKind: 'error', expectedFetchCalls: 0 },
+  { caseId: 2, accessToken: null, refreshedToken: null, throwOnError: true, expectedKind: 'error', expectedFetchCalls: 0 },
+  {
+    caseId: 3,
+    accessToken: 'initial-token',
+    refreshedToken: null,
+    throwOnError: false,
+    expectedKind: 'response',
+    expectedFetchCalls: 1,
+  },
+  {
+    caseId: 4,
+    accessToken: 'initial-token',
+    refreshedToken: null,
+    throwOnError: true,
+    expectedKind: 'error',
+    expectedFetchCalls: 1,
+  },
+];
+
+for (const scenario of auth401Scenarios) {
+  test(`case ${scenario.caseId}: expected auth behavior`, async () => {
+    const result = await runAuth401Scenario(scenario);
+
+    assert.deepEqual(result.outcome, { kind: scenario.expectedKind, status: 401 });
+    assert.equal(result.handleAuthExpiredCalls, 1);
+    assert.equal(result.fetchCalls, scenario.expectedFetchCalls);
   });
-
-  await assert.rejects(
-    () => api.request('/me/player', { method: 'GET' }, false),
-    /** @param {unknown} error */
-    (error) => {
-      assert.ok(error instanceof SpotifyApiHttpError);
-      assert.equal(error.status, 401);
-      return true;
-    },
-  );
-  assert.equal(handleAuthExpired.mock.callCount(), 1);
-});
+}
 
 test('retries once with refreshed token after 401 and succeeds', async () => {
   const { api, state } = createApi();
@@ -97,53 +128,6 @@ test('retries once with refreshed token after 401 and succeeds', async () => {
   const secondHeaders = /** @type {Record<string, string>} */ (secondCall?.arguments[1]?.headers);
   assert.equal(firstHeaders.Authorization, 'Bearer initial-token');
   assert.equal(secondHeaders.Authorization, 'Bearer refreshed-token');
-});
-
-test('returns 401 response after failed refresh when throwOnError is false', async () => {
-  const handleAuthExpired = mock.fn();
-  const api = new SpotifyApi({
-    async getAccessToken() {
-      return 'initial-token';
-    },
-    async refreshSpotifyAccessToken() {
-      return null;
-    },
-    handleAuthExpired,
-  });
-
-  const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('', { status: 401 }));
-
-  const response = await api.request('/me/player', { method: 'GET' }, false);
-  assert.equal(response.status, 401);
-  assert.equal(fetchMock.mock.callCount(), 1);
-  assert.equal(handleAuthExpired.mock.callCount(), 1);
-});
-
-test('throws 401 after failed refresh when throwOnError is true', async () => {
-  const handleAuthExpired = mock.fn();
-  const api = new SpotifyApi({
-    async getAccessToken() {
-      return 'initial-token';
-    },
-    async refreshSpotifyAccessToken() {
-      return null;
-    },
-    handleAuthExpired,
-  });
-
-  const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('', { status: 401 }));
-
-  await assert.rejects(
-    () => api.request('/me/player', { method: 'GET' }, true),
-    /** @param {unknown} error */
-    (error) => {
-      assert.ok(error instanceof SpotifyApiHttpError);
-      assert.equal(error.status, 401);
-      return true;
-    },
-  );
-  assert.equal(fetchMock.mock.callCount(), 1);
-  assert.equal(handleAuthExpired.mock.callCount(), 1);
 });
 
 test('throws with status text and body for non-ok responses', async () => {
@@ -178,90 +162,15 @@ test(
   'TODO: cases 1 and 3 should produce the same result',
   { todo: 'Case 1 throws while case 3 returns a 401 response when throwOnError is false.' },
   async () => {
-    const case1Api = new SpotifyApi({
-      async getAccessToken() {
-        return null;
-      },
-      async refreshSpotifyAccessToken() {
-        return null;
-      },
-      handleAuthExpired() {},
-    });
-
-    const case3Api = new SpotifyApi({
-      async getAccessToken() {
-        return 'initial-token';
-      },
-      async refreshSpotifyAccessToken() {
-        return null;
-      },
-      handleAuthExpired() {},
-    });
-
-    mock.method(globalThis, 'fetch', async () => new Response('', { status: 401 }));
-
-    const case1Result = await case1Api
-      .request('/me/player', { method: 'GET' }, false)
-      .then((response) => ({ kind: 'response', status: response.status }))
-      .catch(
-        /** @param {unknown} error */
-        (error) => ({ kind: 'error', status: /** @type {SpotifyApiHttpError} */ (error).status }),
-      );
-
-    const case3Result = await case3Api
-      .request('/me/player', { method: 'GET' }, false)
-      .then((response) => ({ kind: 'response', status: response.status }))
-      .catch(
-        /** @param {unknown} error */
-        (error) => ({ kind: 'error', status: /** @type {SpotifyApiHttpError} */ (error).status }),
-      );
-
-    assert.deepEqual(case1Result, case3Result);
+    const case1Result = await runAuth401Scenario(auth401Scenarios[0]);
+    const case3Result = await runAuth401Scenario(auth401Scenarios[2]);
+    assert.deepEqual(case1Result.outcome, case3Result.outcome);
   },
 );
 
 test('cases 2 and 4 produce the same result', async () => {
-  const case2HandleAuthExpired = mock.fn();
-  const case2Api = new SpotifyApi({
-    async getAccessToken() {
-      return null;
-    },
-    async refreshSpotifyAccessToken() {
-      return null;
-    },
-    handleAuthExpired: case2HandleAuthExpired,
-  });
-
-  const case4HandleAuthExpired = mock.fn();
-  const case4Api = new SpotifyApi({
-    async getAccessToken() {
-      return 'initial-token';
-    },
-    async refreshSpotifyAccessToken() {
-      return null;
-    },
-    handleAuthExpired: case4HandleAuthExpired,
-  });
-
-  mock.method(globalThis, 'fetch', async () => new Response('', { status: 401 }));
-
-  const case2Result = await case2Api
-    .request('/me/player', { method: 'GET' }, true)
-    .then((response) => ({ kind: 'response', status: response.status }))
-    .catch(
-      /** @param {unknown} error */
-      (error) => ({ kind: 'error', status: /** @type {SpotifyApiHttpError} */ (error).status }),
-    );
-
-  const case4Result = await case4Api
-    .request('/me/player', { method: 'GET' }, true)
-    .then((response) => ({ kind: 'response', status: response.status }))
-    .catch(
-      /** @param {unknown} error */
-      (error) => ({ kind: 'error', status: /** @type {SpotifyApiHttpError} */ (error).status }),
-    );
-
-  assert.deepEqual(case2Result, case4Result);
-  assert.equal(case2HandleAuthExpired.mock.callCount(), 1);
-  assert.equal(case4HandleAuthExpired.mock.callCount(), 1);
+  const case2Result = await runAuth401Scenario(auth401Scenarios[1]);
+  const case4Result = await runAuth401Scenario(auth401Scenarios[3]);
+  assert.deepEqual(case2Result.outcome, case4Result.outcome);
+  assert.equal(case2Result.handleAuthExpiredCalls, case4Result.handleAuthExpiredCalls);
 });
