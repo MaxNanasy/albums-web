@@ -38,18 +38,18 @@ export class SpotifyApi {
 
   /**
    * @param {string} path
-   * @param {RequestInit} init
+   * @param {RequestInit} requestInit
    * @param {boolean} throwOnError
    */
-  async request(path, init, throwOnError = true) {
+  async request(path, requestInit, throwOnError = true) {
     /** @param {string} bearerToken */
     const makeRequest = (bearerToken) =>
       fetch(`https://api.spotify.com/v1${path}`, {
-        ...init,
+        ...requestInit,
         headers: {
           Authorization: `Bearer ${bearerToken}`,
           'Content-Type': 'application/json',
-          ...(init.headers ?? {}),
+          ...(requestInit.headers ?? {}),
         },
       });
 
