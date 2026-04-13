@@ -20,7 +20,7 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
  */
 
 /**
- * @param {{
+ * @typedef {{
  *   getSession: () => MonitorSession;
  *   getUsableAccessToken: () => Promise<string | null>;
  *   getPlayerState: () => Promise<{ok: true; contextUri: string | null} | {ok: false; status: number; errorText: string}>;
@@ -29,46 +29,57 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
  *   goToNextItem: () => Promise<void>;
  *   reportError: (error: unknown, options: ErrorReportOptions) => void;
  *   isUnrecoverableSpotifyStatus: (status: number) => boolean;
- * }} deps
+ * }} PlayerMonitorDeps
  */
-export function createPlayerMonitor(deps) {
-  let monitorTimer = /** @type {number | null} */ (null);
 
-  function stop() {
-    if (monitorTimer !== null) {
-      clearInterval(monitorTimer);
-      monitorTimer = null;
-    }
+export class PlayerMonitor {
+  /** @type {PlayerMonitorDeps} */
+  deps;
+
+  /** @type {number | null} */
+  monitorTimer;
+
+  /** @param {PlayerMonitorDeps} deps */
+  constructor(deps) {
+    this.deps = deps;
+    this.monitorTimer = /** @type {number | null} */ (null);
   }
 
-  function start() {
-    stop();
-    monitorTimer = window.setInterval(() => {
-      void monitorPlayback();
+  start() {
+    this.stop();
+    this.monitorTimer = window.setInterval(() => {
+      void this.monitorPlayback();
     }, 4000);
   }
 
-  async function monitorPlayback() {
-    const session = deps.getSession();
+  stop() {
+    if (this.monitorTimer !== null) {
+      clearInterval(this.monitorTimer);
+      this.monitorTimer = null;
+    }
+  }
+
+  async monitorPlayback() {
+    const session = this.deps.getSession();
     if (session.activationState !== 'active' || !session.currentUri) return;
 
-    const token = await deps.getUsableAccessToken();
+    const token = await this.deps.getUsableAccessToken();
     if (!token) {
-      deps.transitionToDetached('Spotify session expired. Please reconnect.');
+      this.deps.transitionToDetached('Spotify session expired. Please reconnect.');
       return;
     }
 
     try {
-      const playerState = await deps.getPlayerState();
+      const playerState = await this.deps.getPlayerState();
       if (!playerState.ok) {
-        if (deps.isUnrecoverableSpotifyStatus(playerState.status)) {
-          deps.transitionToDetached(
+        if (this.deps.isUnrecoverableSpotifyStatus(playerState.status)) {
+          this.deps.transitionToDetached(
             spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached.'),
           );
           return;
         }
 
-        deps.reportError(
+        this.deps.reportError(
           new Error(
             `Playback monitor request failed (${playerState.status}): ${playerState.errorText}`,
           ),
@@ -90,28 +101,26 @@ export function createPlayerMonitor(deps) {
 
       if (contextUri === session.currentUri) {
         session.observedCurrentContext = true;
-        deps.persistRuntimeState();
+        this.deps.persistRuntimeState();
         return;
       }
 
       if (!session.observedCurrentContext) {
-        // Ignore transient mismatch while a new context is still starting.
         return;
       }
 
       if (session.observedCurrentContext && contextUri === null) {
-        // Current context is no longer active (likely finished).
-        await deps.goToNextItem();
+        await this.deps.goToNextItem();
         return;
       }
 
       if (contextUri && contextUri !== session.currentUri) {
-        deps.transitionToDetached(
+        this.deps.transitionToDetached(
           'Spotify is playing a different album/playlist than this app expects. Reattach to resume.',
         );
       }
     } catch (error) {
-      deps.reportError(error, {
+      this.deps.reportError(error, {
         context: 'monitor',
         fallbackMessage: 'Playback monitor encountered an error.',
         playbackStatusMessage:
@@ -121,6 +130,4 @@ export function createPlayerMonitor(deps) {
       });
     }
   }
-
-  return { start, stop };
 }

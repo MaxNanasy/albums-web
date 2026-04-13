@@ -1,7 +1,7 @@
 import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
 import { SpotifyAppApi } from './spotify-app-api.js';
 import { spotifyStatusMessage } from './spotify-status-message.js';
-import { createPlayerMonitor } from './player-monitor.js';
+import { PlayerMonitor } from './player-monitor.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -91,7 +91,7 @@ const spotifyApi = new SpotifyApi({
 const spotifyAppApi = new SpotifyAppApi(spotifyApi);
 
 
-const playerMonitor = createPlayerMonitor({
+const playerMonitor = new PlayerMonitor({
   getSession: () => session,
   getUsableAccessToken,
   getPlayerState: () => spotifyAppApi.getPlayerState(),
