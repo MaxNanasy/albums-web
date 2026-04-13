@@ -1,7 +1,7 @@
 import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
 import { SpotifyAppApi } from './spotify-app-api.js';
 import { spotifyStatusMessage } from './spotify-status-message.js';
-import { PlayerMonitor } from './player-monitor.js';
+import { PlayerMonitor, PlayerMonitorStatusError } from './player-monitor.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -98,7 +98,7 @@ const playerMonitor = new PlayerMonitor({
   persistRuntimeState,
   transitionToDetached,
   goToNextItem,
-  reportError,
+  reportError: reportMonitorError,
   isUnrecoverableSpotifyStatus,
 });
 
@@ -1098,6 +1098,28 @@ async function runWithReportedError(task, reportErrorOptions) {
     reportError(error, reportErrorOptions);
     return undefined;
   }
+}
+
+/** @param {unknown} error */
+function reportMonitorError(error) {
+  if (error instanceof PlayerMonitorStatusError) {
+    reportError(error, {
+      context: 'monitor',
+      fallbackMessage: spotifyStatusMessage(error.status, 'Could not check playback state.'),
+      playbackStatusMessage: 'Unable to check playback state right now.',
+      toastMode: 'cooldown',
+      toastKey: `monitor-http-${error.status}`,
+    });
+    return;
+  }
+
+  reportError(error, {
+    context: 'monitor',
+    fallbackMessage: 'Playback monitor encountered an error.',
+    playbackStatusMessage: 'Playback monitor paused due to an error. Try restarting the session.',
+    toastMode: 'cooldown',
+    toastKey: 'monitor-loop',
+  });
 }
 
 /**

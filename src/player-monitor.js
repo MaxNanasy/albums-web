@@ -10,27 +10,34 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
 
 /**
  * @typedef {{
- *   context: string;
- *   fallbackMessage: string;
- *   authStatusMessage?: string;
- *   playbackStatusMessage?: string;
- *   toastMode?: 'always' | 'cooldown';
- *   toastKey?: string;
- * }} ErrorReportOptions
- */
-
-/**
- * @typedef {{
  *   getSession: () => MonitorSession;
  *   getUsableAccessToken: () => Promise<string | null>;
  *   getPlayerState: () => Promise<{ok: true; contextUri: string | null} | {ok: false; status: number; errorText: string}>;
  *   persistRuntimeState: () => void;
  *   transitionToDetached: (message: string) => void;
  *   goToNextItem: () => Promise<void>;
- *   reportError: (error: unknown, options: ErrorReportOptions) => void;
+ *   reportError: (error: unknown) => void;
  *   isUnrecoverableSpotifyStatus: (status: number) => boolean;
  * }} PlayerMonitorDeps
  */
+
+export class PlayerMonitorStatusError extends Error {
+  /** @type {number} */
+  status;
+
+  /** @type {string} */
+  errorText;
+
+  /**
+   * @param {number} status
+   * @param {string} errorText
+   */
+  constructor(status, errorText) {
+    super(`Playback monitor request failed (${status}): ${errorText}`);
+    this.status = status;
+    this.errorText = errorText;
+  }
+}
 
 export class PlayerMonitor {
   /** @type {PlayerMonitorDeps} */
@@ -52,14 +59,7 @@ export class PlayerMonitor {
         try {
           await this.monitorPlayback();
         } catch (error) {
-          this.deps.reportError(error, {
-            context: 'monitor',
-            fallbackMessage: 'Playback monitor encountered an error.',
-            playbackStatusMessage:
-              'Playback monitor paused due to an error. Try restarting the session.',
-            toastMode: 'cooldown',
-            toastKey: 'monitor-loop',
-          });
+          this.deps.reportError(error);
         }
       })();
     }, 4000);
@@ -91,21 +91,7 @@ export class PlayerMonitor {
         return;
       }
 
-      this.deps.reportError(
-        new Error(
-          `Playback monitor request failed (${playerState.status}): ${playerState.errorText}`,
-        ),
-        {
-          context: 'monitor',
-          fallbackMessage: spotifyStatusMessage(
-            playerState.status,
-            'Could not check playback state.',
-          ),
-          playbackStatusMessage: 'Unable to check playback state right now.',
-          toastMode: 'cooldown',
-          toastKey: `monitor-http-${playerState.status}`,
-        },
-      );
+      this.deps.reportError(new PlayerMonitorStatusError(playerState.status, playerState.errorText));
       return;
     }
 
