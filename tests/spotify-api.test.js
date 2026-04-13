@@ -7,29 +7,26 @@ afterEach(() => {
   mock.restoreAll();
 });
 
-/** @typedef {{ calls: number; authExpiredCalls: number; refreshedToken: string | null }} DepState */
+/** @typedef {{ refreshedToken: string | null }} DepState */
 
 /** @returns {{ api: SpotifyApi; state: DepState }} */
 function createApi() {
   /** @type {DepState} */
-  const state = { calls: 0, authExpiredCalls: 0, refreshedToken: null };
+  const state = { refreshedToken: null };
   const api = new SpotifyApi({
     async getAccessToken() {
-      state.calls += 1;
       return 'initial-token';
     },
     async refreshSpotifyAccessToken() {
       return state.refreshedToken;
     },
-    handleAuthExpired() {
-      state.authExpiredCalls += 1;
-    },
+    handleAuthExpired() {},
   });
   return { api, state };
 }
 
 test('throws 401 and calls handleAuthExpired when no access token is available', async () => {
-  let authExpiredCalls = 0;
+  const handleAuthExpired = mock.fn();
   const api = new SpotifyApi({
     async getAccessToken() {
       return null;
@@ -37,9 +34,7 @@ test('throws 401 and calls handleAuthExpired when no access token is available',
     async refreshSpotifyAccessToken() {
       return null;
     },
-    handleAuthExpired() {
-      authExpiredCalls += 1;
-    },
+    handleAuthExpired,
   });
 
   await assert.rejects(
@@ -52,17 +47,15 @@ test('throws 401 and calls handleAuthExpired when no access token is available',
       return true;
     },
   );
-  assert.equal(authExpiredCalls, 1);
+  assert.equal(handleAuthExpired.mock.callCount(), 1);
 });
 
 test('retries once with refreshed token after 401 and succeeds', async () => {
   const { api, state } = createApi();
   state.refreshedToken = 'refreshed-token';
 
-  let fetchCallCount = 0;
   const fetchMock = mock.method(globalThis, 'fetch', async () => {
-    fetchCallCount += 1;
-    if (fetchCallCount === 1) {
+    if (fetchMock.mock.callCount() === 0) {
       return new Response('', { status: 401 });
     }
     return new Response('{"ok":true}', { status: 200 });
