@@ -19,9 +19,7 @@ export class SpotifyApiHttpError extends Error {
  * @typedef {{
  * getAccessToken?: () => Promise<string | null>;
  * refreshSpotifyAccessToken?: () => Promise<string | null>;
- * clearAuth?: () => void;
- * transitionToDetached?: (message: string) => void;
- * setAuthStatus?: (message: string) => void;
+ * handleAuthExpired?: () => void;
  * spotifyStatusMessage?: (status: number, fallbackMessage: string) => string;
  * }} SpotifyApiDeps
  */
@@ -62,9 +60,7 @@ export class SpotifyApi {
 
     const token = await this.deps.getAccessToken?.();
     if (!token) {
-      this.deps.clearAuth?.();
-      this.deps.transitionToDetached?.('Spotify session expired. Please reconnect.');
-      this.deps.setAuthStatus?.('Spotify session expired. Please reconnect.');
+      this.deps.handleAuthExpired?.();
       throw new SpotifyApiHttpError(401, statusMessage(401));
     }
 
@@ -76,9 +72,7 @@ export class SpotifyApi {
       }
 
       if (response.status === 401) {
-        this.deps.clearAuth?.();
-        this.deps.transitionToDetached?.('Spotify session expired. Please reconnect.');
-        this.deps.setAuthStatus?.('Spotify session expired. Please reconnect.');
+        this.deps.handleAuthExpired?.();
       }
     }
 

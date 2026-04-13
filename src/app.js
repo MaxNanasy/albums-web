@@ -85,9 +85,7 @@ const errorToastLastShownAt = new Map();
 const spotifyApi = new SpotifyApi({
   getAccessToken: getUsableAccessToken,
   refreshSpotifyAccessToken,
-  clearAuth,
-  transitionToDetached,
-  setAuthStatus,
+  handleAuthExpired,
   spotifyStatusMessage,
 });
 const spotifyAppApi = new SpotifyAppApi(spotifyApi);
@@ -279,6 +277,12 @@ async function ensureStoredItemTitles() {
     saveItems(updated);
     renderItemList();
   }
+}
+
+function handleAuthExpired() {
+  clearAuth();
+  transitionToDetached('Spotify session expired. Please reconnect.');
+  setAuthStatus('Spotify session expired. Please reconnect.');
 }
 
 /** @param {string} message */
