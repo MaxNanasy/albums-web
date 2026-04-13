@@ -1,3 +1,7 @@
+import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
+import { SpotifyAppApi } from './spotify-app-api.js';
+import { spotifyStatusMessage } from './spotify-status-message.js';
+
 /** @typedef {'album' | 'playlist'} ItemType */
 
 /**
@@ -77,24 +81,14 @@ const ERROR_TOAST_COOLDOWN_MS = 45000;
 /** @type {Map<string, number>} */
 const errorToastLastShownAt = new Map();
 
-class SpotifyApiHttpError extends Error {
-  /** @type {string} */
-  name;
-  /** @type {number} */
-  status;
-
-  /**
-   * @param {number} status
-   * @param {string} message
-   */
-  constructor(status, message) {
-    super(message);
-    this.name = 'SpotifyApiHttpError';
-    this.status = status;
-  }
-}
-
 /** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
+
+const spotifyApi = new SpotifyApi({
+  getAccessToken: getUsableAccessToken,
+  refreshSpotifyAccessToken,
+  handleAuthExpired,
+});
+const spotifyAppApi = new SpotifyAppApi(spotifyApi);
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -162,7 +156,7 @@ function hookEvents() {
         return;
       }
 
-      const titledItem = await withItemTitle(parsed, token);
+      const titledItem = await withItemTitle(parsed);
       if (!titledItem) {
         showToast('Unable to load title for that item. Please try another URI.', 'error');
         return;
@@ -270,7 +264,7 @@ async function ensureStoredItemTitles() {
       continue;
     }
 
-    const titledItem = await withItemTitle(item, token);
+    const titledItem = await withItemTitle(item);
     if (!titledItem) {
       updated.push({ ...item, title: item.uri });
     } else {
@@ -283,6 +277,12 @@ async function ensureStoredItemTitles() {
     saveItems(updated);
     renderItemList();
   }
+}
+
+function handleAuthExpired() {
+  clearAuth();
+  transitionToDetached('Spotify session expired. Please reconnect.');
+  setAuthStatus('Spotify session expired. Please reconnect.');
 }
 
 /** @param {string} message */
@@ -792,23 +792,18 @@ async function reattachSession() {
     return;
   }
 
-  const response = await spotifyApi('/me/player', { method: 'GET' }, token, false);
-  if (!response.ok && response.status !== 204) {
-    if (isUnrecoverableSpotifyStatus(response.status)) {
-      transitionToDetached(spotifyStatusMessage(response.status, 'Unable to reattach playback state.'));
+  const playerState = await spotifyAppApi.getPlayerState();
+  if (!playerState.ok) {
+    if (isUnrecoverableSpotifyStatus(playerState.status)) {
+      transitionToDetached(spotifyStatusMessage(playerState.status, 'Unable to reattach playback state.'));
       return;
     }
-    const details = await response.text();
-    throw new Error(`Unable to check current Spotify playback (${response.status}): ${details}`);
+    throw new Error(
+      `Unable to check current Spotify playback (${playerState.status}): ${playerState.errorText}`,
+    );
   }
 
-  /** @type {string | null} */
-  let contextUri = null;
-  if (response.status !== 204) {
-    /** @type {{context?: {uri?: string} | null}} */
-    const data = await response.json();
-    contextUri = data.context?.uri ?? null;
-  }
+  const contextUri = playerState.contextUri;
 
   if (contextUri !== current.uri) {
     session.activationState = 'active';
@@ -845,21 +840,9 @@ async function playCurrentItem() {
   }
 
   try {
-    await spotifyApi('/me/player/shuffle?state=false', { method: 'PUT' }, token);
-    await spotifyApi('/me/player/repeat?state=off', { method: 'PUT' }, token);
-
-    await spotifyApi(
-      '/me/player/play',
-      {
-        method: 'PUT',
-        body: JSON.stringify({
-          context_uri: current.uri,
-          offset: { position: 0 },
-          position_ms: 0,
-        }),
-      },
-      token,
-    );
+    await spotifyAppApi.disableShuffle();
+    await spotifyAppApi.disableRepeat();
+    await spotifyAppApi.playContext(current.uri);
   } catch (error) {
     reportError(error, {
       context: 'playback',
@@ -894,7 +877,7 @@ async function importAlbumsFromPlaylist() {
 
   const existingItems = getItems();
   const existingUris = new Set(existingItems.map((item) => item.uri));
-  const importResult = await fetchPlaylistAlbums(parsedPlaylist.id, token);
+  const importResult = await fetchPlaylistAlbums(parsedPlaylist.id);
   if (importResult.errorMessage) {
     showToast(importResult.errorMessage, 'error');
     return;
@@ -919,54 +902,34 @@ async function importAlbumsFromPlaylist() {
 
 /**
  * @param {string} playlistId
- * @param {string} token
  * @returns {Promise<{albums: ShuffleItem[]; errorMessage: string | null}>}
  */
-async function fetchPlaylistAlbums(playlistId, token) {
+async function fetchPlaylistAlbums(playlistId) {
   /** @type {Map<string, ShuffleItem>} */
   const albumsByUri = new Map();
   let offset = 0;
   const limit = 50;
 
   while (true) {
-    const params = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-      additional_types: 'track',
-      market: 'from_token',
-    });
-    const response = await spotifyApi(
-      `/playlists/${playlistId}/items?${params.toString()}`,
-      { method: 'GET' },
-      token,
-      false,
-    );
-    if (!response.ok) {
-      const details = await response.text();
+    const page = await spotifyAppApi.getPlaylistAlbumsPage(playlistId, offset, limit);
+    if (!page.ok) {
       return {
         albums: [],
-        errorMessage: `Unable to import albums from that playlist (${response.status}). ${details || 'Please try again.'}`,
+        errorMessage: `Unable to import albums from that playlist (${page.status}). ${page.errorText || 'Please try again.'}`,
       };
     }
 
-    /** @type {{items?: Array<{item?: {album?: {uri?: string; id?: string; name?: string} | null} | null}>; next?: string | null}} */
-    const data = await response.json();
-    const items = data.items ?? [];
-    for (const entry of items) {
-      const album = entry?.item?.album;
-      const albumUri = album?.uri ?? (album?.id ? `spotify:album:${album.id}` : '');
-      const albumName = (album?.name ?? '').trim();
-      if (!albumUri) continue;
-      if (!albumsByUri.has(albumUri)) {
-        albumsByUri.set(albumUri, {
-          uri: albumUri,
+    for (const album of page.albums) {
+      if (!albumsByUri.has(album.uri)) {
+        albumsByUri.set(album.uri, {
+          uri: album.uri,
           type: 'album',
-          title: albumName || albumUri,
+          title: album.title || album.uri,
         });
       }
     }
 
-    if (!data.next) break;
+    if (!page.hasNext) break;
     offset += limit;
   }
 
@@ -975,20 +938,13 @@ async function fetchPlaylistAlbums(playlistId, token) {
 
 /**
  * @param {{uri: string; type: ItemType; title?: string}} item
- * @param {string} token
  * @returns {Promise<ShuffleItem | null>}
  */
-async function withItemTitle(item, token) {
+async function withItemTitle(item) {
   const id = spotifyIdFromUri(item.uri);
   if (!id) return null;
 
-  const path = item.type === 'album' ? `/albums/${id}` : `/playlists/${id}`;
-  const response = await spotifyApi(path, { method: 'GET' }, token, false);
-  if (!response.ok) return null;
-
-  /** @type {{name?: string}} */
-  const data = await response.json();
-  const title = (data.name ?? '').trim();
+  const title = await spotifyAppApi.getItemTitle(item.type, id);
   if (!title) return null;
 
   return { uri: item.uri, type: item.type, title };
@@ -1021,43 +977,23 @@ async function monitorPlayback() {
     return;
   }
 
-  const response = await spotifyApi('/me/player', { method: 'GET' }, token, false);
-  if (response.status === 204) {
-    // nothing currently playing/active
-    return;
-  }
-
-  if (!response.ok) {
-    if (isUnrecoverableSpotifyStatus(response.status)) {
-      transitionToDetached(spotifyStatusMessage(response.status, 'Spotify playback monitor detached.'));
+  const playerState = await spotifyAppApi.getPlayerState();
+  if (!playerState.ok) {
+    if (isUnrecoverableSpotifyStatus(playerState.status)) {
+      transitionToDetached(spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached.'));
       return;
     }
-    const details = await response.text();
-    reportError(new Error(`Playback monitor request failed (${response.status}): ${details}`), {
+    reportError(new Error(`Playback monitor request failed (${playerState.status}): ${playerState.errorText}`), {
       context: 'monitor',
-      fallbackMessage: spotifyStatusMessage(response.status, 'Could not check playback state.'),
+      fallbackMessage: spotifyStatusMessage(playerState.status, 'Could not check playback state.'),
       playbackStatusMessage: 'Unable to check playback state right now.',
       toastMode: 'cooldown',
-      toastKey: `monitor-http-${response.status}`,
+      toastKey: `monitor-http-${playerState.status}`,
     });
     return;
   }
 
-  const data = await runWithReportedError(
-    async () =>
-      /** @type {{context?: {uri?: string} | null}} */ (await response.json()),
-    {
-      context: 'monitor',
-      fallbackMessage: 'Unexpected playback response from Spotify.',
-      playbackStatusMessage: 'Unable to read current playback state.',
-      toastMode: 'cooldown',
-      toastKey: 'monitor-json',
-    },
-  );
-  if (!data) {
-    return;
-  }
-  const contextUri = data.context?.uri ?? null;
+  const contextUri = playerState.contextUri;
 
   if (contextUri === session.currentUri) {
     session.observedCurrentContext = true;
@@ -1208,46 +1144,6 @@ function formatNowPlayingStatus(item) {
 }
 
 /**
- * @param {string} path
- * @param {RequestInit} init
- * @param {string} token
- * @param {boolean} throwOnError
- */
-async function spotifyApi(path, init, token, throwOnError = true) {
-  /** @param {string} bearerToken */
-  const makeRequest = (bearerToken) =>
-    fetch(`https://api.spotify.com/v1${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${bearerToken}`,
-        'Content-Type': 'application/json',
-        ...(init.headers ?? {}),
-      },
-    });
-
-  let response = await makeRequest(token);
-  if (response.status === 401) {
-    const refreshedToken = await refreshSpotifyAccessToken();
-    if (refreshedToken) {
-      response = await makeRequest(refreshedToken);
-    }
-
-    if (response.status === 401) {
-      clearAuth();
-      transitionToDetached('Spotify session expired. Please reconnect.');
-      setAuthStatus('Spotify session expired. Please reconnect.');
-    }
-  }
-
-  if (!response.ok && throwOnError) {
-    const body = await response.text();
-    const message = spotifyStatusMessage(response.status, `Spotify API request failed for ${path}.`);
-    throw new SpotifyApiHttpError(response.status, body ? `${message} ${body}` : message);
-  }
-  return response;
-}
-
-/**
  * @template T
  * @param {() => T | Promise<T>} task
  * @param {ErrorReportOptions} reportErrorOptions
@@ -1313,29 +1209,6 @@ function errorMessageForUser(error, fallbackMessage) {
 }
 
 /**
- * @param {number} status
- * @param {string} fallbackMessage
- */
-function spotifyStatusMessage(status, fallbackMessage) {
-  if (status === 401) {
-    return 'Spotify session expired. Please reconnect.';
-  }
-  if (status === 403) {
-    return 'Spotify permissions are missing. Disconnect and reconnect.';
-  }
-  if (status === 404) {
-    return 'Requested Spotify item or playback device was not found.';
-  }
-  if (status === 429) {
-    return 'Spotify rate limit reached. Please wait a moment and retry.';
-  }
-  if (status >= 500) {
-    return 'Spotify is temporarily unavailable. Please try again shortly.';
-  }
-  return fallbackMessage;
-}
-
-/**
  * @param {unknown} error
  * @returns {boolean}
  */
@@ -1350,9 +1223,7 @@ function isUnrecoverableSpotifyError(error) {
  */
 function spotifyStatusFromError(error) {
   if (error instanceof SpotifyApiHttpError) return error.status;
-  if (!(error instanceof Error)) return null;
-  const legacyStatus = /** @type {Error & {spotifyStatus?: unknown}} */ (error).spotifyStatus;
-  return typeof legacyStatus === 'number' ? legacyStatus : null;
+  return null;
 }
 
 /**
