@@ -42,10 +42,6 @@ export class SpotifyApi {
    * @param {boolean} throwOnError
    */
   async request(path, init, throwOnError = true) {
-    /** @param {number} status */
-    const statusMessage = (status) =>
-      spotifyStatusMessage(status, `Spotify API request failed for ${path}.`);
-
     /** @param {string} bearerToken */
     const makeRequest = (bearerToken) =>
       fetch(`https://api.spotify.com/v1${path}`, {
@@ -60,7 +56,7 @@ export class SpotifyApi {
     const token = await this.deps.getAccessToken();
     if (!token) {
       this.deps.handleAuthExpired();
-      throw new SpotifyApiHttpError(401, statusMessage(401));
+      throw new SpotifyApiHttpError(401, spotifyStatusMessage(401, `Spotify API request failed for ${path}.`));
     }
 
     let response = await makeRequest(token);
@@ -77,7 +73,7 @@ export class SpotifyApi {
 
     if (!response.ok && throwOnError) {
       const body = await response.text();
-      const message = statusMessage(response.status);
+      const message = spotifyStatusMessage(response.status, `Spotify API request failed for ${path}.`);
       throw new SpotifyApiHttpError(response.status, body ? `${message} ${body}` : message);
     }
 
