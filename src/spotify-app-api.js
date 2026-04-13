@@ -1,4 +1,4 @@
-import { SpotifyApi } from './spotify-api.js';
+/** @typedef {import('./spotify-api.js').SpotifyApi} SpotifyApi */
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
