@@ -1223,9 +1223,7 @@ function isUnrecoverableSpotifyError(error) {
  */
 function spotifyStatusFromError(error) {
   if (error instanceof SpotifyApiHttpError) return error.status;
-  if (!(error instanceof Error)) return null;
-  const legacyStatus = /** @type {Error & {spotifyStatus?: unknown}} */ (error).spotifyStatus;
-  return typeof legacyStatus === 'number' ? legacyStatus : null;
+  return null;
 }
 
 /**
