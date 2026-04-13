@@ -9,6 +9,7 @@ const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
+
 /** @typedef {{ calls: number; authExpiredCalls: number; refreshedToken: string | null }} DepState */
 
 /** @returns {{ api: SpotifyApi; state: DepState }} */
