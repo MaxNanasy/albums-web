@@ -1,6 +1,7 @@
 import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
 import { SpotifyAppApi } from './spotify-app-api.js';
 import { spotifyStatusMessage } from './spotify-status-message.js';
+import { createPlayerMonitor } from './player-monitor.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -75,7 +76,6 @@ const session = {
   observedCurrentContext: false,
 };
 
-let monitorTimer = /** @type {number | null} */ (null);
 const TOAST_DURATION_MS = 5000;
 const ERROR_TOAST_COOLDOWN_MS = 45000;
 /** @type {Map<string, number>} */
@@ -89,6 +89,18 @@ const spotifyApi = new SpotifyApi({
   handleAuthExpired,
 });
 const spotifyAppApi = new SpotifyAppApi(spotifyApi);
+
+
+const playerMonitor = createPlayerMonitor({
+  getSession: () => session,
+  getUsableAccessToken,
+  getPlayerState: () => spotifyAppApi.getPlayerState(),
+  persistRuntimeState,
+  transitionToDetached,
+  goToNextItem,
+  reportError,
+  isUnrecoverableSpotifyStatus,
+});
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -705,7 +717,7 @@ async function startShuffleSession() {
   setPlaybackStatus(`Session started with ${session.queue.length} item(s).`);
   await playCurrentItem();
   if (session.activationState === 'active') {
-    startMonitorLoop();
+    playerMonitor.start();
   }
 }
 
@@ -716,7 +728,7 @@ function stopSession(message) {
 
 /** @param {string} message */
 function transitionToInactive(message) {
-  stopMonitorLoop();
+  playerMonitor.stop();
   session.activationState = 'inactive';
   session.queue = [];
   session.index = 0;
@@ -733,18 +745,11 @@ function transitionToDetached(message) {
   if (session.activationState === 'inactive') {
     return;
   }
-  stopMonitorLoop();
+  playerMonitor.stop();
   session.activationState = 'detached';
   persistRuntimeState();
   renderPlaybackControls();
   setPlaybackStatus(message);
-}
-
-function stopMonitorLoop() {
-  if (monitorTimer !== null) {
-    clearInterval(monitorTimer);
-    monitorTimer = null;
-  }
 }
 
 function renderPlaybackControls() {
@@ -817,7 +822,7 @@ async function reattachSession() {
     setPlaybackStatus(formatNowPlayingStatus(current));
   }
   if (session.activationState === 'active') {
-    startMonitorLoop();
+    playerMonitor.start();
   }
 }
 
@@ -956,69 +961,6 @@ function spotifyIdFromUri(uri) {
   return match ? match[2] : null;
 }
 
-function startMonitorLoop() {
-  stopMonitorLoop();
-  monitorTimer = window.setInterval(() => {
-    void runWithReportedError(() => monitorPlayback(), {
-      context: 'monitor',
-      fallbackMessage: 'Playback monitor encountered an error.',
-      playbackStatusMessage: 'Playback monitor paused due to an error. Try restarting the session.',
-      toastMode: 'cooldown',
-      toastKey: 'monitor-loop',
-    });
-  }, 4000);
-}
-
-async function monitorPlayback() {
-  if (session.activationState !== 'active' || !session.currentUri) return;
-  const token = await getUsableAccessToken();
-  if (!token) {
-    transitionToDetached('Spotify session expired. Please reconnect.');
-    return;
-  }
-
-  const playerState = await spotifyAppApi.getPlayerState();
-  if (!playerState.ok) {
-    if (isUnrecoverableSpotifyStatus(playerState.status)) {
-      transitionToDetached(spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached.'));
-      return;
-    }
-    reportError(new Error(`Playback monitor request failed (${playerState.status}): ${playerState.errorText}`), {
-      context: 'monitor',
-      fallbackMessage: spotifyStatusMessage(playerState.status, 'Could not check playback state.'),
-      playbackStatusMessage: 'Unable to check playback state right now.',
-      toastMode: 'cooldown',
-      toastKey: `monitor-http-${playerState.status}`,
-    });
-    return;
-  }
-
-  const contextUri = playerState.contextUri;
-
-  if (contextUri === session.currentUri) {
-    session.observedCurrentContext = true;
-    persistRuntimeState();
-    return;
-  }
-
-  if (!session.observedCurrentContext) {
-    // Ignore transient mismatch while a new context is still starting.
-    return;
-  }
-
-  if (session.observedCurrentContext && contextUri === null) {
-    // Current context is no longer active (likely finished).
-    await goToNextItem();
-    return;
-  }
-
-  if (contextUri && contextUri !== session.currentUri) {
-    transitionToDetached(
-      'Spotify is playing a different album/playlist than this app expects. Reattach to resume.',
-    );
-  }
-}
-
 function restoreRuntimeState() {
   const raw = localStorage.getItem(STORAGE_KEYS.runtime);
   if (!raw) return;
@@ -1097,7 +1039,7 @@ function restoreRuntimeState() {
   renderSessionQueue();
   renderPlaybackControls();
   if (session.activationState === 'active') {
-    startMonitorLoop();
+    playerMonitor.start();
   }
 }
 
