@@ -1,30 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { Worker } from 'node:worker_threads';
 
 import { SpotifyApi, SpotifyApiHttpError } from '../src/spotify-api.js';
 
-/** @typedef {{ calls: number; authExpiredCalls: number; refreshedToken: string | null }} DepState */
+/** @typedef {'refresh-success' | 'throw-404' | 'allow-400'} WorkerScenario */
+/** @typedef {{url: string; init: RequestInit | undefined}} FetchCall */
+/** @typedef {{kind: 'ok'; payload: {status: number; ok: boolean; fetchCalls: FetchCall[]}} | {kind: 'error'; payload: {status: number | null; message: string; fetchCalls: FetchCall[]}}} WorkerResult */
 
-/** @returns {{ api: SpotifyApi; state: DepState }} */
-function createApi() {
-  /** @type {DepState} */
-  const state = { calls: 0, authExpiredCalls: 0, refreshedToken: null };
-  const api = new SpotifyApi({
-    async getAccessToken() {
-      state.calls += 1;
-      return 'initial-token';
-    },
-    async refreshSpotifyAccessToken() {
-      return state.refreshedToken;
-    },
-    handleAuthExpired() {
-      state.authExpiredCalls += 1;
-    },
+/**
+ * Executes SpotifyApi.request in an isolated worker realm with a worker-local fetch.
+ * This avoids mutating the main realm's globalThis.fetch.
+ *
+ * @param {WorkerScenario} scenario
+ * @returns {Promise<WorkerResult>}
+ */
+function runRequestInShadowRealm(scenario) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./spotify-api.worker.js', import.meta.url), {
+      env: { ...process.env, SPOTIFY_API_TEST_SCENARIO: scenario },
+    });
+
+    worker.once('message', /** @param {WorkerResult} value */ (value) => resolve(value));
+    worker.once('error', reject);
+    worker.once('exit', (code) => {
+      if (code !== 0) reject(new Error(`Worker exited with code ${code}`));
+    });
   });
-  return { api, state };
 }
 
 test('throws 401 and calls handleAuthExpired when no access token is available', async () => {
+  let authExpiredCalls = 0;
   const api = new SpotifyApi({
     async getAccessToken() {
       return null;
@@ -32,7 +38,9 @@ test('throws 401 and calls handleAuthExpired when no access token is available',
     async refreshSpotifyAccessToken() {
       return null;
     },
-    handleAuthExpired() {},
+    handleAuthExpired() {
+      authExpiredCalls += 1;
+    },
   });
 
   await assert.rejects(
@@ -45,72 +53,38 @@ test('throws 401 and calls handleAuthExpired when no access token is available',
       return true;
     },
   );
+  assert.equal(authExpiredCalls, 1);
 });
 
 test('retries once with refreshed token after 401 and succeeds', async () => {
-  const { api, state } = createApi();
-  state.refreshedToken = 'refreshed-token';
+  const result = await runRequestInShadowRealm('refresh-success');
+  assert.equal(result.kind, 'ok');
+  if (result.kind !== 'ok') throw new Error('Expected success result');
 
-  /** @type {Array<{url: string; init: RequestInit | undefined}>} */
-  const fetchCalls = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = /** @type {typeof fetch} */ (async (url, init) => {
-    fetchCalls.push({ url: String(url), init });
-    if (fetchCalls.length === 1) {
-      return new Response('', { status: 401 });
-    }
-    return new Response('{"ok":true}', { status: 200 });
-  });
+  assert.equal(result.payload.status, 200);
+  assert.equal(result.payload.fetchCalls.length, 2);
 
-  try {
-    const response = await api.request('/tracks/abc', { method: 'GET' });
-    assert.equal(response.status, 200);
-    assert.equal(fetchCalls.length, 2);
-    assert.equal(fetchCalls[0]?.url, 'https://api.spotify.com/v1/tracks/abc');
-
-    const firstHeaders = /** @type {Record<string, string>} */ (fetchCalls[0]?.init?.headers);
-    const secondHeaders = /** @type {Record<string, string>} */ (fetchCalls[1]?.init?.headers);
-    assert.equal(firstHeaders.Authorization, 'Bearer initial-token');
-    assert.equal(secondHeaders.Authorization, 'Bearer refreshed-token');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  const firstHeaders = /** @type {Record<string, string>} */ (result.payload.fetchCalls[0]?.init?.headers);
+  const secondHeaders = /** @type {Record<string, string>} */ (result.payload.fetchCalls[1]?.init?.headers);
+  assert.equal(firstHeaders.Authorization, 'Bearer initial-token');
+  assert.equal(secondHeaders.Authorization, 'Bearer refreshed-token');
 });
 
 test('throws with status text and body for non-ok responses', async () => {
-  const { api } = createApi();
+  const result = await runRequestInShadowRealm('throw-404');
+  assert.equal(result.kind, 'error');
+  if (result.kind !== 'error') throw new Error('Expected error result');
 
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = /** @type {typeof fetch} */ (async () => new Response('extra details', { status: 404 }));
-
-  try {
-    await assert.rejects(
-      () => api.request('/albums/missing', { method: 'GET' }),
-      /** @param {unknown} error */
-      (error) => {
-        assert.ok(error instanceof SpotifyApiHttpError);
-        assert.equal(error.status, 404);
-        assert.match(error.message, /not found/i);
-        assert.match(error.message, /extra details/i);
-        return true;
-      },
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.equal(result.payload.status, 404);
+  assert.match(result.payload.message, /not found/i);
+  assert.match(result.payload.message, /extra details/i);
 });
 
 test('returns non-ok response when throwOnError is false', async () => {
-  const { api } = createApi();
+  const result = await runRequestInShadowRealm('allow-400');
+  assert.equal(result.kind, 'ok');
+  if (result.kind !== 'ok') throw new Error('Expected success result');
 
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = /** @type {typeof fetch} */ (async () => new Response('bad request', { status: 400 }));
-
-  try {
-    const response = await api.request('/me/player', { method: 'GET' }, false);
-    assert.equal(response.ok, false);
-    assert.equal(response.status, 400);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.equal(result.payload.ok, false);
+  assert.equal(result.payload.status, 400);
 });
