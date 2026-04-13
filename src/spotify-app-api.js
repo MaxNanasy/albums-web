@@ -65,8 +65,7 @@ export class SpotifyAppApi {
       return { ok: false, status: response.status, errorText: await response.text() };
     }
 
-    /** @type {{context?: {uri?: string} | null}} */
-    const data = await response.json();
+    const data = /** @type {{context?: {uri?: string} | null}} */ (await response.json());
     return { ok: true, status: response.status, contextUri: data.context?.uri ?? null };
   }
 
@@ -116,8 +115,9 @@ export class SpotifyAppApi {
       return { ok: false, status: response.status, errorText: await response.text() };
     }
 
-    /** @type {{items?: Array<{item?: {album?: {uri?: string; id?: string; name?: string} | null} | null}>; next?: string | null}} */
-    const data = await response.json();
+    const data = /** @type {{items?: Array<{item?: {album?: {uri?: string; id?: string; name?: string} | null} | null}>; next?: string | null}} */ (
+      await response.json()
+    );
 
     /** @type {PlaylistAlbum[]} */
     const albums = [];
@@ -146,8 +146,7 @@ export class SpotifyAppApi {
     const response = await this.spotifyApi.request(path, { method: 'GET' }, false);
     if (!response.ok) return null;
 
-    /** @type {{name?: string}} */
-    const data = await response.json();
+    const data = /** @type {{name?: string}} */ (await response.json());
     const title = (data.name ?? '').trim();
     return title || null;
   }
