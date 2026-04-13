@@ -1116,7 +1116,7 @@ function reportMonitorError(error) {
   reportError(error, {
     context: 'monitor',
     fallbackMessage: 'Playback monitor encountered an error.',
-    playbackStatusMessage: 'Playback monitor paused due to an error. Try restarting the session.',
+    playbackStatusMessage: 'Playback monitor encountered an error.',
     toastMode: 'cooldown',
     toastKey: 'monitor-loop',
   });
