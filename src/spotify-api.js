@@ -19,9 +19,9 @@ export class SpotifyApiHttpError extends Error {
 
 /**
  * @typedef {{
- * getAccessToken?: () => Promise<string | null>;
- * refreshSpotifyAccessToken?: () => Promise<string | null>;
- * handleAuthExpired?: () => void;
+ * getAccessToken: () => Promise<string | null>;
+ * refreshSpotifyAccessToken: () => Promise<string | null>;
+ * handleAuthExpired: () => void;
  * }} SpotifyApiDeps
  */
 
@@ -57,21 +57,21 @@ export class SpotifyApi {
         },
       });
 
-    const token = await this.deps.getAccessToken?.();
+    const token = await this.deps.getAccessToken();
     if (!token) {
-      this.deps.handleAuthExpired?.();
+      this.deps.handleAuthExpired();
       throw new SpotifyApiHttpError(401, statusMessage(401));
     }
 
     let response = await makeRequest(token);
     if (response.status === 401) {
-      const refreshedToken = await this.deps.refreshSpotifyAccessToken?.();
+      const refreshedToken = await this.deps.refreshSpotifyAccessToken();
       if (refreshedToken) {
         response = await makeRequest(refreshedToken);
       }
 
       if (response.status === 401) {
-        this.deps.handleAuthExpired?.();
+        this.deps.handleAuthExpired();
       }
     }
 
