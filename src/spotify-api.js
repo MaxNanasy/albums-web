@@ -1,3 +1,5 @@
+import { spotifyStatusMessage } from './spotify-status-message.js';
+
 export class SpotifyApiHttpError extends Error {
   /** @type {string} */
   name;
@@ -20,7 +22,6 @@ export class SpotifyApiHttpError extends Error {
  * getAccessToken?: () => Promise<string | null>;
  * refreshSpotifyAccessToken?: () => Promise<string | null>;
  * handleAuthExpired?: () => void;
- * spotifyStatusMessage?: (status: number, fallbackMessage: string) => string;
  * }} SpotifyApiDeps
  */
 
@@ -43,9 +44,7 @@ export class SpotifyApi {
   async request(path, init, throwOnError = true) {
     /** @param {number} status */
     const statusMessage = (status) =>
-      this.deps.spotifyStatusMessage
-        ? this.deps.spotifyStatusMessage(status, `Spotify API request failed for ${path}.`)
-        : `Spotify API request failed for ${path}.`;
+      spotifyStatusMessage(status, `Spotify API request failed for ${path}.`);
 
     /** @param {string} bearerToken */
     const makeRequest = (bearerToken) =>
