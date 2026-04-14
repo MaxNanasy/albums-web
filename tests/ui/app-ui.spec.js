@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, mockSpotify, test } from './fixtures.js';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
@@ -37,7 +37,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test('adds an album', async ({ context, page }) => {
-  const requests = await installSpotifyRoutes(context, [
+  const requests = installSpotifyRoutes(context, [
     {
       match: (request) =>
         request.method() === 'GET' && request.url() === 'https://api.spotify.com/v1/albums/album123',
@@ -71,7 +71,7 @@ test('imports playlist albums across pages and skips saved duplicates', async ({
     },
   ]);
 
-  const requests = await installSpotifyRoutes(context, [
+  const requests = installSpotifyRoutes(context, [
     {
       match: (request) =>
         request.method() === 'GET'
@@ -132,7 +132,7 @@ test('starts playback', async ({ context, page }) => {
     },
   ]);
 
-  const requests = await installSpotifyRoutes(context, [
+  const requests = installSpotifyRoutes(context, [
     {
       match: (request) =>
         request.method() === 'PUT'
@@ -214,29 +214,26 @@ async function seedItems(context, items) {
 /**
  * @param {BrowserContext} context
  * @param {SpotifyRouteDefinition[]} definitions
- * @returns {Promise<RecordedSpotifyRequest[]>}
+ * @returns {RecordedSpotifyRequest[]}
  */
-async function installSpotifyRoutes(context, definitions) {
+function installSpotifyRoutes(context, definitions) {
   /** @type {RecordedSpotifyRequest[]} */
   const recordedRequests = [];
 
-  await context.route(/^https:\/\/(api|accounts)\.spotify\.com\//, async (route) => {
-    const request = route.request();
-    recordedRequests.push({
-      method: request.method(),
-      url: request.url(),
-      postData: request.postData(),
-    });
-
-    for (const definition of definitions) {
-      if (definition.match(request)) {
+  mockSpotify(
+    context,
+    ...definitions.map((definition) => ({
+      match: definition.match,
+      handle: async (route, request) => {
+        recordedRequests.push({
+          method: request.method(),
+          url: request.url(),
+          postData: request.postData(),
+        });
         await definition.handle(route, request);
-        return;
-      }
-    }
-
-    throw new Error(`Unexpected Spotify request: ${request.method()} ${request.url()}`);
-  });
+      },
+    })),
+  );
 
   return recordedRequests;
 }
