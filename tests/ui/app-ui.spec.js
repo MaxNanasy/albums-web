@@ -185,7 +185,7 @@ test('starts playback', async ({ context, page }) => {
 /** @param {BrowserContext} context */
 async function installStableBrowserState(context) {
   await context.addInitScript(() => {
-    window.setInterval = () => 1;
+    window.setInterval = window.setTimeout;
     window.clearInterval = () => {};
   });
 }
