@@ -198,7 +198,7 @@ async function seedConnectedAuth(context) {
     localStorage.setItem('shuffle-by-album.token', 'test-access-token');
     localStorage.setItem('shuffle-by-album.tokenExpiry', String(expiry));
     localStorage.setItem('shuffle-by-album.tokenScope', scopes);
-  }, { expiry: Date.now() + 60_000, scopes: CONNECTED_SCOPES });
+  }, { expiry: Date.now() + 60 * 60 * 1000, scopes: CONNECTED_SCOPES });
 }
 
 /**
