@@ -94,7 +94,7 @@ const spotifyAppApi = new SpotifyAppApi(spotifyApi);
 const playerMonitor = new PlayerMonitor({
   getSession: () => session,
   getUsableAccessToken,
-  getPlayerState: () => spotifyAppApi.getPlayerState(),
+  spotifyAppApi,
   persistRuntimeState,
   transitionToDetached,
   goToNextItem,

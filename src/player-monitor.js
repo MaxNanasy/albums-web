@@ -1,5 +1,7 @@
 import { spotifyStatusMessage } from './spotify-status-message.js';
 
+/** @typedef {import('./spotify-app-api.js').SpotifyAppApi} SpotifyAppApi */
+
 /**
  * @typedef {{
  *   activationState: 'inactive' | 'active' | 'detached';
@@ -12,7 +14,7 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
  * @typedef {{
  *   getSession: () => MonitorSession;
  *   getUsableAccessToken: () => Promise<string | null>;
- *   getPlayerState: () => Promise<{ok: true; contextUri: string | null} | {ok: false; status: number; errorText: string}>;
+ *   spotifyAppApi: SpotifyAppApi;
  *   persistRuntimeState: () => void;
  *   transitionToDetached: (message: string) => void;
  *   goToNextItem: () => Promise<void>;
@@ -82,7 +84,7 @@ export class PlayerMonitor {
       return;
     }
 
-    const playerState = await this.deps.getPlayerState();
+    const playerState = await this.deps.spotifyAppApi.getPlayerState();
     if (!playerState.ok) {
       if (this.deps.isUnrecoverableSpotifyStatus(playerState.status)) {
         this.deps.transitionToDetached(
