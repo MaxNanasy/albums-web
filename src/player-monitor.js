@@ -45,18 +45,18 @@ export class PlayerMonitor {
   /** @type {PlayerMonitorDeps} */
   deps;
 
-  /** @type {number | null} */
+  /** @type {ReturnType<typeof setInterval> | null} */
   monitorTimer;
 
   /** @param {PlayerMonitorDeps} deps */
   constructor(deps) {
     this.deps = deps;
-    this.monitorTimer = /** @type {number | null} */ (null);
+    this.monitorTimer = null;
   }
 
   start() {
     this.stop();
-    this.monitorTimer = window.setInterval(() => {
+    this.monitorTimer = globalThis.setInterval(() => {
       void (async () => {
         try {
           await this.monitorPlayback();
