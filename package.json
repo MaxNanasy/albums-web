@@ -13,6 +13,9 @@
     "type-coverage": "^2.29.7",
     "typescript": "^6.0.2"
   },
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "typeCoverage": {
     "atLeast": 100,
     "detail": true,

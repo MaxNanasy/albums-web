@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { spotifyStatusMessage } from '../src/spotify-status-message.js';
+import { spotifyStatusMessage } from '#src/spotify-status-message.js';
 
 test('returns mapped message for known non-5xx Spotify statuses', () => {
   assert.equal(spotifyStatusMessage(401, 'fallback'), 'Spotify session expired. Please reconnect.');

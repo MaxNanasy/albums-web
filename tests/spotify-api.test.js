@@ -1,7 +1,7 @@
 import test, { afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SpotifyApi, SpotifyApiHttpError } from '../src/spotify-api.js';
+import { SpotifyApi, SpotifyApiHttpError } from '#src/spotify-api.js';
 
 afterEach(() => {
   mock.restoreAll();

@@ -1,9 +1,9 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PlayerMonitor, PlayerMonitorStatusError } from '../src/player-monitor.js';
+import { PlayerMonitor, PlayerMonitorStatusError } from '#src/player-monitor.js';
 
-/** @typedef {import('../src/player-monitor.js').PlayerMonitorDeps} PlayerMonitorDeps */
+/** @typedef {import('#src/player-monitor.js').PlayerMonitorDeps} PlayerMonitorDeps */
 
 /**
  * @param {{
@@ -45,7 +45,7 @@ function createMonitor(options = {}) {
   const deps = /** @type {PlayerMonitorDeps} */ ({
     getSession: () => session,
     getUsableAccessToken,
-    spotifyAppApi: /** @type {import('../src/spotify-app-api.js').SpotifyAppApi} */ (
+    spotifyAppApi: /** @type {import('#src/spotify-app-api.js').SpotifyAppApi} */ (
       /** @type {unknown} */ ({ getPlayerState })
     ),
     persistRuntimeState,

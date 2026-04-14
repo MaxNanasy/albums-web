@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SpotifyAppApi } from '../src/spotify-app-api.js';
+import { SpotifyAppApi } from '#src/spotify-app-api.js';
 
-/** @typedef {import('../src/spotify-api.js').SpotifyApi} SpotifyApi */
+/** @typedef {import('#src/spotify-api.js').SpotifyApi} SpotifyApi */
 
 /**
  * @param {(path: string, requestInit: RequestInit, throwOnError?: boolean) => Promise<Response>} handler
