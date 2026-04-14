@@ -1,21 +1,28 @@
-import { expect, test, type BrowserContext, type Request, type Route } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-type SavedItem = {
-  type: 'album' | 'playlist';
-  uri: string;
-  title: string;
-};
+/** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
+/** @typedef {import('@playwright/test').Request} Request */
+/** @typedef {import('@playwright/test').Route} Route */
 
-type RecordedSpotifyRequest = {
-  method: string;
-  url: string;
-  postData: string | null;
-};
+/**
+ * @typedef SavedItem
+ * @property {'album' | 'playlist'} type
+ * @property {string} uri
+ * @property {string} title
+ */
 
-type SpotifyRouteDefinition = {
-  match: (request: Request) => boolean;
-  handle: (route: Route, request: Request) => Promise<void>;
-};
+/**
+ * @typedef RecordedSpotifyRequest
+ * @property {string} method
+ * @property {string} url
+ * @property {string | null} postData
+ */
+
+/**
+ * @typedef SpotifyRouteDefinition
+ * @property {(request: Request) => boolean} match
+ * @property {(route: Route, request: Request) => Promise<void>} handle
+ */
 
 const CONNECTED_SCOPES = [
   'user-modify-playback-state',
@@ -175,14 +182,16 @@ test('starts playback with mocked Spotify player endpoints', async ({ context, p
   ]);
 });
 
-async function installStableBrowserState(context: BrowserContext) {
+/** @param {BrowserContext} context */
+async function installStableBrowserState(context) {
   await context.addInitScript(() => {
     window.setInterval = () => 1;
     window.clearInterval = () => {};
   });
 }
 
-async function seedConnectedAuth(context: BrowserContext) {
+/** @param {BrowserContext} context */
+async function seedConnectedAuth(context) {
   await context.addInitScript(({ expiry, scopes }) => {
     localStorage.setItem('shuffle-by-album.token', 'test-access-token');
     localStorage.setItem('shuffle-by-album.tokenExpiry', String(expiry));
@@ -190,17 +199,24 @@ async function seedConnectedAuth(context: BrowserContext) {
   }, { expiry: Date.now() + 60_000, scopes: CONNECTED_SCOPES });
 }
 
-async function seedItems(context: BrowserContext, items: SavedItem[]) {
+/**
+ * @param {BrowserContext} context
+ * @param {SavedItem[]} items
+ */
+async function seedItems(context, items) {
   await context.addInitScript((savedItems) => {
     localStorage.setItem('shuffle-by-album.items', JSON.stringify(savedItems));
   }, items);
 }
 
-async function installSpotifyRoutes(
-  context: BrowserContext,
-  definitions: SpotifyRouteDefinition[],
-): Promise<RecordedSpotifyRequest[]> {
-  const recordedRequests: RecordedSpotifyRequest[] = [];
+/**
+ * @param {BrowserContext} context
+ * @param {SpotifyRouteDefinition[]} definitions
+ * @returns {Promise<RecordedSpotifyRequest[]>}
+ */
+async function installSpotifyRoutes(context, definitions) {
+  /** @type {RecordedSpotifyRequest[]} */
+  const recordedRequests = [];
 
   await context.route(/^https:\/\/(api|accounts)\.spotify\.com\//, async (route) => {
     const request = route.request();
@@ -223,7 +239,11 @@ async function installSpotifyRoutes(
   return recordedRequests;
 }
 
-function hasPlaylistPageRequest(request: Request, expectedOffset: number) {
+/**
+ * @param {Request} request
+ * @param {number} expectedOffset
+ */
+function hasPlaylistPageRequest(request, expectedOffset) {
   const url = new URL(request.url());
   return (
     url.pathname === '/v1/playlists/playlist123/items'
