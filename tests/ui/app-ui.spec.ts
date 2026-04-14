@@ -29,7 +29,7 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test('adds an album without calling the real Spotify API', async ({ context, page }) => {
+test('adds an album', async ({ context, page }) => {
   const requests = await installSpotifyRoutes(context, [
     {
       match: (request) =>
