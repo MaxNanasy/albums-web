@@ -3,5 +3,6 @@
     "text",
     "html"
   ],
+  "src": ["src"],
   "all": true
 }
