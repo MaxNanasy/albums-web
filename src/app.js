@@ -714,7 +714,7 @@ async function importAlbumsFromPlaylist() {
     return;
   }
 
-  const parsedPlaylist = parseSpotifyPlaylistRef(el.itemUri.value.trim());
+  const parsedPlaylist = parseSpotifyPlaylistRef(itemsPanel.getUriInput());
   if (!parsedPlaylist) {
     showToast('Enter a valid Spotify playlist URL, URI, or playlist ID.', 'error');
     return;
