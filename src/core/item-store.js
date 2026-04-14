@@ -1,3 +1,5 @@
+import { exportItemsData, importItemsData } from './storage-transfer.js';
+
 /** @typedef {'album' | 'playlist'} ItemType */
 /** @typedef {{uri: string; type: ItemType; title: string}} ShuffleItem */
 
@@ -31,47 +33,17 @@ export class ItemStore {
   /** @returns {{ data: Record<string, unknown> | null; error: string | null }} */
   exportData() {
     const rawItems = localStorage.getItem(this.storageKeys.items);
-    /** @type {Record<string, unknown>} */
-    const data = {};
-
-    if (rawItems) {
-      try {
-        data[this.storageKeys.items] = JSON.parse(rawItems);
-      } catch {
-        return { data: null, error: 'Unable to export saved items because stored data is invalid JSON.' };
-      }
-    } else {
-      data[this.storageKeys.items] = [];
-    }
-
-    return { data, error: null };
+    return exportItemsData(rawItems, this.storageKeys.items);
   }
 
-  /** @param {string} raw */
+  /**
+   * @param {string} raw
+   * @returns {{ ok: false; error: string } | { ok: true; items: ShuffleItem[] }}
+   */
   importFromJson(raw) {
-    if (!raw.trim()) {
-      return { ok: false, error: 'Paste a JSON object to import.' };
-    }
-
-    /** @type {unknown} */
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return { ok: false, error: 'Invalid JSON. Please provide a valid JSON object.' };
-    }
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, error: 'Import JSON must be an object of key/value pairs.' };
-    }
-
-    const parsedObject = /** @type {Record<string, unknown>} */ (parsed);
-    const maybeItems = parsedObject[this.storageKeys.items];
-    if (!Array.isArray(maybeItems)) {
-      return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array.' };
-    }
-
-    const items = normalizeItems(maybeItems);
+    const parsed = importItemsData(raw, this.storageKeys.items);
+    if (!parsed.ok) return parsed;
+    const items = normalizeItems(parsed.items);
     this.saveItems(items);
     return { ok: true, items };
   }

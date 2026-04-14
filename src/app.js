@@ -4,6 +4,8 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
 import { PlayerMonitor, PlayerMonitorStatusError } from './player-monitor.js';
 import { ToastPresenter } from './ui/toast-presenter.js';
 import { ItemStore } from './core/item-store.js';
+import { ErrorReporter } from './core/error-reporter.js';
+import { AuthFlow } from './core/auth-flow.js';
 import { AuthPanel } from './panels/auth-panel.js';
 import { ItemsPanel } from './panels/items-panel.js';
 import { SessionPanel } from './panels/session-panel.js';
@@ -82,16 +84,25 @@ const session = {
   observedCurrentContext: false,
 };
 
-const ERROR_TOAST_COOLDOWN_MS = 45000;
-/** @type {Map<string, number>} */
-const errorToastLastShownAt = new Map();
-
 const toastPresenter = new ToastPresenter(el.toastStack);
 const itemStore = new ItemStore({ items: STORAGE_KEYS.items });
 const authPanel = new AuthPanel(el);
 const itemsPanel = new ItemsPanel(el);
 const sessionPanel = new SessionPanel(el);
 const storagePanel = new StoragePanel(el);
+
+const errorReporter = new ErrorReporter({
+  setAuthStatus: (message) => authPanel.renderStatus(message),
+  setPlaybackStatus: (message) => sessionPanel.renderPlaybackStatus(message),
+  showToast: (message, type = 'info') => toastPresenter.show(message, type),
+});
+const authFlow = new AuthFlow({
+  scopes: SCOPES,
+  spotifyAppId: SPOTIFY_APP_ID,
+  storageKeys: STORAGE_KEYS,
+  reportError: (error, options) => errorReporter.report(error, options),
+  setAuthStatus: (message) => authPanel.renderStatus(message),
+});
 
 const spotifyApi = new SpotifyApi({
   getAccessToken: getUsableAccessToken,
@@ -291,8 +302,7 @@ function refreshAuthStatus() {
 }
 
 function getGrantedScopes() {
-  const scopeText = localStorage.getItem(STORAGE_KEYS.tokenScope) ?? '';
-  return new Set(scopeText.split(/\s+/).filter(Boolean));
+  return authFlow.getGrantedScopes();
 }
 
 async function ensureStoredItemTitles() {
@@ -363,126 +373,19 @@ function showToast(message, type = 'info', options = {}) {
 
 
 async function startLogin() {
-  const verifier = randomString(64);
-  const challenge = await codeChallengeFromVerifier(verifier);
-  localStorage.setItem(STORAGE_KEYS.verifier, verifier);
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: SPOTIFY_APP_ID,
-    scope: SCOPES.join(' '),
-    redirect_uri: location.origin + location.pathname,
-    code_challenge_method: 'S256',
-    code_challenge: challenge,
-    show_dialog: 'true',
-  });
-
-  location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+  await authFlow.startLogin();
 }
 
 async function handleAuthRedirect() {
-  const url = new URL(location.href);
-  const code = url.searchParams.get('code');
-  const error = url.searchParams.get('error');
-
-  if (error) {
-    setAuthStatus(`Spotify authorization error: ${error}`);
-    url.searchParams.delete('error');
-    history.replaceState({}, '', url.toString());
-    return;
-  }
-
-  if (!code) return;
-
-  const verifier = localStorage.getItem(STORAGE_KEYS.verifier);
-
-  if (!verifier) {
-    setAuthStatus('Missing PKCE verifier. Try connecting again.');
-    return;
-  }
-
-  const formData = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: location.origin + location.pathname,
-    client_id: SPOTIFY_APP_ID,
-    code_verifier: verifier,
-  });
-
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    setAuthStatus('Failed to exchange Spotify code for token.');
-    return;
-  }
-
-  /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-  const data = await response.json();
-  localStorage.setItem(STORAGE_KEYS.token, data.access_token);
-  if (data.refresh_token) {
-    localStorage.setItem(STORAGE_KEYS.refreshToken, data.refresh_token);
-  }
-  localStorage.setItem(STORAGE_KEYS.tokenExpiry, String(Date.now() + data.expires_in * 1000));
-  localStorage.setItem(STORAGE_KEYS.tokenScope, data.scope ?? '');
-  localStorage.removeItem(STORAGE_KEYS.verifier);
-
-  url.searchParams.delete('code');
-  history.replaceState({}, '', url.toString());
+  await authFlow.handleAuthRedirect();
 }
 
 function clearAuth() {
-  localStorage.removeItem(STORAGE_KEYS.token);
-  localStorage.removeItem(STORAGE_KEYS.refreshToken);
-  localStorage.removeItem(STORAGE_KEYS.tokenExpiry);
-  localStorage.removeItem(STORAGE_KEYS.tokenScope);
-  localStorage.removeItem(STORAGE_KEYS.verifier);
+  authFlow.clearAuth();
 }
 
 async function refreshSpotifyAccessToken() {
-  const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
-  if (!refreshToken) return null;
-
-  const formData = new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken,
-    client_id: SPOTIFY_APP_ID,
-  });
-
-  const response = await runWithReportedError(
-    () =>
-      fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData,
-      }),
-    {
-      context: 'auth',
-      fallbackMessage: 'Unable to refresh Spotify session.',
-      authStatusMessage: 'Network issue refreshing Spotify session. Please reconnect if this continues.',
-      toastMode: 'cooldown',
-      toastKey: 'refresh-token-network',
-    },
-  );
-  if (!response) {
-    return null;
-  }
-  if (!response.ok) return null;
-
-  /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-  const data = await response.json();
-  localStorage.setItem(STORAGE_KEYS.token, data.access_token);
-  localStorage.setItem(STORAGE_KEYS.tokenExpiry, String(Date.now() + data.expires_in * 1000));
-  if (typeof data.scope === 'string') {
-    localStorage.setItem(STORAGE_KEYS.tokenScope, data.scope);
-  }
-  if (data.refresh_token) {
-    localStorage.setItem(STORAGE_KEYS.refreshToken, data.refresh_token);
-  }
-  return data.access_token;
+  return authFlow.refreshSpotifyAccessToken();
 }
 
 function exportLocalStorageJson() {
@@ -512,22 +415,11 @@ function importLocalStorageJson() {
 }
 
 function getToken() {
-  const token = localStorage.getItem(STORAGE_KEYS.token);
-  const expiryMs = Number(localStorage.getItem(STORAGE_KEYS.tokenExpiry) ?? 0);
-  if (!token || Date.now() >= expiryMs) {
-    return null;
-  }
-  return token;
+  return authFlow.getToken();
 }
 
 async function getUsableAccessToken() {
-  const token = getToken();
-  if (token) return token;
-
-  const hasRefreshToken = Boolean(localStorage.getItem(STORAGE_KEYS.refreshToken));
-  if (!hasRefreshToken) return null;
-
-  return refreshSpotifyAccessToken();
+  return authFlow.getUsableAccessToken();
 }
 
 /** @returns {ShuffleItem[]} */
@@ -922,12 +814,7 @@ function formatNowPlayingStatus(item) {
  * @returns {Promise<T | undefined>}
  */
 async function runWithReportedError(task, reportErrorOptions) {
-  try {
-    return await task();
-  } catch (error) {
-    reportError(error, reportErrorOptions);
-    return undefined;
-  }
+  return errorReporter.run(task, reportErrorOptions);
 }
 
 /** @param {unknown} error */
@@ -957,26 +844,7 @@ function reportMonitorError(error) {
  * @param {ErrorReportOptions} options
  */
 function reportError(error, options) {
-  const message = errorMessageForUser(error, options.fallbackMessage);
-  console.error(`[${options.context}]`, error);
-  if (options.authStatusMessage) {
-    setAuthStatus(options.authStatusMessage);
-  }
-  if (options.playbackStatusMessage) {
-    setPlaybackStatus(options.playbackStatusMessage);
-  }
-
-  const toastKey = options.toastKey ?? `${options.context}:${message}`;
-  if (options.toastMode === 'cooldown') {
-    const lastAt = errorToastLastShownAt.get(toastKey) ?? 0;
-    if (Date.now() - lastAt >= ERROR_TOAST_COOLDOWN_MS) {
-      errorToastLastShownAt.set(toastKey, Date.now());
-      showToast(message, 'error');
-    }
-    return;
-  }
-
-  showToast(message, 'error');
+  errorReporter.report(error, options);
 }
 
 /**
@@ -989,18 +857,6 @@ function reportError(error, options) {
  *   toastKey?: string;
  * }} ErrorReportOptions
  */
-
-/**
- * @param {unknown} error
- * @param {string} fallbackMessage
- */
-function errorMessageForUser(error, fallbackMessage) {
-  const raw = error instanceof Error ? error.message : String(error ?? '');
-  if (raw && (/Failed to fetch/i.test(raw) || /NetworkError/i.test(raw))) {
-    return 'Network error while contacting Spotify. Please try again.';
-  }
-  return fallbackMessage;
-}
 
 /**
  * @param {unknown} error
@@ -1087,27 +943,4 @@ function shuffledCopy(values) {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
-}
-
-/** @param {number} length */
-function randomString(length) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let text = '';
-  const randomValues = crypto.getRandomValues(new Uint8Array(length));
-  for (const value of randomValues) {
-    text += chars[value % chars.length];
-  }
-  return text;
-}
-
-/** @param {string} verifier */
-async function codeChallengeFromVerifier(verifier) {
-  const data = new TextEncoder().encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  const bytes = new Uint8Array(digest);
-
-  let str = '';
-  for (const byte of bytes) str += String.fromCharCode(byte);
-
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
