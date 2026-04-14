@@ -6,6 +6,7 @@ import { ToastPresenter } from './ui/toast-presenter.js';
 import { ItemStore } from './core/item-store.js';
 import { ErrorReporter } from './core/error-reporter.js';
 import { AuthFlow } from './core/auth-flow.js';
+import { SessionController } from './core/session-controller.js';
 import { AuthPanel } from './panels/auth-panel.js';
 import { ItemsPanel } from './panels/items-panel.js';
 import { SessionPanel } from './panels/session-panel.js';
@@ -75,15 +76,6 @@ const el = {
   toastStack: /** @type {HTMLDivElement} */ (document.getElementById('toast-stack')),
 };
 
-/** @type {SessionState} */
-const session = {
-  activationState: 'inactive',
-  queue: [],
-  index: 0,
-  currentUri: null,
-  observedCurrentContext: false,
-};
-
 const toastPresenter = new ToastPresenter(el.toastStack);
 const itemStore = new ItemStore({ items: STORAGE_KEYS.items });
 const authPanel = new AuthPanel(el);
@@ -110,18 +102,34 @@ const spotifyApi = new SpotifyApi({
   handleAuthExpired,
 });
 const spotifyAppApi = new SpotifyAppApi(spotifyApi);
+const sessionController = new SessionController({
+  runtimeStorageKey: STORAGE_KEYS.runtime,
+  getUsableAccessToken,
+  spotifyAppApi,
+  showToast,
+  setPlaybackStatus: (message) => sessionPanel.renderPlaybackStatus(message),
+  renderPlaybackControls: (activationState) => sessionPanel.renderControls(activationState),
+  renderSessionQueue: (session) => sessionPanel.renderQueue(session),
+  reportError,
+  isUnrecoverableSpotifyError,
+  isUnrecoverableSpotifyStatus,
+  spotifyStatusMessage,
+  getItems,
+  shuffledCopy,
+});
 
 
 const playerMonitor = new PlayerMonitor({
-  getSession: () => session,
+  getSession: () => sessionController.getSession(),
   getUsableAccessToken,
   spotifyAppApi,
-  persistRuntimeState,
-  transitionToDetached,
-  goToNextItem,
+  persistRuntimeState: () => sessionController.persistRuntimeState(),
+  transitionToDetached: (message) => sessionController.transitionToDetached(message),
+  goToNextItem: () => sessionController.goToNextItem(),
   reportError: reportMonitorError,
   isUnrecoverableSpotifyStatus,
 });
+sessionController.setPlayerMonitor(playerMonitor);
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -437,166 +445,38 @@ function renderItemList() {
 }
 
 async function startShuffleSession() {
-  const token = await getUsableAccessToken();
-  if (!token) {
-    showToast('Connect Spotify first.', 'error');
-    return;
-  }
-
-  const items = getItems();
-  if (items.length === 0) {
-    showToast('Add at least one album or playlist first.', 'info');
-    return;
-  }
-
-  session.queue = shuffledCopy(items);
-  session.activationState = 'active';
-  session.index = 0;
-  persistRuntimeState();
-  renderSessionQueue();
-  renderPlaybackControls();
-
-  setPlaybackStatus(`Session started with ${session.queue.length} item(s).`);
-  await playCurrentItem();
-  if (session.activationState === 'active') {
-    playerMonitor.start();
-  }
+  await sessionController.startShuffleSession();
 }
 
 /** @param {string} message */
 function stopSession(message) {
-  transitionToInactive(message);
+  sessionController.stopSession(message);
 }
 
 /** @param {string} message */
 function transitionToInactive(message) {
-  playerMonitor.stop();
-  session.activationState = 'inactive';
-  session.queue = [];
-  session.index = 0;
-  session.currentUri = null;
-  session.observedCurrentContext = false;
-  clearRuntimeState();
-  renderSessionQueue();
-  renderPlaybackControls();
-  setPlaybackStatus(message);
+  sessionController.transitionToInactive(message);
 }
 
 /** @param {string} message */
 function transitionToDetached(message) {
-  if (session.activationState === 'inactive') {
-    return;
-  }
-  playerMonitor.stop();
-  session.activationState = 'detached';
-  persistRuntimeState();
-  renderPlaybackControls();
-  setPlaybackStatus(message);
+  sessionController.transitionToDetached(message);
 }
 
 function renderPlaybackControls() {
-  sessionPanel.renderControls(session.activationState);
+  sessionPanel.renderControls(sessionController.getSession().activationState);
 }
 
 async function goToNextItem() {
-  if (session.activationState !== 'active') {
-    setPlaybackStatus('No active session.');
-    return;
-  }
-
-  session.index += 1;
-  persistRuntimeState();
-  if (session.index >= session.queue.length) {
-    stopSession('Finished: all selected albums/playlists were played.');
-    return;
-  }
-  renderSessionQueue();
-
-  await playCurrentItem();
+  await sessionController.goToNextItem();
 }
 
 async function reattachSession() {
-  if (session.activationState !== 'detached') {
-    return;
-  }
-  const current = session.queue[session.index];
-  if (!current) {
-    transitionToInactive('No queued item available to reattach.');
-    return;
-  }
-
-  const token = await getUsableAccessToken();
-  if (!token) {
-    transitionToDetached('Spotify session expired. Please reconnect.');
-    return;
-  }
-
-  const playerState = await spotifyAppApi.getPlayerState();
-  if (!playerState.ok) {
-    if (isUnrecoverableSpotifyStatus(playerState.status)) {
-      transitionToDetached(spotifyStatusMessage(playerState.status, 'Unable to reattach playback state.'));
-      return;
-    }
-    throw new Error(
-      `Unable to check current Spotify playback (${playerState.status}): ${playerState.errorText}`,
-    );
-  }
-
-  const contextUri = playerState.contextUri;
-
-  if (contextUri !== current.uri) {
-    session.activationState = 'active';
-    await playCurrentItem();
-  } else {
-    session.currentUri = current.uri;
-    session.observedCurrentContext = true;
-    session.activationState = 'active';
-    persistRuntimeState();
-    renderPlaybackControls();
-    setPlaybackStatus(formatNowPlayingStatus(current));
-  }
-  if (session.activationState === 'active') {
-    playerMonitor.start();
-  }
+  await sessionController.reattachSession();
 }
 
 async function playCurrentItem() {
-  const current = session.queue[session.index];
-  if (!current) {
-    transitionToInactive('Finished: all selected albums/playlists were played.');
-    return;
-  }
-  session.currentUri = current.uri;
-  session.observedCurrentContext = false;
-  session.activationState = 'active';
-  persistRuntimeState();
-  renderPlaybackControls();
-
-  const token = await getUsableAccessToken();
-  if (!token) {
-    stopSession('Spotify session expired. Please reconnect.');
-    return;
-  }
-
-  try {
-    await spotifyAppApi.disableShuffle();
-    await spotifyAppApi.disableRepeat();
-    await spotifyAppApi.playContext(current.uri);
-  } catch (error) {
-    reportError(error, {
-      context: 'playback',
-      fallbackMessage: 'Unable to start playback on Spotify.',
-      playbackStatusMessage: 'Could not start playback. Ensure an active Spotify device is available.',
-    });
-    if (isUnrecoverableSpotifyError(error)) {
-      transitionToDetached('Playback detached due to a Spotify error. Reattach when ready.');
-      return;
-    }
-    stopSession('Playback failed. Session stopped.');
-    return;
-  }
-
-  setPlaybackStatus(formatNowPlayingStatus(current));
+  await sessionController.playCurrentItem();
 }
 
 async function importAlbumsFromPlaylist() {
@@ -696,107 +576,19 @@ function spotifyIdFromUri(uri) {
 }
 
 function restoreRuntimeState() {
-  const raw = localStorage.getItem(STORAGE_KEYS.runtime);
-  if (!raw) return;
-
-  /** @type {unknown} */
-  let parsedUnknown;
-  try {
-    parsedUnknown = JSON.parse(raw);
-  } catch {
-    localStorage.removeItem(STORAGE_KEYS.runtime);
-    return;
-  }
-
-  if (!parsedUnknown || typeof parsedUnknown !== 'object' || Array.isArray(parsedUnknown)) {
-    localStorage.removeItem(STORAGE_KEYS.runtime);
-    return;
-  }
-  /** @type {Record<string, unknown>} */
-  const parsed = /** @type {Record<string, unknown>} */ (parsedUnknown);
-
-  /** @type {unknown} */
-  const queueValue = parsed.queue;
-  /** @type {unknown[]} */
-  const queueItems = Array.isArray(queueValue) ? queueValue : [];
-  /** @type {ShuffleItem[]} */
-  const restoredQueue = queueItems.filter(
-    /**
-     * @param {unknown} item
-     * @returns {item is ShuffleItem}
-     */
-    (item) => {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-      /** @type {Record<string, unknown>} */
-      const runtimeItem = /** @type {Record<string, unknown>} */ (item);
-      return (
-        (runtimeItem.type === 'album' || runtimeItem.type === 'playlist') &&
-        typeof runtimeItem.uri === 'string' &&
-        typeof runtimeItem.title === 'string'
-      );
-    },
-  );
-
-  const indexValue = parsed.index;
-  const restoredIndex =
-    typeof indexValue === 'number' && Number.isInteger(indexValue) && indexValue >= 0
-      ? indexValue
-      : 0;
-  const restoredCurrentUri = typeof parsed.currentUri === 'string' ? parsed.currentUri : null;
-  const restoredObserved = parsed.observedCurrentContext === true;
-  const activationStateValue = parsed.activationState;
-  let restoredActivationState = /** @type {'inactive' | 'active' | 'detached'} */ ('inactive');
-  if (
-    activationStateValue === 'active' ||
-    activationStateValue === 'detached' ||
-    activationStateValue === 'inactive'
-  ) {
-    restoredActivationState = activationStateValue;
-  }
-  if (restoredQueue.length === 0) {
-    restoredActivationState = 'inactive';
-  }
-
-  session.queue = restoredQueue;
-  session.index = Math.min(restoredIndex, Math.max(0, restoredQueue.length - 1));
-  session.currentUri = restoredCurrentUri;
-  session.observedCurrentContext = restoredObserved;
-  session.activationState = restoredActivationState;
-
-  if (session.activationState === 'inactive') {
-    clearRuntimeState();
-    return;
-  }
-
-  const current = session.queue[session.index];
-  setPlaybackStatus(formatNowPlayingStatus(current));
-  renderSessionQueue();
-  renderPlaybackControls();
-  if (session.activationState === 'active') {
-    playerMonitor.start();
-  }
+  sessionController.restoreRuntimeState();
 }
 
 function persistRuntimeState() {
-  localStorage.setItem(
-    STORAGE_KEYS.runtime,
-    JSON.stringify({
-      active: session.activationState === 'active',
-      activationState: session.activationState,
-      queue: session.queue,
-      index: session.index,
-      currentUri: session.currentUri,
-      observedCurrentContext: session.observedCurrentContext,
-    }),
-  );
+  sessionController.persistRuntimeState();
 }
 
 function clearRuntimeState() {
-  localStorage.removeItem(STORAGE_KEYS.runtime);
+  sessionController.clearRuntimeState();
 }
 
 function renderSessionQueue() {
-  sessionPanel.renderQueue(session);
+  sessionPanel.renderQueue(sessionController.getSession());
 }
 
 /**
@@ -804,7 +596,7 @@ function renderSessionQueue() {
  * @returns {string}
  */
 function formatNowPlayingStatus(item) {
-  return `Now playing ${item.type} ${session.index + 1} of ${session.queue.length}: ${item.title}`;
+  return sessionController.formatNowPlayingStatus(item);
 }
 
 /**

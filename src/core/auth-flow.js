@@ -14,6 +14,9 @@ export class AuthFlow {
   }
 
   async startLogin() {
+    const locationRef = /** @type {{origin: string; pathname: string; href: string}} */ (
+      /** @type {unknown} */ (Reflect.get(globalThis, 'location'))
+    );
     const verifier = randomString(64);
     const challenge = await codeChallengeFromVerifier(verifier);
     localStorage.setItem(this.deps.storageKeys.verifier, verifier);
@@ -22,24 +25,30 @@ export class AuthFlow {
       response_type: 'code',
       client_id: this.deps.spotifyAppId,
       scope: this.deps.scopes.join(' '),
-      redirect_uri: location.origin + location.pathname,
+      redirect_uri: locationRef.origin + locationRef.pathname,
       code_challenge_method: 'S256',
       code_challenge: challenge,
       show_dialog: 'true',
     });
 
-    location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+    locationRef.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
   }
 
   async handleAuthRedirect() {
-    const url = new URL(location.href);
+    const locationRef = /** @type {{origin: string; pathname: string; href: string}} */ (
+      /** @type {unknown} */ (Reflect.get(globalThis, 'location'))
+    );
+    const historyRef = /** @type {{replaceState: (data: unknown, unused: string, url: string) => void}} */ (
+      /** @type {unknown} */ (Reflect.get(globalThis, 'history'))
+    );
+    const url = new URL(locationRef.href);
     const code = url.searchParams.get('code');
     const error = url.searchParams.get('error');
 
     if (error) {
       this.deps.setAuthStatus(`Spotify authorization error: ${error}`);
       url.searchParams.delete('error');
-      history.replaceState({}, '', url.toString());
+      historyRef.replaceState({}, '', url.toString());
       return;
     }
 
@@ -55,7 +64,7 @@ export class AuthFlow {
     const formData = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: location.origin + location.pathname,
+      redirect_uri: locationRef.origin + locationRef.pathname,
       client_id: this.deps.spotifyAppId,
       code_verifier: verifier,
     });
@@ -72,7 +81,7 @@ export class AuthFlow {
     }
 
     /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-    const data = await response.json();
+    const data = /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */ (await response.json());
     localStorage.setItem(this.deps.storageKeys.token, data.access_token);
     if (data.refresh_token) {
       localStorage.setItem(this.deps.storageKeys.refreshToken, data.refresh_token);
@@ -82,7 +91,7 @@ export class AuthFlow {
     localStorage.removeItem(this.deps.storageKeys.verifier);
 
     url.searchParams.delete('code');
-    history.replaceState({}, '', url.toString());
+    historyRef.replaceState({}, '', url.toString());
   }
 
   clearAuth() {
@@ -139,7 +148,7 @@ export class AuthFlow {
     if (!response.ok) return null;
 
     /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-    const data = await response.json();
+    const data = /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */ (await response.json());
     localStorage.setItem(this.deps.storageKeys.token, data.access_token);
     localStorage.setItem(this.deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
     if (typeof data.scope === 'string') {
