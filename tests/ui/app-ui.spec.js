@@ -123,7 +123,7 @@ test('imports playlist albums across pages and skips saved duplicates', async ({
   ]);
 });
 
-test('starts playback with mocked Spotify player endpoints', async ({ context, page }) => {
+test('starts playback', async ({ context, page }) => {
   await seedItems(context, [
     {
       type: 'album',
