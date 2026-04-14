@@ -185,7 +185,20 @@ test('starts playback', async ({ context, page }) => {
 /** @param {BrowserContext} context */
 async function installStableBrowserState(context) {
   await context.addInitScript(() => {
-    window.setInterval = window.setTimeout;
+    /**
+     * @param {TimerHandler} handler
+     * @param {number | undefined} timeout
+     * @param {...unknown} arguments_
+     * @returns {number}
+     */
+    function stableSetInterval(handler, timeout, ...arguments_) {
+      void handler;
+      void timeout;
+      void arguments_;
+      return 1;
+    }
+    // @ts-expect-error In this mixed Node+DOM typing environment, setInterval has incompatible overloads.
+    window.setInterval = stableSetInterval;
     window.clearInterval = () => {};
   });
 }
