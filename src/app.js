@@ -2,6 +2,12 @@ import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
 import { SpotifyAppApi } from './spotify-app-api.js';
 import { spotifyStatusMessage } from './spotify-status-message.js';
 import { PlayerMonitor, PlayerMonitorStatusError } from './player-monitor.js';
+import { ToastPresenter } from './ui/toast-presenter.js';
+import { ItemStore } from './core/item-store.js';
+import { AuthPanel } from './panels/auth-panel.js';
+import { ItemsPanel } from './panels/items-panel.js';
+import { SessionPanel } from './panels/session-panel.js';
+import { StoragePanel } from './panels/storage-panel.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -76,12 +82,16 @@ const session = {
   observedCurrentContext: false,
 };
 
-const TOAST_DURATION_MS = 5000;
 const ERROR_TOAST_COOLDOWN_MS = 45000;
 /** @type {Map<string, number>} */
 const errorToastLastShownAt = new Map();
 
-/** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
+const toastPresenter = new ToastPresenter(el.toastStack);
+const itemStore = new ItemStore({ items: STORAGE_KEYS.items });
+const authPanel = new AuthPanel(el);
+const itemsPanel = new ItemsPanel(el);
+const sessionPanel = new SessionPanel(el);
+const storagePanel = new StoragePanel(el);
 
 const spotifyApi = new SpotifyApi({
   getAccessToken: getUsableAccessToken,
@@ -135,101 +145,134 @@ async function ensureValidAccessToken() {
 }
 
 function hookEvents() {
-  el.loginBtn.addEventListener('click', () => {
-    void runWithReportedError(() => startLogin(), {
-      context: 'auth',
-      fallbackMessage: 'Failed to start Spotify connection.',
-      authStatusMessage: 'Unable to connect right now. Please try again.',
-    });
-  });
-
-  el.logoutBtn.addEventListener('click', () => {
-    clearAuth();
-    refreshAuthStatus();
-    showToast('Disconnected from Spotify.', 'info');
-  });
-
-  el.addForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      const parsed = parseSpotifyUri(el.itemUri.value.trim());
-      if (!parsed) {
-        showToast('Enter a valid Spotify album/playlist URI or URL.', 'error');
-        return;
-      }
-      const items = getItems();
-      if (items.some((item) => item.uri === parsed.uri)) {
-        showToast('Item is already in your list.', 'info');
-        return;
-      }
-      const token = await getUsableAccessToken();
-      if (!token) {
-        showToast('Connect Spotify first so the app can load item titles.', 'error');
-        return;
-      }
-
-      const titledItem = await withItemTitle(parsed);
-      if (!titledItem) {
-        showToast('Unable to load title for that item. Please try another URI.', 'error');
-        return;
-      }
-
-      items.push(titledItem);
-      saveItems(items);
-      el.itemUri.value = '';
-      renderItemList();
-      showToast('Item added.', 'success');
-    } catch (error) {
-      reportError(error, {
-        context: 'items',
-        fallbackMessage: 'Failed to add this item.',
+  authPanel.bind({
+    onLogin: () => {
+      void runWithReportedError(() => startLogin(), {
+        context: 'auth',
+        fallbackMessage: 'Failed to start Spotify connection.',
+        authStatusMessage: 'Unable to connect right now. Please try again.',
       });
-    }
+    },
+    onLogout: () => {
+      clearAuth();
+      refreshAuthStatus();
+      showToast('Disconnected from Spotify.', 'info');
+    },
   });
 
-  el.startBtn.addEventListener('click', () => {
-    void runWithReportedError(() => startShuffleSession(), {
-      context: 'playback',
-      fallbackMessage: 'Failed to start shuffle session.',
-      playbackStatusMessage: 'Unable to start session right now. Please try again.',
-    });
+  itemsPanel.bind({
+    onAdd: (rawUri) => {
+      void addItemFromInput(rawUri);
+    },
+    onImportPlaylist: () => {
+      void runWithReportedError(() => importAlbumsFromPlaylist(), {
+        context: 'import',
+        fallbackMessage: 'Failed to import albums from playlist.',
+      });
+    },
+    onRemove: (uri) => {
+      removeItemWithUndo(uri);
+    },
   });
 
-  el.reattachBtn.addEventListener('click', () => {
-    void runWithReportedError(() => reattachSession(), {
-      context: 'playback',
-      fallbackMessage: 'Failed to reattach Spotify playback.',
-      playbackStatusMessage: 'Unable to reattach right now. Please try again.',
-    });
+  sessionPanel.bind({
+    onStart: () => {
+      void runWithReportedError(() => startShuffleSession(), {
+        context: 'playback',
+        fallbackMessage: 'Failed to start shuffle session.',
+        playbackStatusMessage: 'Unable to start session right now. Please try again.',
+      });
+    },
+    onReattach: () => {
+      void runWithReportedError(() => reattachSession(), {
+        context: 'playback',
+        fallbackMessage: 'Failed to reattach Spotify playback.',
+        playbackStatusMessage: 'Unable to reattach right now. Please try again.',
+      });
+    },
+    onSkip: () => {
+      void runWithReportedError(() => goToNextItem(), {
+        context: 'playback',
+        fallbackMessage: 'Failed to skip to the next item.',
+        playbackStatusMessage: 'Unable to skip right now. Please try again.',
+      });
+    },
+    onStop: () => {
+      stopSession('Session stopped.');
+    },
   });
 
-  el.importPlaylistBtn.addEventListener('click', () => {
-    void runWithReportedError(() => importAlbumsFromPlaylist(), {
-      context: 'import',
-      fallbackMessage: 'Failed to import albums from playlist.',
-    });
-  });
-
-  el.skipBtn.addEventListener('click', () => {
-    void runWithReportedError(() => goToNextItem(), {
-      context: 'playback',
-      fallbackMessage: 'Failed to skip to the next item.',
-      playbackStatusMessage: 'Unable to skip right now. Please try again.',
-    });
-  });
-
-  el.stopBtn.addEventListener('click', () => {
-    stopSession('Session stopped.');
-  });
-
-  el.exportStorageBtn.addEventListener('click', () => {
-    exportLocalStorageJson();
-  });
-
-  el.importStorageBtn.addEventListener('click', () => {
-    importLocalStorageJson();
+  storagePanel.bind({
+    onExport: () => {
+      exportLocalStorageJson();
+    },
+    onImport: () => {
+      importLocalStorageJson();
+    },
   });
 }
+
+/** @param {string} rawUri */
+async function addItemFromInput(rawUri) {
+  try {
+    const parsed = parseSpotifyUri(rawUri);
+    if (!parsed) {
+      showToast('Enter a valid Spotify album/playlist URI or URL.', 'error');
+      return;
+    }
+    const items = getItems();
+    if (items.some((item) => item.uri === parsed.uri)) {
+      showToast('Item is already in your list.', 'info');
+      return;
+    }
+    const token = await getUsableAccessToken();
+    if (!token) {
+      showToast('Connect Spotify first so the app can load item titles.', 'error');
+      return;
+    }
+
+    const titledItem = await withItemTitle(parsed);
+    if (!titledItem) {
+      showToast('Unable to load title for that item. Please try another URI.', 'error');
+      return;
+    }
+
+    items.push(titledItem);
+    saveItems(items);
+    itemsPanel.clearInput();
+    renderItemList();
+    showToast('Item added.', 'success');
+  } catch (error) {
+    reportError(error, {
+      context: 'items',
+      fallbackMessage: 'Failed to add this item.',
+    });
+  }
+}
+
+/** @param {string} uri */
+function removeItemWithUndo(uri) {
+  const removed = itemStore.removeByUri(uri);
+  if (!removed) return;
+
+  renderItemList();
+  showToast(`Removed “${removed.removedItem.title}”.`, 'info', {
+    action: {
+      actionLabel: 'Undo',
+      onAction: () => {
+        const restore = itemStore.restoreItem(removed.removedItem, removed.removedIndex);
+        if (!restore.ok) {
+          showToast('Item is already in your list.', 'info');
+          return;
+        }
+
+        renderItemList();
+        showToast(`Restored “${removed.removedItem.title}”.`, 'success');
+      },
+    },
+  });
+}
+
 
 function refreshAuthStatus() {
   const token = getToken();
@@ -299,81 +342,25 @@ function handleAuthExpired() {
 
 /** @param {string} message */
 function setAuthStatus(message) {
-  el.authStatus.textContent = message;
+  authPanel.renderStatus(message);
 }
 
 /** @param {string} message */
 function setPlaybackStatus(message) {
-  el.playbackStatus.textContent = message;
+  sessionPanel.renderPlaybackStatus(message);
 }
 
 
+/** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
 /**
  * @param {string} message
  * @param {'success' | 'info' | 'error'} [type]
  * @param {{ action?: ToastAction }} [options]
  */
 function showToast(message, type = 'info', options = {}) {
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.role = type === 'error' ? 'alert' : 'status';
-
-  const body = document.createElement('span');
-  body.className = 'toast-message';
-  body.textContent = message;
-
-  const closeButton = document.createElement('button');
-  closeButton.type = 'button';
-  closeButton.className = 'toast-close';
-  closeButton.setAttribute('aria-label', 'Close notification');
-  closeButton.textContent = '×';
-
-  const actions = document.createElement('div');
-  actions.className = 'toast-actions';
-
-  if (options.action) {
-    const actionButton = document.createElement('button');
-    actionButton.type = 'button';
-    actionButton.className = 'secondary toast-action';
-    actionButton.textContent = options.action.actionLabel;
-    actionButton.addEventListener('click', () => {
-      options.action?.onAction();
-      removeToast();
-    });
-    actions.appendChild(actionButton);
-  }
-  actions.appendChild(closeButton);
-
-  /** @type {number | null} */
-  let timeoutId = window.setTimeout(removeToast, TOAST_DURATION_MS);
-
-  function clearDismissTimer() {
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-  }
-
-  function restartDismissTimer() {
-    clearDismissTimer();
-    timeoutId = window.setTimeout(removeToast, TOAST_DURATION_MS);
-  }
-
-  function removeToast() {
-    clearDismissTimer();
-    toast.classList.add('toast-leaving');
-    window.setTimeout(() => {
-      toast.remove();
-    }, 180);
-  }
-
-  closeButton.addEventListener('click', removeToast);
-  toast.addEventListener('mouseenter', clearDismissTimer);
-  toast.addEventListener('mouseleave', restartDismissTimer);
-
-  toast.append(body, actions);
-  el.toastStack.appendChild(toast);
+  toastPresenter.show(message, type, options);
 }
+
 
 async function startLogin() {
   const verifier = randomString(64);
@@ -499,80 +486,24 @@ async function refreshSpotifyAccessToken() {
 }
 
 function exportLocalStorageJson() {
-  const rawItems = localStorage.getItem(STORAGE_KEYS.items);
-  /** @type {Record<string, unknown>} */
-  const data = {};
-
-  if (rawItems) {
-    try {
-      data[STORAGE_KEYS.items] = JSON.parse(rawItems);
-    } catch {
-      el.storageJson.value = '';
-      showToast('Unable to export saved items because stored data is invalid JSON.', 'error');
-      return;
-    }
-  } else {
-    data[STORAGE_KEYS.items] = [];
+  const exported = itemStore.exportData();
+  if (exported.error) {
+    storagePanel.setJsonInput('');
+    showToast(exported.error, 'error');
+    return;
   }
 
-  el.storageJson.value = JSON.stringify(data, null, 2);
+  storagePanel.setJsonInput(JSON.stringify(exported.data, null, 2));
   showToast('Exported saved items to JSON.', 'success');
 }
 
 function importLocalStorageJson() {
-  const raw = el.storageJson.value.trim();
-  if (!raw) {
-    showToast('Paste a JSON object to import.', 'error');
+  const imported = itemStore.importFromJson(storagePanel.getJsonInput());
+  if (!imported.ok) {
+    const error = imported.error ?? 'Import failed.';
+    showToast(error, 'error');
     return;
   }
-
-  /** @type {unknown} */
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    showToast('Invalid JSON. Please provide a valid JSON object.', 'error');
-    return;
-  }
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    showToast('Import JSON must be an object of key/value pairs.', 'error');
-    return;
-  }
-
-  const parsedObject = /** @type {Record<string, unknown>} */ (parsed);
-  const maybeItems = parsedObject[STORAGE_KEYS.items];
-  if (!Array.isArray(maybeItems)) {
-    showToast('Import JSON must include a valid shuffle-by-album.items array.', 'error');
-    return;
-  }
-
-  /** @type {unknown[]} */
-  const parsedItems = maybeItems;
-
-  saveItems(
-    parsedItems
-      .filter(
-        /**
-         * @param {unknown} item
-         * @returns {item is {type: ItemType; uri: string; title?: unknown}}
-         */
-        (item) => {
-          if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-          /** @type {Record<string, unknown>} */
-          const parsedItem = /** @type {Record<string, unknown>} */ (item);
-          return (
-            (parsedItem.type === 'album' || parsedItem.type === 'playlist')
-            && typeof parsedItem.uri === 'string'
-          );
-        },
-      )
-      .map((item) => ({
-        type: item.type,
-        uri: item.uri,
-        title: typeof item.title === 'string' ? item.title : item.uri,
-      })),
-  );
 
   stopSession('Data imported. Session reset.');
   renderItemList();
@@ -601,97 +532,16 @@ async function getUsableAccessToken() {
 
 /** @returns {ShuffleItem[]} */
 function getItems() {
-  const raw = localStorage.getItem(STORAGE_KEYS.items);
-  if (!raw) return [];
-
-  try {
-    /** @type {unknown} */
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    /** @type {unknown[]} */
-    const parsedItems = parsed;
-    return parsedItems
-      .filter(
-        /**
-         * @param {unknown} item
-         * @returns {item is {type: ItemType; uri: string; title?: unknown}}
-         */
-        (item) => {
-          if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-          /** @type {Record<string, unknown>} */
-          const parsedItem = /** @type {Record<string, unknown>} */ (item);
-          return (
-            (parsedItem.type === 'album' || parsedItem.type === 'playlist') &&
-            typeof parsedItem.uri === 'string'
-          );
-        },
-      )
-      .map((item) => ({
-        type: item.type,
-        uri: item.uri,
-        title: typeof item.title === 'string' ? item.title : item.uri,
-      }));
-  } catch {
-    return [];
-  }
+  return itemStore.getItems();
 }
 
 /** @param {ShuffleItem[]} items */
 function saveItems(items) {
-  localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items));
+  itemStore.saveItems(items);
 }
 
 function renderItemList() {
-  const items = getItems();
-  el.itemList.innerHTML = '';
-
-  for (const item of items) {
-    const li = document.createElement('li');
-    const text = document.createElement('span');
-    text.textContent = item.title ? item.title : item.uri;
-
-    const actions = document.createElement('div');
-    actions.className = 'row';
-
-    const removeButton = document.createElement('button');
-    removeButton.type = 'button';
-    removeButton.className = 'danger';
-    removeButton.textContent = 'Remove';
-    removeButton.addEventListener('click', () => {
-      const items = getItems();
-      const removedIndex = items.findIndex((candidate) => candidate.uri === item.uri);
-      if (removedIndex < 0) return;
-
-      const [removedItem] = items.splice(removedIndex, 1);
-      saveItems(items);
-      renderItemList();
-
-      showToast(`Removed “${removedItem.title}”.`, 'info', {
-        action: {
-          actionLabel: 'Undo',
-          onAction: () => {
-            const restoredItems = getItems();
-            const existingIndex = restoredItems.findIndex(
-              (candidate) => candidate.uri === removedItem.uri,
-            );
-            if (existingIndex >= 0) {
-              showToast('Item is already in your list.', 'info');
-              return;
-            }
-
-            restoredItems.splice(removedIndex, 0, removedItem);
-            saveItems(restoredItems);
-            renderItemList();
-            showToast(`Restored “${removedItem.title}”.`, 'success');
-          },
-        },
-      });
-    });
-
-    actions.appendChild(removeButton);
-    li.append(text, actions);
-    el.itemList.appendChild(li);
-  }
+  itemsPanel.renderList(getItems());
 }
 
 async function startShuffleSession() {
@@ -753,15 +603,7 @@ function transitionToDetached(message) {
 }
 
 function renderPlaybackControls() {
-  const isInactive = session.activationState === 'inactive';
-  const isActive = session.activationState === 'active';
-  const isDetached = session.activationState === 'detached';
-
-  el.startBtn.disabled = !isInactive;
-  el.skipBtn.disabled = !isActive;
-  el.stopBtn.disabled = isInactive;
-  el.reattachBtn.hidden = !isDetached;
-  el.reattachBtn.disabled = !isDetached;
+  sessionPanel.renderControls(session.activationState);
 }
 
 async function goToNextItem() {
@@ -1062,19 +904,7 @@ function clearRuntimeState() {
 }
 
 function renderSessionQueue() {
-  el.queueList.innerHTML = '';
-  if (session.activationState === 'inactive' || session.queue.length === 0) return;
-
-  for (let i = 0; i < session.queue.length; i += 1) {
-    const item = session.queue[i];
-    const li = document.createElement('li');
-    if (i === session.index) {
-      li.classList.add('current');
-    }
-    const marker = i === session.index ? '▶' : '•';
-    li.textContent = `${marker} ${i + 1}. ${item.title}`;
-    el.queueList.appendChild(li);
-  }
+  sessionPanel.renderQueue(session);
 }
 
 /**
