@@ -59,17 +59,24 @@ export function installSpotifyRoutes(context, definitions) {
   const recordedRequests = [];
 
   spotifyRouteDefinitions.push(
-    ...definitions.map((definition) => ({
-      match: definition.match,
-      handle: async (route, request) => {
-        recordedRequests.push({
-          method: request.method(),
-          url: request.url(),
-          postData: request.postData(),
-        });
-        await definition.handle(route, request);
-      },
-    })),
+    ...definitions.map(
+      /** @returns {SpotifyRouteDefinition} */
+      (definition) => ({
+        match: definition.match,
+        /**
+         * @param {Route} route
+         * @param {Request} request
+         */
+        handle: async (route, request) => {
+          recordedRequests.push({
+            method: request.method(),
+            url: request.url(),
+            postData: request.postData(),
+          });
+          await definition.handle(route, request);
+        },
+      }),
+    ),
   );
 
   return recordedRequests;
