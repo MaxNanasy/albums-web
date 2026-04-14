@@ -1,27 +1,13 @@
-import { expect, mockSpotify, test } from './fixtures.js';
+import { expect, installSpotifyRoutes, test } from './fixtures.js';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
-/** @typedef {import('@playwright/test').Route} Route */
 
 /**
  * @typedef SavedItem
  * @property {'album' | 'playlist'} type
  * @property {string} uri
  * @property {string} title
- */
-
-/**
- * @typedef RecordedSpotifyRequest
- * @property {string} method
- * @property {string} url
- * @property {string | null} postData
- */
-
-/**
- * @typedef SpotifyRouteDefinition
- * @property {(request: Request) => boolean} match
- * @property {(route: Route, request: Request) => Promise<void>} handle
  */
 
 const CONNECTED_SCOPES = [
@@ -209,33 +195,6 @@ async function seedItems(context, items) {
   await context.addInitScript((savedItems) => {
     localStorage.setItem('shuffle-by-album.items', JSON.stringify(savedItems));
   }, items);
-}
-
-/**
- * @param {BrowserContext} context
- * @param {SpotifyRouteDefinition[]} definitions
- * @returns {RecordedSpotifyRequest[]}
- */
-function installSpotifyRoutes(context, definitions) {
-  /** @type {RecordedSpotifyRequest[]} */
-  const recordedRequests = [];
-
-  mockSpotify(
-    context,
-    ...definitions.map((definition) => ({
-      match: definition.match,
-      handle: async (route, request) => {
-        recordedRequests.push({
-          method: request.method(),
-          url: request.url(),
-          postData: request.postData(),
-        });
-        await definition.handle(route, request);
-      },
-    })),
-  );
-
-  return recordedRequests;
 }
 
 /**
