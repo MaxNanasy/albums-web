@@ -20,11 +20,11 @@ import { expect, test } from '@playwright/test';
 /** @type {WeakMap<BrowserContext, SpotifyRouteDefinition[]>} */
 const spotifyRouteDefinitionsByContext = new WeakMap();
 
-test.beforeEach(async ({ context }) => {
-  /** @type {SpotifyRouteDefinition[]} */
-  const spotifyRouteDefinitions = [];
-  spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
-
+/**
+ * @param {BrowserContext} context
+ * @param {SpotifyRouteDefinition[]} spotifyRouteDefinitions
+ */
+async function installSpotifyRouteGuard(context, spotifyRouteDefinitions) {
   await context.route(/^https:\/\/(api|accounts)\.spotify\.com\//, async (route) => {
     const request = route.request();
 
@@ -37,6 +37,14 @@ test.beforeEach(async ({ context }) => {
 
     throw new Error(`Unexpected Spotify request: ${request.method()} ${request.url()}`);
   });
+}
+
+test.beforeEach(async ({ context }) => {
+  /** @type {SpotifyRouteDefinition[]} */
+  const spotifyRouteDefinitions = [];
+  spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
+
+  await installSpotifyRouteGuard(context, spotifyRouteDefinitions);
 });
 
 test.afterEach(async ({ context }) => {
@@ -52,7 +60,11 @@ export function installSpotifyRoutes(context, definitions) {
   const spotifyRouteDefinitions = spotifyRouteDefinitionsByContext.get(context);
 
   if (!spotifyRouteDefinitions) {
-    throw new Error('Spotify routes have not been initialized for this test context.');
+    /** @type {SpotifyRouteDefinition[]} */
+    const fallbackSpotifyRouteDefinitions = [];
+    spotifyRouteDefinitionsByContext.set(context, fallbackSpotifyRouteDefinitions);
+    void installSpotifyRouteGuard(context, fallbackSpotifyRouteDefinitions);
+    return installSpotifyRoutes(context, definitions);
   }
 
   /** @type {RecordedSpotifyRequest[]} */

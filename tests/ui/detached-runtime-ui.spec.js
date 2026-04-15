@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.js';
+import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
@@ -10,14 +10,26 @@ test.describe('detached session and runtime restore', () => {
   test('unrecoverable start error detaches and reattach handles empty queue + missing token', async ({ context, page }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player\/(shuffle|repeat|play).*$/, async (route) => {
-      const url = route.request().url();
-      if (url.includes('/me/player/play')) {
-        await route.fulfill({ status: 404, body: 'device missing' });
-        return;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/shuffle?state=false',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/repeat?state=off',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 404, body: 'device missing' }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
@@ -53,24 +65,25 @@ test.describe('detached session and runtime restore', () => {
       }));
     });
 
-    let playCalls = 0;
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player.*$/, async (route) => {
-      const request = route.request();
-      if (request.method() === 'GET') {
-        await route.fulfill({ status: 200, json: { context: { uri: 'spotify:album:one' } } });
-        return;
-      }
-      if (request.url().includes('/me/player/play')) {
-        playCalls += 1;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    const requests = installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'GET' && request.url() === 'https://api.spotify.com/v1/me/player',
+        handle: (route) => route.fulfill({ status: 200, json: { context: { uri: 'spotify:album:one' } } }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
     await expect(page.getByText('Now playing album 1 of 1: One', { exact: true })).toBeVisible();
-    expect(playCalls).toBe(0);
+    expect(requests.some((request) => request.url.endsWith('/v1/me/player/play'))).toBe(false);
   });
 
   test('reattach with mismatched context restarts expected item', async ({ context, page }) => {
@@ -82,18 +95,31 @@ test.describe('detached session and runtime restore', () => {
       }));
     });
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player.*$/, async (route) => {
-      const request = route.request();
-      if (request.method() === 'GET') {
-        await route.fulfill({ status: 200, json: { context: { uri: 'spotify:album:other' } } });
-        return;
-      }
-      if (request.url().includes('/me/player/play')) {
-        await route.fulfill({ status: 500, body: 'play failed' });
-        return;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'GET' && request.url() === 'https://api.spotify.com/v1/me/player',
+        handle: (route) => route.fulfill({ status: 200, json: { context: { uri: 'spotify:album:other' } } }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/shuffle?state=false',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/repeat?state=off',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 500, body: 'play failed' }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();

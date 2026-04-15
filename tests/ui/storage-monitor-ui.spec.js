@@ -1,5 +1,6 @@
-import { expect, test } from './fixtures.js';
+import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
+import { isSpotifyApiRequest } from './ui-helpers.js';
 
 /** @typedef {typeof globalThis & { __monitorCallbacks: Array<() => void> }} TestGlobal */
 
@@ -20,9 +21,20 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
 
     await page.goto('/');
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player\/(shuffle|repeat|play).*$/, async (route) => {
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/repeat'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/play'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+    ]);
 
     await page.getByRole('button', { name: 'Start' }).click();
     await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeEnabled();
@@ -59,14 +71,16 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
       { type: 'album', uri: 'spotify:album:fail', title: '' },
     ]);
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/albums\/(ok|fail)$/, async (route) => {
-      const url = route.request().url();
-      if (url.endsWith('/albums/ok')) {
-        await route.fulfill({ status: 200, json: { name: 'OK Title' } });
-        return;
-      }
-      await route.fulfill({ status: 404, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/albums/ok'),
+        handle: (route) => route.fulfill({ status: 200, json: { name: 'OK Title' } }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/albums/fail'),
+        handle: (route) => route.fulfill({ status: 404, body: '' }),
+      },
+    ]);
 
     await page.goto('/');
 
@@ -97,18 +111,28 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
     ]);
 
     let monitorState = 'match-one';
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player.*$/, async (route) => {
-      const request = route.request();
-      if (request.method() === 'GET') {
-        if (monitorState === 'null') {
-          await route.fulfill({ status: 204, body: '' });
-          return;
-        }
-        await route.fulfill({ status: 200, json: { context: { uri: 'spotify:album:one' } } });
-        return;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/repeat'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/play'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/me/player'),
+        handle: (route) =>
+          route.fulfill({
+            status: monitorState === 'null' ? 204 : 200,
+            ...(monitorState === 'null' ? { body: '' } : { json: { context: { uri: 'spotify:album:one' } } }),
+          }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
@@ -148,17 +172,28 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
     let monitorState = 'match';
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player.*$/, async (route) => {
-      const request = route.request();
-      if (request.method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          json: { context: { uri: monitorState === 'match' ? 'spotify:album:one' : 'spotify:album:other' } },
-        });
-        return;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/repeat'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/play'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/me/player'),
+        handle: (route) =>
+          route.fulfill({
+            status: 200,
+            json: { context: { uri: monitorState === 'match' ? 'spotify:album:one' : 'spotify:album:other' } },
+          }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
@@ -200,14 +235,24 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
 
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player.*$/, async (route) => {
-      const request = route.request();
-      if (request.method() === 'GET') {
-        await route.fulfill({ status: 429, body: 'too many requests' });
-        return;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/repeat'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/play'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/me/player'),
+        handle: (route) => route.fulfill({ status: 429, body: 'too many requests' }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();

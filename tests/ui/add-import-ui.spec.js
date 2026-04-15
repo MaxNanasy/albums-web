@@ -2,6 +2,24 @@ import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
 import { CONNECTED_SCOPES, isPlaylistItemsRequest, isSpotifyApiRequest } from './ui-helpers.js';
 
+/** @typedef {import('@playwright/test').Request} Request */
+
+/**
+ * @param {Request} request
+ * @param {number} expectedOffset
+ */
+function hasPlaylistPageRequest(request, expectedOffset) {
+  const url = new URL(request.url());
+  return (
+    request.method() === 'GET'
+    && url.pathname === '/v1/playlists/playlist123/items'
+    && url.searchParams.get('limit') === '50'
+    && url.searchParams.get('offset') === String(expectedOffset)
+    && url.searchParams.get('additional_types') === 'track'
+    && url.searchParams.get('market') === 'from_token'
+  );
+}
+
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
   await seedConnectedAuth(context);
@@ -80,6 +98,63 @@ test.describe('add and import validations', () => {
     await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:missing');
     await page.getByRole('button', { name: 'Add' }).click();
     await expect(page.getByText('Unable to load title for that item. Please try another URI.', { exact: true })).toBeVisible();
+  });
+
+  test('imports playlist albums across pages and skips saved duplicates', async ({ context, page }) => {
+    await seedItems(context, [
+      {
+        type: 'album',
+        uri: 'spotify:album:existing',
+        title: 'Existing Album',
+      },
+    ]);
+
+    const requests = installSpotifyRoutes(context, [
+      {
+        match: (request) => hasPlaylistPageRequest(request, 0),
+        handle: (route) =>
+          route.fulfill({
+            status: 200,
+            json: {
+              items: [
+                { item: { album: { uri: 'spotify:album:existing', name: 'Existing Album' } } },
+                { item: { album: { uri: 'spotify:album:new-one', name: 'New Album One' } } },
+              ],
+              next: 'https://api.spotify.com/v1/playlists/playlist123/items?offset=50',
+            },
+          }),
+      },
+      {
+        match: (request) => hasPlaylistPageRequest(request, 50),
+        handle: (route) =>
+          route.fulfill({
+            status: 200,
+            json: {
+              items: [
+                { item: { album: { uri: 'spotify:album:new-one', name: 'New Album One' } } },
+                { item: { album: { id: 'new-two', name: 'New Album Two' } } },
+              ],
+              next: null,
+            },
+          }),
+      },
+    ]);
+
+    await page.goto('/');
+
+    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('playlist123');
+    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+
+    await expect(page.getByText('Existing Album', { exact: true })).toBeVisible();
+    await expect(page.getByText('New Album One', { exact: true })).toBeVisible();
+    await expect(page.getByText('New Album Two', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Imported 2 album(s) from playlist (3 unique album(s) found).', { exact: true }),
+    ).toBeVisible();
+    expect(requests.map((request) => request.url)).toEqual([
+      'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
+      'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=50&additional_types=track&market=from_token',
+    ]);
   });
 
   test('playlist import unhappy paths and no-op imports', async ({ context, page }) => {

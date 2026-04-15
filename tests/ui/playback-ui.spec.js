@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.js';
+import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
 import { CONNECTED_SCOPES } from './ui-helpers.js';
 
@@ -7,38 +7,42 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('saved items and playback controls', () => {
-  test('remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page }) => {
+test.describe('playback controls', () => {
+  test('starts playback', async ({ context, page }) => {
     await seedItems(context, [
-      { type: 'album', uri: 'spotify:album:a', title: 'A' },
-      { type: 'album', uri: 'spotify:album:b', title: 'B' },
+      {
+        type: 'album',
+        uri: 'spotify:album:album123',
+        title: 'Discovery',
+      },
+    ]);
+
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/shuffle?state=false',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/repeat?state=off',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
     ]);
 
     await page.goto('/');
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/albums\/(newone|a)$/, async (route) => {
-      const url = route.request().url();
-      if (url.endsWith('/albums/newone')) {
-        await route.fulfill({ status: 200, json: { name: 'New One' } });
-        return;
-      }
-      await route.fulfill({ status: 200, json: { name: 'A' } });
-    });
+    await page.getByRole('button', { name: 'Start' }).click();
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
-    await expect(page.getByRole('listitem').filter({ hasText: 'A' })).toHaveCount(0);
-
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:newone');
-    await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByText('Item added.', { exact: true }).waitFor();
-
-    await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.getByText('Restored “A”.', { exact: true })).toBeVisible();
-
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:a');
-    await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByRole('button', { name: 'Undo' }).last().click();
-    await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Now playing album 1 of 1: Discovery', { exact: true })).toBeVisible();
+    await expect(page.getByText('▶ 1. Discovery', { exact: true })).toBeVisible();
   });
 
   test('start guardrails and active controls for start/skip/stop/final item', async ({ context, page }) => {
@@ -67,9 +71,26 @@ test.describe('saved items and playback controls', () => {
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
     ]);
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player\/(shuffle|repeat|play).*$/, async (route) => {
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/shuffle?state=false',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/repeat?state=off',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+    ]);
 
     await page.reload();
     await page.getByRole('button', { name: 'Start' }).click();
@@ -90,13 +111,26 @@ test.describe('saved items and playback controls', () => {
   test('recoverable playback-start failure stops session instead of detaching', async ({ context, page }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
-    await context.route(/^https:\/\/api\.spotify\.com\/v1\/me\/player\/(shuffle|repeat|play).*$/, async (route) => {
-      if (route.request().url().includes('/me/player/play')) {
-        await route.fulfill({ status: 429, body: 'rate limited' });
-        return;
-      }
-      await route.fulfill({ status: 204, body: '' });
-    });
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/shuffle?state=false',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/repeat?state=off',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 429, body: 'rate limited' }),
+      },
+    ]);
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();

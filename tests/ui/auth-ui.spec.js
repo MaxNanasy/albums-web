@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.js';
+import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth } from './common.js';
 import { isSpotifyAccountTokenRequest } from './ui-helpers.js';
 
@@ -62,21 +62,17 @@ test.describe('auth and connection states', () => {
       localStorage.setItem('shuffle-by-album.pkceVerifier', 'verifier');
     });
 
-    let tokenExchangeRequests = 0;
-    await context.route('https://accounts.spotify.com/api/token', async (route) => {
-      const request = route.request();
-      if (isSpotifyAccountTokenRequest(request)) {
-        tokenExchangeRequests += 1;
-        await route.fulfill({ status: 400, body: 'bad code' });
-        return;
-      }
-      await route.continue();
-    });
+    const requests = installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyAccountTokenRequest(request),
+        handle: (route) => route.fulfill({ status: 400, body: 'bad code' }),
+      },
+    ]);
 
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/?code=abc123');
     await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
-    expect(tokenExchangeRequests).toBe(1);
+    expect(requests).toHaveLength(1);
   });
 });
