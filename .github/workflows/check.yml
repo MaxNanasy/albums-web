@@ -106,7 +106,7 @@ jobs:
       - name: Run UI tests
         run: npm run test:ui
 
-      - name: Upload Playwright report
+      - name: Upload Playwright results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6
         with:
