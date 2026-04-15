@@ -232,7 +232,7 @@ def main() -> int:
             render_test_list(head_tests),
             fromfile=f'{base_ref} test-list',
             tofile=f'{head_ref} test-list',
-            n=0,
+            n=1,
         )
     )
     if diff.strip():
