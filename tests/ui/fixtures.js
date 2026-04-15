@@ -42,7 +42,11 @@ async function installSpotifyRouteGuard(context) {
   });
 }
 
-const test = base.extend({
+/** @typedef {import('@playwright/test').PlaywrightTestArgs & import('@playwright/test').PlaywrightTestOptions} PlaywrightTestContext */
+/** @typedef {import('@playwright/test').PlaywrightWorkerArgs & import('@playwright/test').PlaywrightWorkerOptions} PlaywrightWorkerContext */
+
+/** @type {import('@playwright/test').Fixtures<{ _spotifyRouteGuard: void }, {}, PlaywrightTestContext, PlaywrightWorkerContext>} */
+const fixtures = {
   _spotifyRouteGuard: [async ({ context }, use) => {
     await installSpotifyRouteGuard(context);
     try {
@@ -51,7 +55,9 @@ const test = base.extend({
       spotifyRouteDefinitionsByContext.delete(context);
     }
   }, { auto: true }],
-});
+};
+
+const test = base.extend(fixtures);
 
 /**
  * @param {BrowserContext} context
