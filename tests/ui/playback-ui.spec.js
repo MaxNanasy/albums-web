@@ -44,6 +44,37 @@ test.describe('playback controls', () => {
     await expect(page.getByText('▶ 1. Discovery', { exact: true })).toBeVisible();
   });
 
+  test('starts playback for a saved playlist item', async ({ context, page }) => {
+    await seedItems(context, [{ type: 'playlist', uri: 'spotify:playlist:playlist123', title: 'Road Trip Mix' }]);
+
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/shuffle?state=false',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/repeat?state=off',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) =>
+          request.method() === 'PUT'
+          && request.url() === 'https://api.spotify.com/v1/me/player/play',
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+    ]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Start' }).click();
+
+    await expect(page.getByText('Now playing playlist 1 of 1: Road Trip Mix', { exact: true })).toBeVisible();
+    await expect(page.getByText('▶ 1. Road Trip Mix', { exact: true })).toBeVisible();
+  });
+
   test('start guardrails and active controls for start/skip/stop/final item', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');

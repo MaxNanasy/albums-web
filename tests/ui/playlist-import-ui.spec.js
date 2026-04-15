@@ -83,6 +83,62 @@ test.describe('playlist album import', () => {
     ]);
   });
 
+  test('imports playlist albums from a Spotify playlist URL', async ({ context, page }) => {
+    const requests = installSpotifyRoutes(context, [
+      {
+        match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
+        handle: (route) =>
+          route.fulfill({
+            status: 200,
+            json: {
+              items: [{ item: { album: { uri: 'spotify:album:new-one', name: 'New Album One' } } }],
+              next: null,
+            },
+          }),
+      },
+    ]);
+
+    await page.goto('/');
+
+    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('https://open.spotify.com/playlist/playlist123');
+    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+
+    await expect(page.getByText('New Album One', { exact: true })).toBeVisible();
+    await expect(page.getByText('Imported 1 album(s) from playlist (1 unique album(s) found).', { exact: true })).toBeVisible();
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toBe(
+      'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
+    );
+  });
+
+  test('imports playlist albums from a Spotify playlist URI', async ({ context, page }) => {
+    const requests = installSpotifyRoutes(context, [
+      {
+        match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
+        handle: (route) =>
+          route.fulfill({
+            status: 200,
+            json: {
+              items: [{ item: { album: { uri: 'spotify:album:new-two', name: 'New Album Two' } } }],
+              next: null,
+            },
+          }),
+      },
+    ]);
+
+    await page.goto('/');
+
+    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:playlist:playlist123');
+    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+
+    await expect(page.getByText('New Album Two', { exact: true })).toBeVisible();
+    await expect(page.getByText('Imported 1 album(s) from playlist (1 unique album(s) found).', { exact: true })).toBeVisible();
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toBe(
+      'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
+    );
+  });
+
   test('playlist import unhappy paths and no-op imports', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');

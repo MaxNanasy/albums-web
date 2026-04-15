@@ -62,4 +62,18 @@ test.describe('storage JSON import/export', () => {
     await expect(page.getByText('Data imported. Session reset.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeDisabled();
   });
+
+  test('export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page }) => {
+    await context.addInitScript(() => {
+      localStorage.setItem('shuffle-by-album.items', '{bad-json');
+    });
+
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Export Data JSON' }).click();
+    await expect(page.locator('#storage-json')).toHaveValue('');
+    await expect(
+      page.getByText('Unable to export saved items because stored data is invalid JSON.', { exact: true }),
+    ).toBeVisible();
+  });
 });

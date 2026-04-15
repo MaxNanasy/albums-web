@@ -86,6 +86,31 @@ test.describe('detached session and runtime restore', () => {
     expect(requests.some((request) => request.url.endsWith('/v1/me/player/play'))).toBe(false);
   });
 
+  test('recoverable reattach player-state failure shows retry UI and keeps the session detached', async ({ context, page }) => {
+    await context.addInitScript(() => {
+      localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
+        activationState: 'detached',
+        queue: [{ type: 'album', uri: 'spotify:album:one', title: 'One' }],
+        index: 0,
+      }));
+    });
+
+    installSpotifyRoutes(context, [
+      {
+        match: (request) =>
+          request.method() === 'GET' && request.url() === 'https://api.spotify.com/v1/me/player',
+        handle: (route) => route.fulfill({ status: 500, body: 'server busy' }),
+      },
+    ]);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Reattach' }).click();
+
+    await expect(page.getByText('Unable to reattach right now. Please try again.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Failed to reattach Spotify playback.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
+  });
+
   test('reattach with mismatched context restarts expected item', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
