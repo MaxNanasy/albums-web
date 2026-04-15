@@ -106,10 +106,11 @@ jobs:
       - name: Run UI tests
         run: npm run test:ui
 
-      - name: Upload Playwright report
+      - name: Upload Playwright results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-results
+          path: test-results/
+          if-no-files-found: ignore
           retention-days: 30

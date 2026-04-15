@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
@@ -20,7 +20,10 @@ import { expect, test } from '@playwright/test';
 /** @type {WeakMap<BrowserContext, SpotifyRouteDefinition[]>} */
 const spotifyRouteDefinitionsByContext = new WeakMap();
 
-test.beforeEach(async ({ context }) => {
+/**
+ * @param {BrowserContext} context
+ */
+async function installSpotifyRouteGuard(context) {
   /** @type {SpotifyRouteDefinition[]} */
   const spotifyRouteDefinitions = [];
   spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
@@ -37,11 +40,24 @@ test.beforeEach(async ({ context }) => {
 
     throw new Error(`Unexpected Spotify request: ${request.method()} ${request.url()}`);
   });
-});
+}
 
-test.afterEach(async ({ context }) => {
-  spotifyRouteDefinitionsByContext.delete(context);
-});
+/** @typedef {import('@playwright/test').PlaywrightTestArgs & import('@playwright/test').PlaywrightTestOptions} PlaywrightTestContext */
+/** @typedef {import('@playwright/test').PlaywrightWorkerArgs & import('@playwright/test').PlaywrightWorkerOptions} PlaywrightWorkerContext */
+
+/** @type {import('@playwright/test').Fixtures<{ _spotifyRouteGuard: void }, {}, PlaywrightTestContext, PlaywrightWorkerContext>} */
+const fixtures = {
+  _spotifyRouteGuard: [async ({ context }, use) => {
+    await installSpotifyRouteGuard(context);
+    try {
+      await use();
+    } finally {
+      spotifyRouteDefinitionsByContext.delete(context);
+    }
+  }, { auto: true }],
+};
+
+const test = base.extend(fixtures);
 
 /**
  * @param {BrowserContext} context
