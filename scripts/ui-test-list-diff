@@ -15,7 +15,7 @@ DESCRIBE_RE = re.compile(r'\btest\.describe(?:\.(?:only|skip|fixme))?\(\s*', re.
 TEST_RE = re.compile(r'\btest(?:\.(?:only|skip|fixme|fail))?\(\s*', re.MULTILINE)
 
 
-def git(*args, check=True):
+def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ['git', *args],
         check=check,
@@ -24,22 +24,22 @@ def git(*args, check=True):
     )
 
 
-def list_files(ref):
+def list_files(ref: str) -> list[str]:
     return git('ls-tree', '-r', '--name-only', ref).stdout.splitlines()
 
 
-def matches_any(path):
+def matches_any(path: str) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in SUITE_PATTERNS)
 
 
-def file_at(ref, path):
+def file_at(ref: str, path: str) -> str | None:
     result = git('show', f'{ref}:{path}', check=False)
     if result.returncode != 0:
         return None
     return result.stdout
 
 
-def skip_string(text, index):
+def skip_string(text: str, index: int) -> int:
     quote = text[index]
     index += 1
     while index < len(text):
@@ -53,7 +53,7 @@ def skip_string(text, index):
     return index
 
 
-def skip_comment(text, index):
+def skip_comment(text: str, index: int) -> int:
     if text.startswith('//', index):
         newline = text.find('\n', index + 2)
         return len(text) if newline == -1 else newline + 1
@@ -63,7 +63,7 @@ def skip_comment(text, index):
     return index
 
 
-def skip_space_and_comments(text, index, limit=None):
+def skip_space_and_comments(text: str, index: int, limit: int | None = None) -> int:
     if limit is None:
         limit = len(text)
     while index < limit:
@@ -78,7 +78,13 @@ def skip_space_and_comments(text, index, limit=None):
     return index
 
 
-def find_matching(text, start, open_char, close_char, limit=None):
+def find_matching(
+    text: str,
+    start: int,
+    open_char: str,
+    close_char: str,
+    limit: int | None = None,
+) -> int | None:
     if limit is None:
         limit = len(text)
     depth = 1
@@ -102,7 +108,7 @@ def find_matching(text, start, open_char, close_char, limit=None):
     return None
 
 
-def read_string_literal(text, index, limit=None):
+def read_string_literal(text: str, index: int, limit: int | None = None) -> tuple[str | None, int]:
     if limit is None:
         limit = len(text)
     index = skip_space_and_comments(text, index, limit)
@@ -110,7 +116,7 @@ def read_string_literal(text, index, limit=None):
         return None, index
     quote = text[index]
     index += 1
-    chars = []
+    chars: list[str] = []
     while index < limit:
         ch = text[index]
         if ch == '\\':
@@ -126,7 +132,7 @@ def read_string_literal(text, index, limit=None):
     return None, index
 
 
-def find_arrow_block_start(text, index, limit):
+def find_arrow_block_start(text: str, index: int, limit: int) -> int | None:
     while index < limit - 1:
         new_index = skip_comment(text, index)
         if new_index != index:
@@ -143,16 +149,16 @@ def find_arrow_block_start(text, index, limit):
     return None
 
 
-def parse_suite_tests(text):
-    events = []
+def parse_suite_tests(text: str) -> list[tuple[str, str]]:
+    events: list[tuple[int, str, int]] = []
     for match in DESCRIBE_RE.finditer(text):
         events.append((match.start(), 'describe', match.end()))
     for match in TEST_RE.finditer(text):
         events.append((match.start(), 'test', match.end()))
     events.sort()
 
-    suite_tests = []
-    describe_stack = []
+    suite_tests: list[tuple[str, str]] = []
+    describe_stack: list[tuple[int, str]] = []
     for position, kind, index in events:
         while describe_stack and position >= describe_stack[-1][0]:
             describe_stack.pop()
@@ -185,9 +191,9 @@ def parse_suite_tests(text):
     return suite_tests
 
 
-def render_test_list(suite_tests):
-    lines = []
-    current_suite = None
+def render_test_list(suite_tests: list[tuple[str, str]]) -> list[str]:
+    lines: list[str] = []
+    current_suite: str | None = None
     for suite_title, test_title in suite_tests:
         if suite_title != current_suite:
             if lines:
@@ -198,7 +204,7 @@ def render_test_list(suite_tests):
     return [f'{line}\n' for line in lines]
 
 
-def main():
+def main() -> int:
     if len(sys.argv) != 3:
         print(f'Usage: {sys.argv[0]} <base-ref> <head-ref>', file=sys.stderr)
         return 1
@@ -210,8 +216,8 @@ def main():
     head_tree = list_files(head_ref)
     suite_files = sorted({path for path in [*base_tree, *head_tree] if matches_any(path)})
 
-    base_tests = []
-    head_tests = []
+    base_tests: list[tuple[str, str]] = []
+    head_tests: list[tuple[str, str]] = []
     for path in suite_files:
         base_text = file_at(base_ref, path)
         if base_text is not None:
