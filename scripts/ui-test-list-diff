@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+  printf 'Usage: %s <base-ref> <head-ref>\n' "$0" >&2
+  exit 1
+fi
+
+base_ref="$1"
+head_ref="$2"
+
+BASE_REF="$base_ref" HEAD_REF="$head_ref" python3 <<'PY'
+import difflib
+import fnmatch
+import os
+import re
+import subprocess
+
+base_ref = os.environ['BASE_REF']
+head_ref = os.environ['HEAD_REF']
+suite_patterns = [
+    'tests/ui/*.spec.js',
+    'tests/ui/**/*.spec.js',
+]
+
+
+def git(*args, check=True):
+    return subprocess.run(
+        ['git', *args],
+        check=check,
+        capture_output=True,
+        text=True,
+    )
+
+
+def list_files(ref):
+    return git('ls-tree', '-r', '--name-only', ref).stdout.splitlines()
+
+
+def matches_any(path):
+    return any(fnmatch.fnmatch(path, pattern) for pattern in suite_patterns)
+
+
+def file_at(ref, path):
+    result = git('show', f'{ref}:{path}', check=False)
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def parse_titles(text, path):
+    call_re = re.compile(r'\btest(?:\.(?:only|skip|fixme|fail))?\(\s*', re.MULTILINE)
+    titles = []
+    for match in call_re.finditer(text):
+        index = match.end()
+        if index >= len(text):
+            continue
+        quote = text[index]
+        if quote not in ('"', "'", '`'):
+            continue
+        index += 1
+        chars = []
+        escaped = False
+        while index < len(text):
+            ch = text[index]
+            if escaped:
+                chars.append(ch)
+                escaped = False
+            elif ch == '\\':
+                escaped = True
+            elif ch == quote:
+                title = ''.join(chars).replace('\n', '\\n')
+                titles.append(f'{path} :: {title}')
+                break
+            else:
+                chars.append(ch)
+            index += 1
+    return titles
+
+
+base_tree = list_files(base_ref)
+head_tree = list_files(head_ref)
+suite_files = sorted({path for path in [*base_tree, *head_tree] if matches_any(path)})
+
+base_tests = []
+head_tests = []
+for path in suite_files:
+    base_text = file_at(base_ref, path)
+    if base_text is not None:
+        base_tests.extend(parse_titles(base_text, path))
+    head_text = file_at(head_ref, path)
+    if head_text is not None:
+        head_tests.extend(parse_titles(head_text, path))
+
+diff = ''.join(
+    difflib.unified_diff(
+        [f'{line}\n' for line in base_tests],
+        [f'{line}\n' for line in head_tests],
+        fromfile=f'{base_ref} test-list',
+        tofile=f'{head_ref} test-list',
+    )
+)
+if diff.strip():
+    print(diff, end='')
+elif suite_files:
+    print('No UI test list changes.')
+else:
+    print('No UI suite files matched the configured patterns.')
+PY
