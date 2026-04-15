@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+  printf 'Usage: %s <base-ref> <head-ref>\n' "$0" >&2
+  exit 1
+fi
+
+base_ref="$1"
+head_ref="$2"
+
+BASE_REF="$base_ref" HEAD_REF="$head_ref" python3 <<'PY'
+import difflib
+import fnmatch
+import os
+import re
+import subprocess
+
+base_ref = os.environ['BASE_REF']
+head_ref = os.environ['HEAD_REF']
+suite_patterns = [
+    'tests/ui/*.spec.js',
+    'tests/ui/**/*.spec.js',
+]
+
+describe_re = re.compile(r'\btest\.describe(?:\.(?:only|skip|fixme))?\(\s*', re.MULTILINE)
+test_re = re.compile(r'\btest(?:\.(?:only|skip|fixme|fail))?\(\s*', re.MULTILINE)
+
+
+def git(*args, check=True):
+    return subprocess.run(
+        ['git', *args],
+        check=check,
+        capture_output=True,
+        text=True,
+    )
+
+
+def list_files(ref):
+    return git('ls-tree', '-r', '--name-only', ref).stdout.splitlines()
+
+
+def matches_any(path):
+    return any(fnmatch.fnmatch(path, pattern) for pattern in suite_patterns)
+
+
+def file_at(ref, path):
+    result = git('show', f'{ref}:{path}', check=False)
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def skip_string(text, index):
+    quote = text[index]
+    index += 1
+    while index < len(text):
+        ch = text[index]
+        if ch == '\\':
+            index += 2
+            continue
+        if ch == quote:
+            return index + 1
+        index += 1
+    return index
+
+
+def skip_comment(text, index):
+    if text.startswith('//', index):
+        newline = text.find('\n', index + 2)
+        return len(text) if newline == -1 else newline + 1
+    if text.startswith('/*', index):
+        end = text.find('*/', index + 2)
+        return len(text) if end == -1 else end + 2
+    return index
+
+
+def skip_space_and_comments(text, index, limit=None):
+    if limit is None:
+        limit = len(text)
+    while index < limit:
+        new_index = skip_comment(text, index)
+        if new_index != index:
+            index = new_index
+            continue
+        if text[index].isspace():
+            index += 1
+            continue
+        break
+    return index
+
+
+def find_matching(text, start, open_char, close_char, limit=None):
+    if limit is None:
+        limit = len(text)
+    depth = 1
+    index = start + 1
+    while index < limit:
+        new_index = skip_comment(text, index)
+        if new_index != index:
+            index = new_index
+            continue
+        ch = text[index]
+        if ch in ('"', "'", '`'):
+            index = skip_string(text, index)
+            continue
+        if ch == open_char:
+            depth += 1
+        elif ch == close_char:
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    return None
+
+
+def read_string_literal(text, index, limit=None):
+    if limit is None:
+        limit = len(text)
+    index = skip_space_and_comments(text, index, limit)
+    if index >= limit or text[index] not in ('"', "'", '`'):
+        return None, index
+    quote = text[index]
+    index += 1
+    chars = []
+    while index < limit:
+        ch = text[index]
+        if ch == '\\':
+            if index + 1 >= limit:
+                break
+            chars.append(text[index + 1])
+            index += 2
+            continue
+        if ch == quote:
+            return ''.join(chars).replace('\n', '\\n'), index + 1
+        chars.append(ch)
+        index += 1
+    return None, index
+
+
+def find_arrow_block_start(text, index, limit):
+    while index < limit - 1:
+        new_index = skip_comment(text, index)
+        if new_index != index:
+            index = new_index
+            continue
+        ch = text[index]
+        if ch in ('"', "'", '`'):
+            index = skip_string(text, index)
+            continue
+        if text.startswith('=>', index):
+            index = skip_space_and_comments(text, index + 2, limit)
+            return index if index < limit and text[index] == '{' else None
+        index += 1
+    return None
+
+
+def parse_suite_tests(text):
+    events = []
+    for match in describe_re.finditer(text):
+        events.append((match.start(), 'describe', match.end()))
+    for match in test_re.finditer(text):
+        events.append((match.start(), 'test', match.end()))
+    events.sort()
+
+    suite_tests = []
+    describe_stack = []
+    for position, kind, index in events:
+        while describe_stack and position >= describe_stack[-1][0]:
+            describe_stack.pop()
+
+        title, after_title = read_string_literal(text, index)
+        if title is None:
+            continue
+
+        if kind == 'describe':
+            call_open = text.find('(', position)
+            if call_open == -1:
+                continue
+            call_close = find_matching(text, call_open, '(', ')')
+            if call_close is None:
+                continue
+            block_start = find_arrow_block_start(text, after_title, call_close)
+            if block_start is None:
+                continue
+            block_end = find_matching(text, block_start, '{', '}')
+            if block_end is None:
+                continue
+            describe_stack.append((block_end, title))
+            continue
+
+        suite_title = ' > '.join(suite_title for _, suite_title in describe_stack)
+        if not suite_title:
+            suite_title = '(root)'
+        suite_tests.append((suite_title, title))
+
+    return suite_tests
+
+
+def render_test_list(suite_tests):
+    lines = []
+    current_suite = None
+    for suite_title, test_title in suite_tests:
+        if suite_title != current_suite:
+            if lines:
+                lines.append('')
+            lines.append(suite_title)
+            current_suite = suite_title
+        lines.append(f'  {test_title}')
+    return [f'{line}\n' for line in lines]
+
+
+base_tree = list_files(base_ref)
+head_tree = list_files(head_ref)
+suite_files = sorted({path for path in [*base_tree, *head_tree] if matches_any(path)})
+
+base_tests = []
+head_tests = []
+for path in suite_files:
+    base_text = file_at(base_ref, path)
+    if base_text is not None:
+        base_tests.extend(parse_suite_tests(base_text))
+    head_text = file_at(head_ref, path)
+    if head_text is not None:
+        head_tests.extend(parse_suite_tests(head_text))
+
+diff = ''.join(
+    difflib.unified_diff(
+        render_test_list(base_tests),
+        render_test_list(head_tests),
+        fromfile=f'{base_ref} test-list',
+        tofile=f'{head_ref} test-list',
+        n=0,
+    )
+)
+if diff.strip():
+    print(diff, end='')
+elif suite_files:
+    print('No UI test list changes.')
+else:
+    print('No UI suite files matched the configured patterns.')
+PY
