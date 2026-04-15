@@ -22,9 +22,12 @@ const spotifyRouteDefinitionsByContext = new WeakMap();
 
 /**
  * @param {BrowserContext} context
- * @param {SpotifyRouteDefinition[]} spotifyRouteDefinitions
  */
-async function installSpotifyRouteGuard(context, spotifyRouteDefinitions) {
+async function installSpotifyRouteGuard(context) {
+  /** @type {SpotifyRouteDefinition[]} */
+  const spotifyRouteDefinitions = [];
+  spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
+
   await context.route(/^https:\/\/(api|accounts)\.spotify\.com\//, async (route) => {
     const request = route.request();
 
@@ -41,12 +44,7 @@ async function installSpotifyRouteGuard(context, spotifyRouteDefinitions) {
 
 const test = base.extend({
   _spotifyRouteGuard: [async ({ context }, use) => {
-    /** @type {SpotifyRouteDefinition[]} */
-    const spotifyRouteDefinitions = [];
-    spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
-
-    await installSpotifyRouteGuard(context, spotifyRouteDefinitions);
-
+    await installSpotifyRouteGuard(context);
     try {
       await use();
     } finally {
