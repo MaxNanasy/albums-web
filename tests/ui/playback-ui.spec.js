@@ -37,7 +37,7 @@ test.describe('saved items and playback controls', () => {
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
     await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:a');
     await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo' }).last().click();
     await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
   });
 

@@ -211,11 +211,17 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
+    await page.waitForFunction(
+      () => Array.isArray((/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks)
+        && (/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks.length > 0,
+    );
     await page.evaluate(async () => {
       const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
       if (typeof callback === 'function') await callback();
     });
 
+    await expect(page.getByText('Unable to check playback state right now.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeEnabled();
   });
