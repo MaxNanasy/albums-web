@@ -156,7 +156,7 @@ def find_arrow_block_start(text, index, limit):
     return None
 
 
-def parse_titles(text, path):
+def parse_suite_tests(text):
     events = []
     for match in describe_re.finditer(text):
         events.append((match.start(), 'describe', match.end()))
@@ -164,7 +164,7 @@ def parse_titles(text, path):
         events.append((match.start(), 'test', match.end()))
     events.sort()
 
-    titles = []
+    suite_tests = []
     describe_stack = []
     for position, kind, index in events:
         while describe_stack and position >= describe_stack[-1][0]:
@@ -190,11 +190,25 @@ def parse_titles(text, path):
             describe_stack.append((block_end, title))
             continue
 
-        full_title_parts = [suite_title for _, suite_title in describe_stack]
-        full_title_parts.append(title)
-        titles.append(f"{path} :: {' > '.join(full_title_parts)}")
+        suite_title = ' > '.join(suite_title for _, suite_title in describe_stack)
+        if not suite_title:
+            suite_title = '(root)'
+        suite_tests.append((suite_title, title))
 
-    return titles
+    return suite_tests
+
+
+def render_test_list(suite_tests):
+    lines = []
+    current_suite = None
+    for suite_title, test_title in suite_tests:
+        if suite_title != current_suite:
+            if lines:
+                lines.append('')
+            lines.append(suite_title)
+            current_suite = suite_title
+        lines.append(f'  {test_title}')
+    return [f'{line}\n' for line in lines]
 
 
 base_tree = list_files(base_ref)
@@ -206,17 +220,18 @@ head_tests = []
 for path in suite_files:
     base_text = file_at(base_ref, path)
     if base_text is not None:
-        base_tests.extend(parse_titles(base_text, path))
+        base_tests.extend(parse_suite_tests(base_text))
     head_text = file_at(head_ref, path)
     if head_text is not None:
-        head_tests.extend(parse_titles(head_text, path))
+        head_tests.extend(parse_suite_tests(head_text))
 
 diff = ''.join(
     difflib.unified_diff(
-        [f'{line}\n' for line in base_tests],
-        [f'{line}\n' for line in head_tests],
+        render_test_list(base_tests),
+        render_test_list(head_tests),
         fromfile=f'{base_ref} test-list',
         tofile=f'{head_ref} test-list',
+        n=0,
     )
 )
 if diff.strip():
