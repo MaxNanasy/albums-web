@@ -1,31 +1,18 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-set -euo pipefail
-
-if [ "$#" -ne 2 ]; then
-  printf 'Usage: %s <base-ref> <head-ref>\n' "$0" >&2
-  exit 1
-fi
-
-base_ref="$1"
-head_ref="$2"
-
-BASE_REF="$base_ref" HEAD_REF="$head_ref" python3 <<'PY'
 import difflib
 import fnmatch
-import os
 import re
 import subprocess
+import sys
 
-base_ref = os.environ['BASE_REF']
-head_ref = os.environ['HEAD_REF']
-suite_patterns = [
+SUITE_PATTERNS = [
     'tests/ui/*.spec.js',
     'tests/ui/**/*.spec.js',
 ]
 
-describe_re = re.compile(r'\btest\.describe(?:\.(?:only|skip|fixme))?\(\s*', re.MULTILINE)
-test_re = re.compile(r'\btest(?:\.(?:only|skip|fixme|fail))?\(\s*', re.MULTILINE)
+DESCRIBE_RE = re.compile(r'\btest\.describe(?:\.(?:only|skip|fixme))?\(\s*', re.MULTILINE)
+TEST_RE = re.compile(r'\btest(?:\.(?:only|skip|fixme|fail))?\(\s*', re.MULTILINE)
 
 
 def git(*args, check=True):
@@ -42,7 +29,7 @@ def list_files(ref):
 
 
 def matches_any(path):
-    return any(fnmatch.fnmatch(path, pattern) for pattern in suite_patterns)
+    return any(fnmatch.fnmatch(path, pattern) for pattern in SUITE_PATTERNS)
 
 
 def file_at(ref, path):
@@ -158,9 +145,9 @@ def find_arrow_block_start(text, index, limit):
 
 def parse_suite_tests(text):
     events = []
-    for match in describe_re.finditer(text):
+    for match in DESCRIBE_RE.finditer(text):
         events.append((match.start(), 'describe', match.end()))
-    for match in test_re.finditer(text):
+    for match in TEST_RE.finditer(text):
         events.append((match.start(), 'test', match.end()))
     events.sort()
 
@@ -211,33 +198,45 @@ def render_test_list(suite_tests):
     return [f'{line}\n' for line in lines]
 
 
-base_tree = list_files(base_ref)
-head_tree = list_files(head_ref)
-suite_files = sorted({path for path in [*base_tree, *head_tree] if matches_any(path)})
+def main():
+    if len(sys.argv) != 3:
+        print(f'Usage: {sys.argv[0]} <base-ref> <head-ref>', file=sys.stderr)
+        return 1
 
-base_tests = []
-head_tests = []
-for path in suite_files:
-    base_text = file_at(base_ref, path)
-    if base_text is not None:
-        base_tests.extend(parse_suite_tests(base_text))
-    head_text = file_at(head_ref, path)
-    if head_text is not None:
-        head_tests.extend(parse_suite_tests(head_text))
+    base_ref = sys.argv[1]
+    head_ref = sys.argv[2]
 
-diff = ''.join(
-    difflib.unified_diff(
-        render_test_list(base_tests),
-        render_test_list(head_tests),
-        fromfile=f'{base_ref} test-list',
-        tofile=f'{head_ref} test-list',
-        n=0,
+    base_tree = list_files(base_ref)
+    head_tree = list_files(head_ref)
+    suite_files = sorted({path for path in [*base_tree, *head_tree] if matches_any(path)})
+
+    base_tests = []
+    head_tests = []
+    for path in suite_files:
+        base_text = file_at(base_ref, path)
+        if base_text is not None:
+            base_tests.extend(parse_suite_tests(base_text))
+        head_text = file_at(head_ref, path)
+        if head_text is not None:
+            head_tests.extend(parse_suite_tests(head_text))
+
+    diff = ''.join(
+        difflib.unified_diff(
+            render_test_list(base_tests),
+            render_test_list(head_tests),
+            fromfile=f'{base_ref} test-list',
+            tofile=f'{head_ref} test-list',
+            n=0,
+        )
     )
-)
-if diff.strip():
-    print(diff, end='')
-elif suite_files:
-    print('No UI test list changes.')
-else:
-    print('No UI suite files matched the configured patterns.')
-PY
+    if diff.strip():
+        print(diff, end='')
+    elif suite_files:
+        print('No UI test list changes.')
+    else:
+        print('No UI suite files matched the configured patterns.')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
