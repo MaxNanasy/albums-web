@@ -1,0 +1,184 @@
+name: UI Suite/Test List Diff
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: read
+
+jobs:
+  ui-suite-test-list-diff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Show UI suite and test list diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          UI_SUITE_PATTERNS: |
+            tests/ui/*.spec.js
+            tests/ui/**/*.spec.js
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags origin "${BASE_REF}"
+
+          merge_base="$(git merge-base HEAD "origin/${BASE_REF}")"
+          head_sha="$(git rev-parse HEAD)"
+
+          MERGE_BASE="${merge_base}" HEAD_SHA="${head_sha}" python3 <<'PY'
+          import difflib
+          import fnmatch
+          import html
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          base_ref = os.environ['BASE_REF']
+          merge_base = os.environ['MERGE_BASE']
+          head_sha = os.environ['HEAD_SHA']
+          summary_path = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY'])
+          suite_patterns = [line.strip() for line in os.environ['UI_SUITE_PATTERNS'].splitlines() if line.strip()]
+
+          def git(*args, check=True):
+              return subprocess.run(
+                  ['git', *args],
+                  check=check,
+                  capture_output=True,
+                  text=True,
+              )
+
+          def list_files(ref):
+              return git('ls-tree', '-r', '--name-only', ref).stdout.splitlines()
+
+          def matches_any(path, patterns):
+              return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
+
+          def file_at(ref, path):
+              result = git('show', f'{ref}:{path}', check=False)
+              if result.returncode != 0:
+                  return None
+              return result.stdout
+
+          def parse_titles(text, path):
+              call_re = re.compile(r'\btest(?:\.(?:only|skip|fixme|fail))?\(\s*', re.MULTILINE)
+              titles = []
+              for match in call_re.finditer(text):
+                  index = match.end()
+                  if index >= len(text):
+                      continue
+                  quote = text[index]
+                  if quote not in ('"', "'", '`'):
+                      continue
+                  index += 1
+                  chars = []
+                  escaped = False
+                  while index < len(text):
+                      ch = text[index]
+                      if escaped:
+                          chars.append(ch)
+                          escaped = False
+                      elif ch == '\\':
+                          escaped = True
+                      elif ch == quote:
+                          title = ''.join(chars).replace('\n', '\\n')
+                          titles.append(f'{path} :: {title}')
+                          break
+                      else:
+                          chars.append(ch)
+                      index += 1
+              return titles
+
+          base_tree = list_files(merge_base)
+          head_tree = list_files('HEAD')
+          suite_files = sorted({path for path in [*base_tree, *head_tree] if matches_any(path, suite_patterns)})
+
+          if suite_files:
+              suite_diff_result = git('diff', '--no-color', f'{merge_base}..HEAD', '--', *suite_files, check=False)
+              suite_diff = suite_diff_result.stdout
+          else:
+              suite_diff = ''
+
+          if not suite_diff.strip():
+              if suite_files:
+                  suite_diff = 'No UI suite file changes.\n'
+              else:
+                  suite_diff = 'No UI suite files matched the configured patterns.\n'
+
+          merge_base_tests = []
+          head_tests = []
+          for path in suite_files:
+              base_text = file_at(merge_base, path)
+              if base_text is not None:
+                  merge_base_tests.extend(parse_titles(base_text, path))
+              head_text = file_at('HEAD', path)
+              if head_text is not None:
+                  head_tests.extend(parse_titles(head_text, path))
+
+          test_list_diff = ''.join(
+              difflib.unified_diff(
+                  [f'{line}\n' for line in merge_base_tests],
+                  [f'{line}\n' for line in head_tests],
+                  fromfile=f'{merge_base[:12]} test-list',
+                  tofile=f'{head_sha[:12]} test-list',
+              )
+          )
+          if not test_list_diff.strip():
+              if suite_files:
+                  test_list_diff = 'No UI test list changes.\n'
+              else:
+                  test_list_diff = 'No UI suite files matched the configured patterns.\n'
+
+          suite_file_block = '\n'.join(suite_files) if suite_files else '(none)'
+
+          log_output = '\n'.join([
+              f'Merge base: {merge_base}',
+              f'Base branch: {base_ref}',
+              f'Head: {head_sha}',
+              '',
+              'UI suite files:',
+              suite_file_block,
+              '',
+              '===== UI suite diff =====',
+              suite_diff,
+              '===== UI test list diff =====',
+              test_list_diff,
+          ])
+          print(log_output)
+
+          summary_path.write_text(
+              '\n'.join([
+                  '# UI Suite/Test List Diff',
+                  '',
+                  f'- Merge base: `{merge_base}`',
+                  f'- Base branch: `{base_ref}`',
+                  f'- Head: `{head_sha}`',
+                  '',
+                  '## UI suite files',
+                  '',
+                  '<pre>' + html.escape(suite_file_block) + '</pre>',
+                  '',
+                  '## UI suite diff',
+                  '',
+                  '<pre>' + html.escape(suite_diff) + '</pre>',
+                  '',
+                  '## UI test list diff',
+                  '',
+                  '<pre>' + html.escape(test_list_diff) + '</pre>',
+                  '',
+              ]),
+              encoding='utf-8',
+          )
+          PY
