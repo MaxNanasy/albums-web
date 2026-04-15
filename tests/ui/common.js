@@ -1,4 +1,5 @@
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
+/** @typedef {import('@playwright/test').Request} Request */
 
 /**
  * @typedef SavedItem
@@ -41,4 +42,18 @@ export async function seedItems(context, items) {
   await context.addInitScript((savedItems) => {
     localStorage.setItem('shuffle-by-album.items', JSON.stringify(savedItems));
   }, items);
+}
+
+/**
+ * @param {Request} request
+ * @param {string} method
+ * @param {string} path
+ */
+export function isSpotifyApiRequest(request, method, path) {
+  const url = new URL(request.url());
+  return (
+    request.method() === method
+    && url.origin === 'https://api.spotify.com'
+    && url.pathname === `/v1${path}`
+  );
 }

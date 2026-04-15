@@ -1,6 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { CONNECTED_SCOPES } from './ui-helpers.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -56,11 +55,7 @@ test.describe('playback controls', () => {
     await page.getByRole('button', { name: 'Start' }).click();
     await expect(page.getByText('Connect Spotify first.', { exact: true })).toBeVisible();
 
-    await context.addInitScript(({ expiry, scopes }) => {
-      localStorage.setItem('shuffle-by-album.token', 'test-access-token');
-      localStorage.setItem('shuffle-by-album.tokenExpiry', String(expiry));
-      localStorage.setItem('shuffle-by-album.tokenScope', scopes);
-    }, { expiry: Date.now() + 60 * 60 * 1000, scopes: CONNECTED_SCOPES });
+    await seedConnectedAuth(context);
 
     await page.reload();
     await page.getByRole('button', { name: 'Start' }).click();

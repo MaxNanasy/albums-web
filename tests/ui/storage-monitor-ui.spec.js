@@ -1,6 +1,6 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { isSpotifyApiRequest } from './ui-helpers.js';
+import { isSpotifyApiRequest } from './common.js';
 
 /** @typedef {typeof globalThis & { __monitorCallbacks: Array<() => void> }} TestGlobal */
 

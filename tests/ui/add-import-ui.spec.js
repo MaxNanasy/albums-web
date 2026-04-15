@@ -1,18 +1,19 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { CONNECTED_SCOPES, isPlaylistItemsRequest, isSpotifyApiRequest } from './ui-helpers.js';
+import { isSpotifyApiRequest } from './common.js';
 
 /** @typedef {import('@playwright/test').Request} Request */
 
 /**
  * @param {Request} request
+ * @param {string} playlistId
  * @param {number} expectedOffset
  */
-function hasPlaylistPageRequest(request, expectedOffset) {
+function isPlaylistItemsRequest(request, playlistId, expectedOffset) {
   const url = new URL(request.url());
   return (
     request.method() === 'GET'
-    && url.pathname === '/v1/playlists/playlist123/items'
+    && url.pathname === `/v1/playlists/${playlistId}/items`
     && url.searchParams.get('limit') === '50'
     && url.searchParams.get('offset') === String(expectedOffset)
     && url.searchParams.get('additional_types') === 'track'
@@ -88,11 +89,7 @@ test.describe('add and import', () => {
         handle: (route) => route.fulfill({ status: 404, body: '' }),
       },
     ]);
-    await context.addInitScript(({ expiry, scopes }) => {
-      localStorage.setItem('shuffle-by-album.token', 'test-access-token');
-      localStorage.setItem('shuffle-by-album.tokenExpiry', String(expiry));
-      localStorage.setItem('shuffle-by-album.tokenScope', scopes);
-    }, { expiry: Date.now() + 60 * 60 * 1000, scopes: CONNECTED_SCOPES });
+    await seedConnectedAuth(context);
 
     await page.reload();
     await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:missing');
@@ -111,7 +108,7 @@ test.describe('add and import', () => {
 
     const requests = installSpotifyRoutes(context, [
       {
-        match: (request) => hasPlaylistPageRequest(request, 0),
+        match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
         handle: (route) =>
           route.fulfill({
             status: 200,
@@ -125,7 +122,7 @@ test.describe('add and import', () => {
           }),
       },
       {
-        match: (request) => hasPlaylistPageRequest(request, 50),
+        match: (request) => isPlaylistItemsRequest(request, 'playlist123', 50),
         handle: (route) =>
           route.fulfill({
             status: 200,
@@ -167,11 +164,7 @@ test.describe('add and import', () => {
     await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
     await expect(page.getByText('Connect Spotify first so the app can import albums.', { exact: true })).toBeVisible();
 
-    await context.addInitScript(({ expiry, scopes }) => {
-      localStorage.setItem('shuffle-by-album.token', 'test-access-token');
-      localStorage.setItem('shuffle-by-album.tokenExpiry', String(expiry));
-      localStorage.setItem('shuffle-by-album.tokenScope', scopes);
-    }, { expiry: Date.now() + 60 * 60 * 1000, scopes: CONNECTED_SCOPES });
+    await seedConnectedAuth(context);
 
     installSpotifyRoutes(context, [
       {

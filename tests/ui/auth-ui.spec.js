@@ -1,6 +1,12 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
 import { installStableBrowserState, seedConnectedAuth } from './common.js';
-import { isSpotifyAccountTokenRequest } from './ui-helpers.js';
+
+/**
+ * @param {import("@playwright/test").Request} request
+ */
+function isSpotifyAccountTokenRequest(request) {
+  return request.method() === 'POST' && request.url() === 'https://accounts.spotify.com/api/token';
+}
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
