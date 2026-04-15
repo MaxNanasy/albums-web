@@ -2,8 +2,8 @@ name: Force Push to `test`
 
 on:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - test
   workflow_dispatch:
 
 permissions:
