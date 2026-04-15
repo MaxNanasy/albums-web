@@ -2,6 +2,15 @@ import { SpotifyApi, SpotifyApiHttpError } from './spotify-api.js';
 import { SpotifyAppApi } from './spotify-app-api.js';
 import { spotifyStatusMessage } from './spotify-status-message.js';
 import { PlayerMonitor, PlayerMonitorStatusError } from './player-monitor.js';
+import { ToastPresenter } from './ui/toast-presenter.js';
+import { ItemStore } from './core/item-store.js';
+import { ErrorReporter } from './core/error-reporter.js';
+import { AuthFlow } from './core/auth-flow.js';
+import { SessionController } from './core/session-controller.js';
+import { AuthPanel } from './panels/auth-panel.js';
+import { ItemsPanel } from './panels/items-panel.js';
+import { SessionPanel } from './panels/session-panel.js';
+import { StoragePanel } from './panels/storage-panel.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 
@@ -67,21 +76,25 @@ const el = {
   toastStack: /** @type {HTMLDivElement} */ (document.getElementById('toast-stack')),
 };
 
-/** @type {SessionState} */
-const session = {
-  activationState: 'inactive',
-  queue: [],
-  index: 0,
-  currentUri: null,
-  observedCurrentContext: false,
-};
+const toastPresenter = new ToastPresenter(el.toastStack);
+const itemStore = new ItemStore({ items: STORAGE_KEYS.items });
+const authPanel = new AuthPanel(el);
+const itemsPanel = new ItemsPanel(el);
+const sessionPanel = new SessionPanel(el);
+const storagePanel = new StoragePanel(el);
 
-const TOAST_DURATION_MS = 5000;
-const ERROR_TOAST_COOLDOWN_MS = 45000;
-/** @type {Map<string, number>} */
-const errorToastLastShownAt = new Map();
-
-/** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
+const errorReporter = new ErrorReporter({
+  setAuthStatus: (message) => authPanel.renderStatus(message),
+  setPlaybackStatus: (message) => sessionPanel.renderPlaybackStatus(message),
+  showToast: (message, type = 'info') => toastPresenter.show(message, type),
+});
+const authFlow = new AuthFlow({
+  scopes: SCOPES,
+  spotifyAppId: SPOTIFY_APP_ID,
+  storageKeys: STORAGE_KEYS,
+  reportError: (error, options) => errorReporter.report(error, options),
+  setAuthStatus: (message) => authPanel.renderStatus(message),
+});
 
 const spotifyApi = new SpotifyApi({
   getAccessToken: getUsableAccessToken,
@@ -89,18 +102,34 @@ const spotifyApi = new SpotifyApi({
   handleAuthExpired,
 });
 const spotifyAppApi = new SpotifyAppApi(spotifyApi);
+const sessionController = new SessionController({
+  runtimeStorageKey: STORAGE_KEYS.runtime,
+  getUsableAccessToken,
+  spotifyAppApi,
+  showToast,
+  setPlaybackStatus: (message) => sessionPanel.renderPlaybackStatus(message),
+  renderPlaybackControls: (activationState) => sessionPanel.renderControls(activationState),
+  renderSessionQueue: (session) => sessionPanel.renderQueue(session),
+  reportError,
+  isUnrecoverableSpotifyError,
+  isUnrecoverableSpotifyStatus,
+  spotifyStatusMessage,
+  getItems,
+  shuffledCopy,
+});
 
 
 const playerMonitor = new PlayerMonitor({
-  getSession: () => session,
+  getSession: () => sessionController.getSession(),
   getUsableAccessToken,
   spotifyAppApi,
-  persistRuntimeState,
-  transitionToDetached,
-  goToNextItem,
+  persistRuntimeState: () => sessionController.persistRuntimeState(),
+  transitionToDetached: (message) => sessionController.transitionToDetached(message),
+  goToNextItem: () => sessionController.goToNextItem(),
   reportError: reportMonitorError,
   isUnrecoverableSpotifyStatus,
 });
+sessionController.setPlayerMonitor(playerMonitor);
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -135,101 +164,134 @@ async function ensureValidAccessToken() {
 }
 
 function hookEvents() {
-  el.loginBtn.addEventListener('click', () => {
-    void runWithReportedError(() => startLogin(), {
-      context: 'auth',
-      fallbackMessage: 'Failed to start Spotify connection.',
-      authStatusMessage: 'Unable to connect right now. Please try again.',
-    });
-  });
-
-  el.logoutBtn.addEventListener('click', () => {
-    clearAuth();
-    refreshAuthStatus();
-    showToast('Disconnected from Spotify.', 'info');
-  });
-
-  el.addForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      const parsed = parseSpotifyUri(el.itemUri.value.trim());
-      if (!parsed) {
-        showToast('Enter a valid Spotify album/playlist URI or URL.', 'error');
-        return;
-      }
-      const items = getItems();
-      if (items.some((item) => item.uri === parsed.uri)) {
-        showToast('Item is already in your list.', 'info');
-        return;
-      }
-      const token = await getUsableAccessToken();
-      if (!token) {
-        showToast('Connect Spotify first so the app can load item titles.', 'error');
-        return;
-      }
-
-      const titledItem = await withItemTitle(parsed);
-      if (!titledItem) {
-        showToast('Unable to load title for that item. Please try another URI.', 'error');
-        return;
-      }
-
-      items.push(titledItem);
-      saveItems(items);
-      el.itemUri.value = '';
-      renderItemList();
-      showToast('Item added.', 'success');
-    } catch (error) {
-      reportError(error, {
-        context: 'items',
-        fallbackMessage: 'Failed to add this item.',
+  authPanel.bind({
+    onLogin: () => {
+      void runWithReportedError(() => startLogin(), {
+        context: 'auth',
+        fallbackMessage: 'Failed to start Spotify connection.',
+        authStatusMessage: 'Unable to connect right now. Please try again.',
       });
-    }
+    },
+    onLogout: () => {
+      clearAuth();
+      refreshAuthStatus();
+      showToast('Disconnected from Spotify.', 'info');
+    },
   });
 
-  el.startBtn.addEventListener('click', () => {
-    void runWithReportedError(() => startShuffleSession(), {
-      context: 'playback',
-      fallbackMessage: 'Failed to start shuffle session.',
-      playbackStatusMessage: 'Unable to start session right now. Please try again.',
-    });
+  itemsPanel.bind({
+    onAdd: (rawUri) => {
+      void addItemFromInput(rawUri);
+    },
+    onImportPlaylist: () => {
+      void runWithReportedError(() => importAlbumsFromPlaylist(), {
+        context: 'import',
+        fallbackMessage: 'Failed to import albums from playlist.',
+      });
+    },
+    onRemove: (uri) => {
+      removeItemWithUndo(uri);
+    },
   });
 
-  el.reattachBtn.addEventListener('click', () => {
-    void runWithReportedError(() => reattachSession(), {
-      context: 'playback',
-      fallbackMessage: 'Failed to reattach Spotify playback.',
-      playbackStatusMessage: 'Unable to reattach right now. Please try again.',
-    });
+  sessionPanel.bind({
+    onStart: () => {
+      void runWithReportedError(() => startShuffleSession(), {
+        context: 'playback',
+        fallbackMessage: 'Failed to start shuffle session.',
+        playbackStatusMessage: 'Unable to start session right now. Please try again.',
+      });
+    },
+    onReattach: () => {
+      void runWithReportedError(() => reattachSession(), {
+        context: 'playback',
+        fallbackMessage: 'Failed to reattach Spotify playback.',
+        playbackStatusMessage: 'Unable to reattach right now. Please try again.',
+      });
+    },
+    onSkip: () => {
+      void runWithReportedError(() => goToNextItem(), {
+        context: 'playback',
+        fallbackMessage: 'Failed to skip to the next item.',
+        playbackStatusMessage: 'Unable to skip right now. Please try again.',
+      });
+    },
+    onStop: () => {
+      stopSession('Session stopped.');
+    },
   });
 
-  el.importPlaylistBtn.addEventListener('click', () => {
-    void runWithReportedError(() => importAlbumsFromPlaylist(), {
-      context: 'import',
-      fallbackMessage: 'Failed to import albums from playlist.',
-    });
-  });
-
-  el.skipBtn.addEventListener('click', () => {
-    void runWithReportedError(() => goToNextItem(), {
-      context: 'playback',
-      fallbackMessage: 'Failed to skip to the next item.',
-      playbackStatusMessage: 'Unable to skip right now. Please try again.',
-    });
-  });
-
-  el.stopBtn.addEventListener('click', () => {
-    stopSession('Session stopped.');
-  });
-
-  el.exportStorageBtn.addEventListener('click', () => {
-    exportLocalStorageJson();
-  });
-
-  el.importStorageBtn.addEventListener('click', () => {
-    importLocalStorageJson();
+  storagePanel.bind({
+    onExport: () => {
+      exportLocalStorageJson();
+    },
+    onImport: () => {
+      importLocalStorageJson();
+    },
   });
 }
+
+/** @param {string} rawUri */
+async function addItemFromInput(rawUri) {
+  try {
+    const parsed = parseSpotifyUri(rawUri);
+    if (!parsed) {
+      showToast('Enter a valid Spotify album/playlist URI or URL.', 'error');
+      return;
+    }
+    const items = getItems();
+    if (items.some((item) => item.uri === parsed.uri)) {
+      showToast('Item is already in your list.', 'info');
+      return;
+    }
+    const token = await getUsableAccessToken();
+    if (!token) {
+      showToast('Connect Spotify first so the app can load item titles.', 'error');
+      return;
+    }
+
+    const titledItem = await withItemTitle(parsed);
+    if (!titledItem) {
+      showToast('Unable to load title for that item. Please try another URI.', 'error');
+      return;
+    }
+
+    items.push(titledItem);
+    saveItems(items);
+    itemsPanel.clearInput();
+    renderItemList();
+    showToast('Item added.', 'success');
+  } catch (error) {
+    reportError(error, {
+      context: 'items',
+      fallbackMessage: 'Failed to add this item.',
+    });
+  }
+}
+
+/** @param {string} uri */
+function removeItemWithUndo(uri) {
+  const removed = itemStore.removeByUri(uri);
+  if (!removed) return;
+
+  renderItemList();
+  showToast(`Removed “${removed.removedItem.title}”.`, 'info', {
+    action: {
+      actionLabel: 'Undo',
+      onAction: () => {
+        const restore = itemStore.restoreItem(removed.removedItem, removed.removedIndex);
+        if (!restore.ok) {
+          showToast('Item is already in your list.', 'info');
+          return;
+        }
+
+        renderItemList();
+        showToast(`Restored “${removed.removedItem.title}”.`, 'success');
+      },
+    },
+  });
+}
+
 
 function refreshAuthStatus() {
   const token = getToken();
@@ -248,8 +310,7 @@ function refreshAuthStatus() {
 }
 
 function getGrantedScopes() {
-  const scopeText = localStorage.getItem(STORAGE_KEYS.tokenScope) ?? '';
-  return new Set(scopeText.split(/\s+/).filter(Boolean));
+  return authFlow.getGrantedScopes();
 }
 
 async function ensureStoredItemTitles() {
@@ -299,280 +360,61 @@ function handleAuthExpired() {
 
 /** @param {string} message */
 function setAuthStatus(message) {
-  el.authStatus.textContent = message;
+  authPanel.renderStatus(message);
 }
 
 /** @param {string} message */
 function setPlaybackStatus(message) {
-  el.playbackStatus.textContent = message;
+  sessionPanel.renderPlaybackStatus(message);
 }
 
 
+/** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
 /**
  * @param {string} message
  * @param {'success' | 'info' | 'error'} [type]
  * @param {{ action?: ToastAction }} [options]
  */
 function showToast(message, type = 'info', options = {}) {
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.role = type === 'error' ? 'alert' : 'status';
-
-  const body = document.createElement('span');
-  body.className = 'toast-message';
-  body.textContent = message;
-
-  const closeButton = document.createElement('button');
-  closeButton.type = 'button';
-  closeButton.className = 'toast-close';
-  closeButton.setAttribute('aria-label', 'Close notification');
-  closeButton.textContent = '×';
-
-  const actions = document.createElement('div');
-  actions.className = 'toast-actions';
-
-  if (options.action) {
-    const actionButton = document.createElement('button');
-    actionButton.type = 'button';
-    actionButton.className = 'secondary toast-action';
-    actionButton.textContent = options.action.actionLabel;
-    actionButton.addEventListener('click', () => {
-      options.action?.onAction();
-      removeToast();
-    });
-    actions.appendChild(actionButton);
-  }
-  actions.appendChild(closeButton);
-
-  /** @type {number | null} */
-  let timeoutId = window.setTimeout(removeToast, TOAST_DURATION_MS);
-
-  function clearDismissTimer() {
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-  }
-
-  function restartDismissTimer() {
-    clearDismissTimer();
-    timeoutId = window.setTimeout(removeToast, TOAST_DURATION_MS);
-  }
-
-  function removeToast() {
-    clearDismissTimer();
-    toast.classList.add('toast-leaving');
-    window.setTimeout(() => {
-      toast.remove();
-    }, 180);
-  }
-
-  closeButton.addEventListener('click', removeToast);
-  toast.addEventListener('mouseenter', clearDismissTimer);
-  toast.addEventListener('mouseleave', restartDismissTimer);
-
-  toast.append(body, actions);
-  el.toastStack.appendChild(toast);
+  toastPresenter.show(message, type, options);
 }
 
+
 async function startLogin() {
-  const verifier = randomString(64);
-  const challenge = await codeChallengeFromVerifier(verifier);
-  localStorage.setItem(STORAGE_KEYS.verifier, verifier);
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: SPOTIFY_APP_ID,
-    scope: SCOPES.join(' '),
-    redirect_uri: location.origin + location.pathname,
-    code_challenge_method: 'S256',
-    code_challenge: challenge,
-    show_dialog: 'true',
-  });
-
-  location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+  await authFlow.startLogin();
 }
 
 async function handleAuthRedirect() {
-  const url = new URL(location.href);
-  const code = url.searchParams.get('code');
-  const error = url.searchParams.get('error');
-
-  if (error) {
-    setAuthStatus(`Spotify authorization error: ${error}`);
-    url.searchParams.delete('error');
-    history.replaceState({}, '', url.toString());
-    return;
-  }
-
-  if (!code) return;
-
-  const verifier = localStorage.getItem(STORAGE_KEYS.verifier);
-
-  if (!verifier) {
-    setAuthStatus('Missing PKCE verifier. Try connecting again.');
-    return;
-  }
-
-  const formData = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: location.origin + location.pathname,
-    client_id: SPOTIFY_APP_ID,
-    code_verifier: verifier,
-  });
-
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    setAuthStatus('Failed to exchange Spotify code for token.');
-    return;
-  }
-
-  /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-  const data = await response.json();
-  localStorage.setItem(STORAGE_KEYS.token, data.access_token);
-  if (data.refresh_token) {
-    localStorage.setItem(STORAGE_KEYS.refreshToken, data.refresh_token);
-  }
-  localStorage.setItem(STORAGE_KEYS.tokenExpiry, String(Date.now() + data.expires_in * 1000));
-  localStorage.setItem(STORAGE_KEYS.tokenScope, data.scope ?? '');
-  localStorage.removeItem(STORAGE_KEYS.verifier);
-
-  url.searchParams.delete('code');
-  history.replaceState({}, '', url.toString());
+  await authFlow.handleAuthRedirect();
 }
 
 function clearAuth() {
-  localStorage.removeItem(STORAGE_KEYS.token);
-  localStorage.removeItem(STORAGE_KEYS.refreshToken);
-  localStorage.removeItem(STORAGE_KEYS.tokenExpiry);
-  localStorage.removeItem(STORAGE_KEYS.tokenScope);
-  localStorage.removeItem(STORAGE_KEYS.verifier);
+  authFlow.clearAuth();
 }
 
 async function refreshSpotifyAccessToken() {
-  const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
-  if (!refreshToken) return null;
-
-  const formData = new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken,
-    client_id: SPOTIFY_APP_ID,
-  });
-
-  const response = await runWithReportedError(
-    () =>
-      fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData,
-      }),
-    {
-      context: 'auth',
-      fallbackMessage: 'Unable to refresh Spotify session.',
-      authStatusMessage: 'Network issue refreshing Spotify session. Please reconnect if this continues.',
-      toastMode: 'cooldown',
-      toastKey: 'refresh-token-network',
-    },
-  );
-  if (!response) {
-    return null;
-  }
-  if (!response.ok) return null;
-
-  /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-  const data = await response.json();
-  localStorage.setItem(STORAGE_KEYS.token, data.access_token);
-  localStorage.setItem(STORAGE_KEYS.tokenExpiry, String(Date.now() + data.expires_in * 1000));
-  if (typeof data.scope === 'string') {
-    localStorage.setItem(STORAGE_KEYS.tokenScope, data.scope);
-  }
-  if (data.refresh_token) {
-    localStorage.setItem(STORAGE_KEYS.refreshToken, data.refresh_token);
-  }
-  return data.access_token;
+  return authFlow.refreshSpotifyAccessToken();
 }
 
 function exportLocalStorageJson() {
-  const rawItems = localStorage.getItem(STORAGE_KEYS.items);
-  /** @type {Record<string, unknown>} */
-  const data = {};
-
-  if (rawItems) {
-    try {
-      data[STORAGE_KEYS.items] = JSON.parse(rawItems);
-    } catch {
-      el.storageJson.value = '';
-      showToast('Unable to export saved items because stored data is invalid JSON.', 'error');
-      return;
-    }
-  } else {
-    data[STORAGE_KEYS.items] = [];
+  const exported = itemStore.exportData();
+  if (exported.error) {
+    storagePanel.setJsonInput('');
+    showToast(exported.error, 'error');
+    return;
   }
 
-  el.storageJson.value = JSON.stringify(data, null, 2);
+  storagePanel.setJsonInput(JSON.stringify(exported.data, null, 2));
   showToast('Exported saved items to JSON.', 'success');
 }
 
 function importLocalStorageJson() {
-  const raw = el.storageJson.value.trim();
-  if (!raw) {
-    showToast('Paste a JSON object to import.', 'error');
+  const imported = itemStore.importFromJson(storagePanel.getJsonInput());
+  if (!imported.ok) {
+    const error = imported.error ?? 'Import failed.';
+    showToast(error, 'error');
     return;
   }
-
-  /** @type {unknown} */
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    showToast('Invalid JSON. Please provide a valid JSON object.', 'error');
-    return;
-  }
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    showToast('Import JSON must be an object of key/value pairs.', 'error');
-    return;
-  }
-
-  const parsedObject = /** @type {Record<string, unknown>} */ (parsed);
-  const maybeItems = parsedObject[STORAGE_KEYS.items];
-  if (!Array.isArray(maybeItems)) {
-    showToast('Import JSON must include a valid shuffle-by-album.items array.', 'error');
-    return;
-  }
-
-  /** @type {unknown[]} */
-  const parsedItems = maybeItems;
-
-  saveItems(
-    parsedItems
-      .filter(
-        /**
-         * @param {unknown} item
-         * @returns {item is {type: ItemType; uri: string; title?: unknown}}
-         */
-        (item) => {
-          if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-          /** @type {Record<string, unknown>} */
-          const parsedItem = /** @type {Record<string, unknown>} */ (item);
-          return (
-            (parsedItem.type === 'album' || parsedItem.type === 'playlist')
-            && typeof parsedItem.uri === 'string'
-          );
-        },
-      )
-      .map((item) => ({
-        type: item.type,
-        uri: item.uri,
-        title: typeof item.title === 'string' ? item.title : item.uri,
-      })),
-  );
 
   stopSession('Data imported. Session reset.');
   renderItemList();
@@ -581,288 +423,60 @@ function importLocalStorageJson() {
 }
 
 function getToken() {
-  const token = localStorage.getItem(STORAGE_KEYS.token);
-  const expiryMs = Number(localStorage.getItem(STORAGE_KEYS.tokenExpiry) ?? 0);
-  if (!token || Date.now() >= expiryMs) {
-    return null;
-  }
-  return token;
+  return authFlow.getToken();
 }
 
 async function getUsableAccessToken() {
-  const token = getToken();
-  if (token) return token;
-
-  const hasRefreshToken = Boolean(localStorage.getItem(STORAGE_KEYS.refreshToken));
-  if (!hasRefreshToken) return null;
-
-  return refreshSpotifyAccessToken();
+  return authFlow.getUsableAccessToken();
 }
 
 /** @returns {ShuffleItem[]} */
 function getItems() {
-  const raw = localStorage.getItem(STORAGE_KEYS.items);
-  if (!raw) return [];
-
-  try {
-    /** @type {unknown} */
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    /** @type {unknown[]} */
-    const parsedItems = parsed;
-    return parsedItems
-      .filter(
-        /**
-         * @param {unknown} item
-         * @returns {item is {type: ItemType; uri: string; title?: unknown}}
-         */
-        (item) => {
-          if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-          /** @type {Record<string, unknown>} */
-          const parsedItem = /** @type {Record<string, unknown>} */ (item);
-          return (
-            (parsedItem.type === 'album' || parsedItem.type === 'playlist') &&
-            typeof parsedItem.uri === 'string'
-          );
-        },
-      )
-      .map((item) => ({
-        type: item.type,
-        uri: item.uri,
-        title: typeof item.title === 'string' ? item.title : item.uri,
-      }));
-  } catch {
-    return [];
-  }
+  return itemStore.getItems();
 }
 
 /** @param {ShuffleItem[]} items */
 function saveItems(items) {
-  localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items));
+  itemStore.saveItems(items);
 }
 
 function renderItemList() {
-  const items = getItems();
-  el.itemList.innerHTML = '';
-
-  for (const item of items) {
-    const li = document.createElement('li');
-    const text = document.createElement('span');
-    text.textContent = item.title ? item.title : item.uri;
-
-    const actions = document.createElement('div');
-    actions.className = 'row';
-
-    const removeButton = document.createElement('button');
-    removeButton.type = 'button';
-    removeButton.className = 'danger';
-    removeButton.textContent = 'Remove';
-    removeButton.addEventListener('click', () => {
-      const items = getItems();
-      const removedIndex = items.findIndex((candidate) => candidate.uri === item.uri);
-      if (removedIndex < 0) return;
-
-      const [removedItem] = items.splice(removedIndex, 1);
-      saveItems(items);
-      renderItemList();
-
-      showToast(`Removed “${removedItem.title}”.`, 'info', {
-        action: {
-          actionLabel: 'Undo',
-          onAction: () => {
-            const restoredItems = getItems();
-            const existingIndex = restoredItems.findIndex(
-              (candidate) => candidate.uri === removedItem.uri,
-            );
-            if (existingIndex >= 0) {
-              showToast('Item is already in your list.', 'info');
-              return;
-            }
-
-            restoredItems.splice(removedIndex, 0, removedItem);
-            saveItems(restoredItems);
-            renderItemList();
-            showToast(`Restored “${removedItem.title}”.`, 'success');
-          },
-        },
-      });
-    });
-
-    actions.appendChild(removeButton);
-    li.append(text, actions);
-    el.itemList.appendChild(li);
-  }
+  itemsPanel.renderList(getItems());
 }
 
 async function startShuffleSession() {
-  const token = await getUsableAccessToken();
-  if (!token) {
-    showToast('Connect Spotify first.', 'error');
-    return;
-  }
-
-  const items = getItems();
-  if (items.length === 0) {
-    showToast('Add at least one album or playlist first.', 'info');
-    return;
-  }
-
-  session.queue = shuffledCopy(items);
-  session.activationState = 'active';
-  session.index = 0;
-  persistRuntimeState();
-  renderSessionQueue();
-  renderPlaybackControls();
-
-  setPlaybackStatus(`Session started with ${session.queue.length} item(s).`);
-  await playCurrentItem();
-  if (session.activationState === 'active') {
-    playerMonitor.start();
-  }
+  await sessionController.startShuffleSession();
 }
 
 /** @param {string} message */
 function stopSession(message) {
-  transitionToInactive(message);
+  sessionController.stopSession(message);
 }
 
 /** @param {string} message */
 function transitionToInactive(message) {
-  playerMonitor.stop();
-  session.activationState = 'inactive';
-  session.queue = [];
-  session.index = 0;
-  session.currentUri = null;
-  session.observedCurrentContext = false;
-  clearRuntimeState();
-  renderSessionQueue();
-  renderPlaybackControls();
-  setPlaybackStatus(message);
+  sessionController.transitionToInactive(message);
 }
 
 /** @param {string} message */
 function transitionToDetached(message) {
-  if (session.activationState === 'inactive') {
-    return;
-  }
-  playerMonitor.stop();
-  session.activationState = 'detached';
-  persistRuntimeState();
-  renderPlaybackControls();
-  setPlaybackStatus(message);
+  sessionController.transitionToDetached(message);
 }
 
 function renderPlaybackControls() {
-  const isInactive = session.activationState === 'inactive';
-  const isActive = session.activationState === 'active';
-  const isDetached = session.activationState === 'detached';
-
-  el.startBtn.disabled = !isInactive;
-  el.skipBtn.disabled = !isActive;
-  el.stopBtn.disabled = isInactive;
-  el.reattachBtn.hidden = !isDetached;
-  el.reattachBtn.disabled = !isDetached;
+  sessionPanel.renderControls(sessionController.getSession().activationState);
 }
 
 async function goToNextItem() {
-  if (session.activationState !== 'active') {
-    setPlaybackStatus('No active session.');
-    return;
-  }
-
-  session.index += 1;
-  persistRuntimeState();
-  if (session.index >= session.queue.length) {
-    stopSession('Finished: all selected albums/playlists were played.');
-    return;
-  }
-  renderSessionQueue();
-
-  await playCurrentItem();
+  await sessionController.goToNextItem();
 }
 
 async function reattachSession() {
-  if (session.activationState !== 'detached') {
-    return;
-  }
-  const current = session.queue[session.index];
-  if (!current) {
-    transitionToInactive('No queued item available to reattach.');
-    return;
-  }
-
-  const token = await getUsableAccessToken();
-  if (!token) {
-    transitionToDetached('Spotify session expired. Please reconnect.');
-    return;
-  }
-
-  const playerState = await spotifyAppApi.getPlayerState();
-  if (!playerState.ok) {
-    if (isUnrecoverableSpotifyStatus(playerState.status)) {
-      transitionToDetached(spotifyStatusMessage(playerState.status, 'Unable to reattach playback state.'));
-      return;
-    }
-    throw new Error(
-      `Unable to check current Spotify playback (${playerState.status}): ${playerState.errorText}`,
-    );
-  }
-
-  const contextUri = playerState.contextUri;
-
-  if (contextUri !== current.uri) {
-    session.activationState = 'active';
-    await playCurrentItem();
-  } else {
-    session.currentUri = current.uri;
-    session.observedCurrentContext = true;
-    session.activationState = 'active';
-    persistRuntimeState();
-    renderPlaybackControls();
-    setPlaybackStatus(formatNowPlayingStatus(current));
-  }
-  if (session.activationState === 'active') {
-    playerMonitor.start();
-  }
+  await sessionController.reattachSession();
 }
 
 async function playCurrentItem() {
-  const current = session.queue[session.index];
-  if (!current) {
-    transitionToInactive('Finished: all selected albums/playlists were played.');
-    return;
-  }
-  session.currentUri = current.uri;
-  session.observedCurrentContext = false;
-  session.activationState = 'active';
-  persistRuntimeState();
-  renderPlaybackControls();
-
-  const token = await getUsableAccessToken();
-  if (!token) {
-    stopSession('Spotify session expired. Please reconnect.');
-    return;
-  }
-
-  try {
-    await spotifyAppApi.disableShuffle();
-    await spotifyAppApi.disableRepeat();
-    await spotifyAppApi.playContext(current.uri);
-  } catch (error) {
-    reportError(error, {
-      context: 'playback',
-      fallbackMessage: 'Unable to start playback on Spotify.',
-      playbackStatusMessage: 'Could not start playback. Ensure an active Spotify device is available.',
-    });
-    if (isUnrecoverableSpotifyError(error)) {
-      transitionToDetached('Playback detached due to a Spotify error. Reattach when ready.');
-      return;
-    }
-    stopSession('Playback failed. Session stopped.');
-    return;
-  }
-
-  setPlaybackStatus(formatNowPlayingStatus(current));
+  await sessionController.playCurrentItem();
 }
 
 async function importAlbumsFromPlaylist() {
@@ -872,7 +486,7 @@ async function importAlbumsFromPlaylist() {
     return;
   }
 
-  const parsedPlaylist = parseSpotifyPlaylistRef(el.itemUri.value.trim());
+  const parsedPlaylist = parseSpotifyPlaylistRef(itemsPanel.getUriInput());
   if (!parsedPlaylist) {
     showToast('Enter a valid Spotify playlist URL, URI, or playlist ID.', 'error');
     return;
@@ -962,119 +576,19 @@ function spotifyIdFromUri(uri) {
 }
 
 function restoreRuntimeState() {
-  const raw = localStorage.getItem(STORAGE_KEYS.runtime);
-  if (!raw) return;
-
-  /** @type {unknown} */
-  let parsedUnknown;
-  try {
-    parsedUnknown = JSON.parse(raw);
-  } catch {
-    localStorage.removeItem(STORAGE_KEYS.runtime);
-    return;
-  }
-
-  if (!parsedUnknown || typeof parsedUnknown !== 'object' || Array.isArray(parsedUnknown)) {
-    localStorage.removeItem(STORAGE_KEYS.runtime);
-    return;
-  }
-  /** @type {Record<string, unknown>} */
-  const parsed = /** @type {Record<string, unknown>} */ (parsedUnknown);
-
-  /** @type {unknown} */
-  const queueValue = parsed.queue;
-  /** @type {unknown[]} */
-  const queueItems = Array.isArray(queueValue) ? queueValue : [];
-  /** @type {ShuffleItem[]} */
-  const restoredQueue = queueItems.filter(
-    /**
-     * @param {unknown} item
-     * @returns {item is ShuffleItem}
-     */
-    (item) => {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-      /** @type {Record<string, unknown>} */
-      const runtimeItem = /** @type {Record<string, unknown>} */ (item);
-      return (
-        (runtimeItem.type === 'album' || runtimeItem.type === 'playlist') &&
-        typeof runtimeItem.uri === 'string' &&
-        typeof runtimeItem.title === 'string'
-      );
-    },
-  );
-
-  const indexValue = parsed.index;
-  const restoredIndex =
-    typeof indexValue === 'number' && Number.isInteger(indexValue) && indexValue >= 0
-      ? indexValue
-      : 0;
-  const restoredCurrentUri = typeof parsed.currentUri === 'string' ? parsed.currentUri : null;
-  const restoredObserved = parsed.observedCurrentContext === true;
-  const activationStateValue = parsed.activationState;
-  let restoredActivationState = /** @type {'inactive' | 'active' | 'detached'} */ ('inactive');
-  if (
-    activationStateValue === 'active' ||
-    activationStateValue === 'detached' ||
-    activationStateValue === 'inactive'
-  ) {
-    restoredActivationState = activationStateValue;
-  }
-  if (restoredQueue.length === 0) {
-    restoredActivationState = 'inactive';
-  }
-
-  session.queue = restoredQueue;
-  session.index = Math.min(restoredIndex, Math.max(0, restoredQueue.length - 1));
-  session.currentUri = restoredCurrentUri;
-  session.observedCurrentContext = restoredObserved;
-  session.activationState = restoredActivationState;
-
-  if (session.activationState === 'inactive') {
-    clearRuntimeState();
-    return;
-  }
-
-  const current = session.queue[session.index];
-  setPlaybackStatus(formatNowPlayingStatus(current));
-  renderSessionQueue();
-  renderPlaybackControls();
-  if (session.activationState === 'active') {
-    playerMonitor.start();
-  }
+  sessionController.restoreRuntimeState();
 }
 
 function persistRuntimeState() {
-  localStorage.setItem(
-    STORAGE_KEYS.runtime,
-    JSON.stringify({
-      active: session.activationState === 'active',
-      activationState: session.activationState,
-      queue: session.queue,
-      index: session.index,
-      currentUri: session.currentUri,
-      observedCurrentContext: session.observedCurrentContext,
-    }),
-  );
+  sessionController.persistRuntimeState();
 }
 
 function clearRuntimeState() {
-  localStorage.removeItem(STORAGE_KEYS.runtime);
+  sessionController.clearRuntimeState();
 }
 
 function renderSessionQueue() {
-  el.queueList.innerHTML = '';
-  if (session.activationState === 'inactive' || session.queue.length === 0) return;
-
-  for (let i = 0; i < session.queue.length; i += 1) {
-    const item = session.queue[i];
-    const li = document.createElement('li');
-    if (i === session.index) {
-      li.classList.add('current');
-    }
-    const marker = i === session.index ? '▶' : '•';
-    li.textContent = `${marker} ${i + 1}. ${item.title}`;
-    el.queueList.appendChild(li);
-  }
+  sessionPanel.renderQueue(sessionController.getSession());
 }
 
 /**
@@ -1082,7 +596,7 @@ function renderSessionQueue() {
  * @returns {string}
  */
 function formatNowPlayingStatus(item) {
-  return `Now playing ${item.type} ${session.index + 1} of ${session.queue.length}: ${item.title}`;
+  return sessionController.formatNowPlayingStatus(item);
 }
 
 /**
@@ -1092,12 +606,7 @@ function formatNowPlayingStatus(item) {
  * @returns {Promise<T | undefined>}
  */
 async function runWithReportedError(task, reportErrorOptions) {
-  try {
-    return await task();
-  } catch (error) {
-    reportError(error, reportErrorOptions);
-    return undefined;
-  }
+  return errorReporter.run(task, reportErrorOptions);
 }
 
 /** @param {unknown} error */
@@ -1127,26 +636,7 @@ function reportMonitorError(error) {
  * @param {ErrorReportOptions} options
  */
 function reportError(error, options) {
-  const message = errorMessageForUser(error, options.fallbackMessage);
-  console.error(`[${options.context}]`, error);
-  if (options.authStatusMessage) {
-    setAuthStatus(options.authStatusMessage);
-  }
-  if (options.playbackStatusMessage) {
-    setPlaybackStatus(options.playbackStatusMessage);
-  }
-
-  const toastKey = options.toastKey ?? `${options.context}:${message}`;
-  if (options.toastMode === 'cooldown') {
-    const lastAt = errorToastLastShownAt.get(toastKey) ?? 0;
-    if (Date.now() - lastAt >= ERROR_TOAST_COOLDOWN_MS) {
-      errorToastLastShownAt.set(toastKey, Date.now());
-      showToast(message, 'error');
-    }
-    return;
-  }
-
-  showToast(message, 'error');
+  errorReporter.report(error, options);
 }
 
 /**
@@ -1159,18 +649,6 @@ function reportError(error, options) {
  *   toastKey?: string;
  * }} ErrorReportOptions
  */
-
-/**
- * @param {unknown} error
- * @param {string} fallbackMessage
- */
-function errorMessageForUser(error, fallbackMessage) {
-  const raw = error instanceof Error ? error.message : String(error ?? '');
-  if (raw && (/Failed to fetch/i.test(raw) || /NetworkError/i.test(raw))) {
-    return 'Network error while contacting Spotify. Please try again.';
-  }
-  return fallbackMessage;
-}
 
 /**
  * @param {unknown} error
@@ -1257,27 +735,4 @@ function shuffledCopy(values) {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
-}
-
-/** @param {number} length */
-function randomString(length) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let text = '';
-  const randomValues = crypto.getRandomValues(new Uint8Array(length));
-  for (const value of randomValues) {
-    text += chars[value % chars.length];
-  }
-  return text;
-}
-
-/** @param {string} verifier */
-async function codeChallengeFromVerifier(verifier) {
-  const data = new TextEncoder().encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  const bytes = new Uint8Array(digest);
-
-  let str = '';
-  for (const byte of bytes) str += String.fromCharCode(byte);
-
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
