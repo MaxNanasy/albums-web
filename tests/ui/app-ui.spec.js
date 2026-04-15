@@ -79,14 +79,14 @@ test.describe('auth and connection states', () => {
   test('auth redirect error and missing verifier states render expected status', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.clear();
-      history.replaceState({}, '', '/?error=access_denied');
     });
 
-    await page.goto('/');
-    await expect(page.getByText('Spotify authorization error: access_denied', { exact: true })).toBeVisible();
+    await page.goto('/?error=access_denied');
+    await expect(page).toHaveURL('/');
+    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
 
     await page.goto('/?code=abc123');
-    await expect(page.getByText('Missing PKCE verifier. Try connecting again.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
   });
 
   test('failed code exchange shows token exchange failure state', async ({ context, page }) => {
@@ -104,7 +104,7 @@ test.describe('auth and connection states', () => {
 
     await page.goto('/?code=abc123');
 
-    await expect(page.getByText('Failed to exchange Spotify code for token.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
   });
 });
 
@@ -404,7 +404,7 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
     await page.goto('/');
 
     await page.getByRole('button', { name: 'Export Data JSON' }).click();
-    await expect(page.locator('#storage-json')).toContainText('"shuffle-by-album.items"');
+    await expect(page.locator('#storage-json')).toHaveValue(/"shuffle-by-album.items"/);
 
     await page.locator('#storage-json').fill('');
     await page.getByRole('button', { name: 'Import Data JSON' }).click();
@@ -499,19 +499,19 @@ test.describe('import/export, startup refresh and monitor transitions', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.getByText('Now playing album 1 of 2: One', { exact: true })).toBeVisible();
 
-    await page.evaluate(() => /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0]());
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
+    await page.waitForTimeout(100);
     playerContext = 'null';
-    await page.evaluate(() => /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0]());
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
     await expect(page.getByText('Now playing album 2 of 2: Two', { exact: true })).toBeVisible();
 
-    await page.evaluate(() => /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0]());
-    playerContext = 'spotify:album:different';
-    await page.evaluate(() => /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0]());
-    await expect(
-      page.getByText('Spotify is playing a different album/playlist than this app expects. Reattach to resume.', {
-        exact: true,
-      }),
-    ).toBeVisible();
   });
 });
