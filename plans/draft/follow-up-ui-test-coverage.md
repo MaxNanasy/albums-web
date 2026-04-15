@@ -2,11 +2,11 @@
 
 The current Playwright suite still leaves several user-visible branches untested after the earlier UI coverage expansion. The remaining gaps are concentrated around successful auth flows, silent token refresh behavior, playlist-import reference parsing, corrupted export data, recoverable reattach failures, and playlist-specific playback copy.
 
-These gaps already sit next to related coverage in the existing spec files, so the follow-up work should extend those files in place instead of creating new spec files.
+These gaps already sit next to related coverage in the existing spec files, except for the storage JSON coverage that should move with the `storage-monitor-ui.spec.js` split.
 
 ## Solution
 
-Add the remaining UI coverage to the existing spec files below. Insert each new test at the stated position so related behaviors stay grouped and the suite remains easy to scan.
+Add the remaining UI coverage to the existing or newly split spec files below. Insert each new test at the stated position so related behaviors stay grouped and the suite remains easy to scan.
 
 ### 1. `tests/ui/auth-ui.spec.js`
 
@@ -58,7 +58,7 @@ Insert the following tests in this order:
    - mock a one-page playlist-items response
    - assert the same import success path works for URI input
 
-### 3. `tests/ui/storage-monitor-ui.spec.js`
+### 3. `tests/ui/storage-json-ui.spec.js`
 
 Insert the following test immediately after `export/import JSON validation and valid import resets active session`:
 
@@ -101,6 +101,10 @@ Insert the following test immediately after `starts playback` and before `start 
 - each new test above exists in the stated spec file and at the stated position relative to the current surrounding tests
 - `tests/ui/auth-ui.spec.js` covers connect-start PKCE redirect, refresh-success bootstrap, refresh-failure bootstrap, and successful code exchange
 - `tests/ui/add-import-ui.spec.js` covers playlist import parsing for both Spotify playlist URLs and Spotify playlist URIs
-- `tests/ui/storage-monitor-ui.spec.js` covers the corrupted-export-data error branch
+- `tests/ui/storage-json-ui.spec.js` covers the corrupted-export-data error branch
 - `tests/ui/detached-runtime-ui.spec.js` covers recoverable reattach player-state failures
 - `tests/ui/playback-ui.spec.js` covers playlist-item playback copy
+
+## Depends On
+
+- `split-storage-monitor-ui-spec.md`: splits `tests/ui/storage-monitor-ui.spec.js` into focused files so the new storage export test lands in the correct long-term home.
