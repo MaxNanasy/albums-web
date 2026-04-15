@@ -204,6 +204,77 @@ def render_test_list(suite_tests: list[tuple[str, str]]) -> list[str]:
     return [f'{line}\n' for line in lines]
 
 
+def build_suite_context(lines: list[str]) -> list[str]:
+    contexts: list[str] = []
+    current_suite = '(root)'
+    for line in lines:
+        stripped = line.rstrip('\n')
+        if stripped and not stripped.startswith('  '):
+            current_suite = stripped
+        contexts.append(current_suite)
+    return contexts
+
+
+def format_range_unified(start: int, stop: int) -> str:
+    beginning = start + 1
+    length = stop - start
+    if length == 1:
+        return str(beginning)
+    if length == 0:
+        beginning -= 1
+    return f'{beginning},{length}'
+
+
+def suite_name_for_group(
+    group: list[tuple[str, int, int, int, int]],
+    base_contexts: list[str],
+    head_contexts: list[str],
+) -> str:
+    for tag, _i1, _i2, j1, j2 in group:
+        if tag != 'equal' and j1 < j2:
+            return head_contexts[j1]
+    for tag, i1, i2, _j1, _j2 in group:
+        if tag != 'equal' and i1 < i2:
+            return base_contexts[i1]
+    return '(root)'
+
+
+def suite_aware_unified_diff(
+    base_lines: list[str],
+    head_lines: list[str],
+    fromfile: str,
+    tofile: str,
+    n: int,
+) -> list[str]:
+    base_contexts = build_suite_context(base_lines)
+    head_contexts = build_suite_context(head_lines)
+    sequence_matcher = difflib.SequenceMatcher(None, base_lines, head_lines)
+    grouped_opcodes = list(sequence_matcher.get_grouped_opcodes(n))
+    if not grouped_opcodes:
+        return []
+
+    diff_lines = [f'--- {fromfile}\n', f'+++ {tofile}\n']
+    for group in grouped_opcodes:
+        first, last = group[0], group[-1]
+        base_start = first[1]
+        base_stop = last[2]
+        head_start = first[3]
+        head_stop = last[4]
+        suite_name = suite_name_for_group(group, base_contexts, head_contexts)
+        diff_lines.append(
+            f'@@ -{format_range_unified(base_start, base_stop)} '
+            f'+{format_range_unified(head_start, head_stop)} @@ {suite_name}\n'
+        )
+        for tag, i1, i2, j1, j2 in group:
+            if tag in ('replace', 'delete'):
+                diff_lines.extend(f'-{line}' for line in base_lines[i1:i2])
+            if tag in ('replace', 'insert'):
+                diff_lines.extend(f'+{line}' for line in head_lines[j1:j2])
+            if tag == 'equal':
+                diff_lines.extend(f' {line}' for line in base_lines[i1:i2])
+    return diff_lines
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print(f'Usage: {sys.argv[0]} <base-ref> <head-ref>', file=sys.stderr)
@@ -227,7 +298,7 @@ def main() -> int:
             head_tests.extend(parse_suite_tests(head_text))
 
     diff = ''.join(
-        difflib.unified_diff(
+        suite_aware_unified_diff(
             render_test_list(base_tests),
             render_test_list(head_tests),
             fromfile=f'{base_ref} test-list',
