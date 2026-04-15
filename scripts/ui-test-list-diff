@@ -149,7 +149,7 @@ def find_arrow_block_start(text: str, index: int, limit: int) -> int | None:
     return None
 
 
-def parse_suite_tests(text: str) -> list[tuple[str, str]]:
+def parse_suite_tests(path: str, text: str) -> list[tuple[str, str]]:
     events: list[tuple[int, str, int]] = []
     for match in DESCRIBE_RE.finditer(text):
         events.append((match.start(), 'describe', match.end()))
@@ -186,7 +186,8 @@ def parse_suite_tests(text: str) -> list[tuple[str, str]]:
         suite_title = ' > '.join(suite_title for _, suite_title in describe_stack)
         if not suite_title:
             suite_title = '(root)'
-        suite_tests.append((suite_title, title))
+        base_filename = path.rsplit('/', 1)[-1]
+        suite_tests.append((f'{suite_title} [{base_filename}]:', title))
 
     return suite_tests
 
@@ -292,10 +293,10 @@ def main() -> int:
     for path in suite_files:
         base_text = file_at(base_ref, path)
         if base_text is not None:
-            base_tests.extend(parse_suite_tests(base_text))
+            base_tests.extend(parse_suite_tests(path, base_text))
         head_text = file_at(head_ref, path)
         if head_text is not None:
-            head_tests.extend(parse_suite_tests(head_text))
+            head_tests.extend(parse_suite_tests(path, head_text))
 
     diff = ''.join(
         suite_aware_unified_diff(
