@@ -25,7 +25,7 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('add and import validations', () => {
+test.describe('add and import', () => {
   test('adds an album from normal Spotify URL', async ({ context, page }) => {
     installSpotifyRoutes(context, [
       {
