@@ -2,7 +2,7 @@
 
 The current Playwright suite still leaves several user-visible branches untested after the earlier UI coverage expansion. The remaining gaps are concentrated around successful auth flows, silent token refresh behavior, playlist-import reference parsing, corrupted export data, recoverable reattach failures, and playlist-specific playback copy.
 
-These gaps already sit next to related coverage in the existing spec files, except for the storage JSON coverage that should move with the `storage-monitor-ui.spec.js` split.
+These gaps already sit next to related coverage in the existing spec files, except for the storage JSON and playlist import coverage that should move with the planned UI spec splits.
 
 ## Solution
 
@@ -42,7 +42,7 @@ Insert the following tests in this order:
    - assert the verifier key is removed
    - assert stored auth fields match the response
 
-### 2. `tests/ui/add-import-ui.spec.js`
+### 2. `tests/ui/playlist-import-ui.spec.js`
 
 Insert the following tests in this order:
 
@@ -100,11 +100,11 @@ Insert the following test immediately after `starts playback` and before `start 
 
 - each new test above exists in the stated spec file and at the stated position relative to the current surrounding tests
 - `tests/ui/auth-ui.spec.js` covers connect-start PKCE redirect, refresh-success bootstrap, refresh-failure bootstrap, and successful code exchange
-- `tests/ui/add-import-ui.spec.js` covers playlist import parsing for both Spotify playlist URLs and Spotify playlist URIs
+- `tests/ui/playlist-import-ui.spec.js` covers playlist import parsing for both Spotify playlist URLs and Spotify playlist URIs
 - `tests/ui/storage-json-ui.spec.js` covers the corrupted-export-data error branch
 - `tests/ui/detached-runtime-ui.spec.js` covers recoverable reattach player-state failures
 - `tests/ui/playback-ui.spec.js` covers playlist-item playback copy
 
 ## Depends On
 
-- `split-storage-monitor-ui-spec.md`: splits `tests/ui/storage-monitor-ui.spec.js` into focused files so the new storage export test lands in the correct long-term home.
+- `split-storage-monitor-ui-spec.md`: splits the mixed-purpose storage/monitor and add/import UI specs so the new storage export and playlist import tests land in their correct long-term homes.
