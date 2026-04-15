@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
@@ -39,16 +39,20 @@ async function installSpotifyRouteGuard(context, spotifyRouteDefinitions) {
   });
 }
 
-test.beforeEach(async ({ context }) => {
-  /** @type {SpotifyRouteDefinition[]} */
-  const spotifyRouteDefinitions = [];
-  spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
+const test = base.extend({
+  _spotifyRouteGuard: [async ({ context }, use) => {
+    /** @type {SpotifyRouteDefinition[]} */
+    const spotifyRouteDefinitions = [];
+    spotifyRouteDefinitionsByContext.set(context, spotifyRouteDefinitions);
 
-  await installSpotifyRouteGuard(context, spotifyRouteDefinitions);
-});
+    await installSpotifyRouteGuard(context, spotifyRouteDefinitions);
 
-test.afterEach(async ({ context }) => {
-  spotifyRouteDefinitionsByContext.delete(context);
+    try {
+      await use();
+    } finally {
+      spotifyRouteDefinitionsByContext.delete(context);
+    }
+  }, { auto: true }],
 });
 
 /**
@@ -60,11 +64,7 @@ export function installSpotifyRoutes(context, definitions) {
   const spotifyRouteDefinitions = spotifyRouteDefinitionsByContext.get(context);
 
   if (!spotifyRouteDefinitions) {
-    /** @type {SpotifyRouteDefinition[]} */
-    const fallbackSpotifyRouteDefinitions = [];
-    spotifyRouteDefinitionsByContext.set(context, fallbackSpotifyRouteDefinitions);
-    void installSpotifyRouteGuard(context, fallbackSpotifyRouteDefinitions);
-    return installSpotifyRoutes(context, definitions);
+    throw new Error('Spotify routes have not been initialized for this test context.');
   }
 
   /** @type {RecordedSpotifyRequest[]} */
