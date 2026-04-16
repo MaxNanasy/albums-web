@@ -3,10 +3,12 @@ const TOAST_DURATION_MS = 5000;
 /** @typedef {{ actionLabel: string, onAction: () => void }} ToastAction */
 
 export class ToastPresenter {
+  /** @type {HTMLDivElement} */
+  #toastStack;
+
   /** @param {HTMLDivElement} toastStack */
   constructor(toastStack) {
-    /** @type {HTMLDivElement} */
-    this.toastStack = toastStack;
+    this.#toastStack = toastStack;
   }
 
   /**
@@ -73,6 +75,6 @@ export class ToastPresenter {
     toast.addEventListener('mouseleave', restartDismissTimer);
 
     toast.append(body, actions);
-    this.toastStack.appendChild(toast);
+    this.#toastStack.appendChild(toast);
   }
 }

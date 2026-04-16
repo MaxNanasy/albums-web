@@ -48,16 +48,16 @@
 
 export class SpotifyAppApi {
   /** @type {SpotifyApi} */
-  spotifyApi;
+  #spotifyApi;
 
   /** @param {SpotifyApi} spotifyApi */
   constructor(spotifyApi) {
-    this.spotifyApi = spotifyApi;
+    this.#spotifyApi = spotifyApi;
   }
 
   /** @returns {Promise<PlayerStateResponse>} */
   async getPlayerState() {
-    const response = await this.spotifyApi.request('/me/player', { method: 'GET' }, false);
+    const response = await this.#spotifyApi.request('/me/player', { method: 'GET' }, false);
     if (response.status === 204) {
       return { ok: true, status: response.status, contextUri: null };
     }
@@ -71,17 +71,17 @@ export class SpotifyAppApi {
 
   /** @returns {Promise<void>} */
   async disableShuffle() {
-    await this.spotifyApi.request('/me/player/shuffle?state=false', { method: 'PUT' });
+    await this.#spotifyApi.request('/me/player/shuffle?state=false', { method: 'PUT' });
   }
 
   /** @returns {Promise<void>} */
   async disableRepeat() {
-    await this.spotifyApi.request('/me/player/repeat?state=off', { method: 'PUT' });
+    await this.#spotifyApi.request('/me/player/repeat?state=off', { method: 'PUT' });
   }
 
   /** @param {string} contextUri */
   async playContext(contextUri) {
-    await this.spotifyApi.request('/me/player/play', {
+    await this.#spotifyApi.request('/me/player/play', {
       method: 'PUT',
       body: JSON.stringify({
         context_uri: contextUri,
@@ -105,7 +105,7 @@ export class SpotifyAppApi {
       market: 'from_token',
     });
 
-    const response = await this.spotifyApi.request(
+    const response = await this.#spotifyApi.request(
       `/playlists/${playlistId}/items?${params.toString()}`,
       { method: 'GET' },
       false,
@@ -143,7 +143,7 @@ export class SpotifyAppApi {
    */
   async getItemTitle(itemType, id) {
     const path = itemType === 'album' ? `/albums/${id}` : `/playlists/${id}`;
-    const response = await this.spotifyApi.request(path, { method: 'GET' }, false);
+    const response = await this.#spotifyApi.request(path, { method: 'GET' }, false);
     if (!response.ok) return null;
 
     const data = /** @type {{name?: string}} */ (await response.json());

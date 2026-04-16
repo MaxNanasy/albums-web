@@ -2,17 +2,20 @@ import { exportItemsData, importItemsData } from './storage-transfer.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 /** @typedef {{uri: string; type: ItemType; title: string}} ShuffleItem */
+/** @typedef {{ items: string }} ItemStoreStorageKeys */
 
 export class ItemStore {
-  /** @param {{ items: string }} storageKeys */
+  /** @type {ItemStoreStorageKeys} */
+  #storageKeys;
+
+  /** @param {ItemStoreStorageKeys} storageKeys */
   constructor(storageKeys) {
-    /** @type {{ items: string }} */
-    this.storageKeys = storageKeys;
+    this.#storageKeys = storageKeys;
   }
 
   /** @returns {ShuffleItem[]} */
   getItems() {
-    const raw = localStorage.getItem(this.storageKeys.items);
+    const raw = localStorage.getItem(this.#storageKeys.items);
     if (!raw) return [];
 
     try {
@@ -27,13 +30,13 @@ export class ItemStore {
 
   /** @param {ShuffleItem[]} items */
   saveItems(items) {
-    localStorage.setItem(this.storageKeys.items, JSON.stringify(items));
+    localStorage.setItem(this.#storageKeys.items, JSON.stringify(items));
   }
 
   /** @returns {{ data: Record<string, unknown> | null; error: string | null }} */
   exportData() {
-    const rawItems = localStorage.getItem(this.storageKeys.items);
-    return exportItemsData(rawItems, this.storageKeys.items);
+    const rawItems = localStorage.getItem(this.#storageKeys.items);
+    return exportItemsData(rawItems, this.#storageKeys.items);
   }
 
   /**
@@ -41,7 +44,7 @@ export class ItemStore {
    * @returns {{ ok: false; error: string } | { ok: true; items: ShuffleItem[] }}
    */
   importFromJson(raw) {
-    const parsed = importItemsData(raw, this.storageKeys.items);
+    const parsed = importItemsData(raw, this.#storageKeys.items);
     if (!parsed.ok) return parsed;
     const items = normalizeItems(parsed.items);
     this.saveItems(items);

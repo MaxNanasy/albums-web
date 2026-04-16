@@ -1,16 +1,19 @@
+/**
+ * @typedef {{
+ *  scopes: string[];
+ *  spotifyAppId: string;
+ *  storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; };
+ *  reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void;
+ *  setAuthStatus: (message: string) => void;
+ * }} AuthFlowDeps
+ */
+
 export class AuthFlow {
-  /**
-   * @param {{
-   *  scopes: string[];
-   *  spotifyAppId: string;
-   *  storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; };
-   *  reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void;
-   *  setAuthStatus: (message: string) => void;
-   * }} deps
-   */
+  /** @type {AuthFlowDeps} */
+  #deps;
+  /** @param {AuthFlowDeps} deps */
   constructor(deps) {
-    /** @type {{scopes: string[]; spotifyAppId: string; storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; }; reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void; setAuthStatus: (message: string) => void;}} */
-    this.deps = deps;
+    this.#deps = deps;
   }
 
   async startLogin() {
@@ -19,12 +22,12 @@ export class AuthFlow {
     );
     const verifier = randomString(64);
     const challenge = await codeChallengeFromVerifier(verifier);
-    localStorage.setItem(this.deps.storageKeys.verifier, verifier);
+    localStorage.setItem(this.#deps.storageKeys.verifier, verifier);
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: this.deps.spotifyAppId,
-      scope: this.deps.scopes.join(' '),
+      client_id: this.#deps.spotifyAppId,
+      scope: this.#deps.scopes.join(' '),
       redirect_uri: locationRef.origin + locationRef.pathname,
       code_challenge_method: 'S256',
       code_challenge: challenge,
@@ -46,7 +49,7 @@ export class AuthFlow {
     const error = url.searchParams.get('error');
 
     if (error) {
-      this.deps.setAuthStatus(`Spotify authorization error: ${error}`);
+      this.#deps.setAuthStatus(`Spotify authorization error: ${error}`);
       url.searchParams.delete('error');
       historyRef.replaceState({}, '', url.toString());
       return;
@@ -54,10 +57,10 @@ export class AuthFlow {
 
     if (!code) return;
 
-    const verifier = localStorage.getItem(this.deps.storageKeys.verifier);
+    const verifier = localStorage.getItem(this.#deps.storageKeys.verifier);
 
     if (!verifier) {
-      this.deps.setAuthStatus('Missing PKCE verifier. Try connecting again.');
+      this.#deps.setAuthStatus('Missing PKCE verifier. Try connecting again.');
       return;
     }
 
@@ -65,7 +68,7 @@ export class AuthFlow {
       grant_type: 'authorization_code',
       code,
       redirect_uri: locationRef.origin + locationRef.pathname,
-      client_id: this.deps.spotifyAppId,
+      client_id: this.#deps.spotifyAppId,
       code_verifier: verifier,
     });
 
@@ -76,35 +79,35 @@ export class AuthFlow {
     });
 
     if (!response.ok) {
-      this.deps.setAuthStatus('Failed to exchange Spotify code for token.');
+      this.#deps.setAuthStatus('Failed to exchange Spotify code for token.');
       return;
     }
 
     /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
     const data = /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */ (await response.json());
-    localStorage.setItem(this.deps.storageKeys.token, data.access_token);
+    localStorage.setItem(this.#deps.storageKeys.token, data.access_token);
     if (data.refresh_token) {
-      localStorage.setItem(this.deps.storageKeys.refreshToken, data.refresh_token);
+      localStorage.setItem(this.#deps.storageKeys.refreshToken, data.refresh_token);
     }
-    localStorage.setItem(this.deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
-    localStorage.setItem(this.deps.storageKeys.tokenScope, data.scope ?? '');
-    localStorage.removeItem(this.deps.storageKeys.verifier);
+    localStorage.setItem(this.#deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
+    localStorage.setItem(this.#deps.storageKeys.tokenScope, data.scope ?? '');
+    localStorage.removeItem(this.#deps.storageKeys.verifier);
 
     url.searchParams.delete('code');
     historyRef.replaceState({}, '', url.toString());
   }
 
   clearAuth() {
-    localStorage.removeItem(this.deps.storageKeys.token);
-    localStorage.removeItem(this.deps.storageKeys.refreshToken);
-    localStorage.removeItem(this.deps.storageKeys.tokenExpiry);
-    localStorage.removeItem(this.deps.storageKeys.tokenScope);
-    localStorage.removeItem(this.deps.storageKeys.verifier);
+    localStorage.removeItem(this.#deps.storageKeys.token);
+    localStorage.removeItem(this.#deps.storageKeys.refreshToken);
+    localStorage.removeItem(this.#deps.storageKeys.tokenExpiry);
+    localStorage.removeItem(this.#deps.storageKeys.tokenScope);
+    localStorage.removeItem(this.#deps.storageKeys.verifier);
   }
 
   getToken() {
-    const token = localStorage.getItem(this.deps.storageKeys.token);
-    const expiryMs = Number(localStorage.getItem(this.deps.storageKeys.tokenExpiry) ?? 0);
+    const token = localStorage.getItem(this.#deps.storageKeys.token);
+    const expiryMs = Number(localStorage.getItem(this.#deps.storageKeys.tokenExpiry) ?? 0);
     if (!token || Date.now() >= expiryMs) {
       return null;
     }
@@ -112,18 +115,18 @@ export class AuthFlow {
   }
 
   getGrantedScopes() {
-    const scopeText = localStorage.getItem(this.deps.storageKeys.tokenScope) ?? '';
+    const scopeText = localStorage.getItem(this.#deps.storageKeys.tokenScope) ?? '';
     return new Set(scopeText.split(/\s+/).filter(Boolean));
   }
 
   async refreshSpotifyAccessToken() {
-    const refreshToken = localStorage.getItem(this.deps.storageKeys.refreshToken);
+    const refreshToken = localStorage.getItem(this.#deps.storageKeys.refreshToken);
     if (!refreshToken) return null;
 
     const formData = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: this.deps.spotifyAppId,
+      client_id: this.#deps.spotifyAppId,
     });
 
     /** @type {Response} */
@@ -135,7 +138,7 @@ export class AuthFlow {
         body: formData,
       });
     } catch (error) {
-      this.deps.reportError(error, {
+      this.#deps.reportError(error, {
         context: 'auth',
         fallbackMessage: 'Unable to refresh Spotify session.',
         authStatusMessage: 'Network issue refreshing Spotify session. Please reconnect if this continues.',
@@ -149,13 +152,13 @@ export class AuthFlow {
 
     /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
     const data = /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */ (await response.json());
-    localStorage.setItem(this.deps.storageKeys.token, data.access_token);
-    localStorage.setItem(this.deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
+    localStorage.setItem(this.#deps.storageKeys.token, data.access_token);
+    localStorage.setItem(this.#deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
     if (typeof data.scope === 'string') {
-      localStorage.setItem(this.deps.storageKeys.tokenScope, data.scope);
+      localStorage.setItem(this.#deps.storageKeys.tokenScope, data.scope);
     }
     if (data.refresh_token) {
-      localStorage.setItem(this.deps.storageKeys.refreshToken, data.refresh_token);
+      localStorage.setItem(this.#deps.storageKeys.refreshToken, data.refresh_token);
     }
     return data.access_token;
   }
@@ -164,7 +167,7 @@ export class AuthFlow {
     const token = this.getToken();
     if (token) return token;
 
-    const hasRefreshToken = Boolean(localStorage.getItem(this.deps.storageKeys.refreshToken));
+    const hasRefreshToken = Boolean(localStorage.getItem(this.#deps.storageKeys.refreshToken));
     if (!hasRefreshToken) return null;
 
     return this.refreshSpotifyAccessToken();

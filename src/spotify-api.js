@@ -27,13 +27,13 @@ export class SpotifyApiHttpError extends Error {
 
 export class SpotifyApi {
   /** @type {SpotifyApiDeps} */
-  deps;
+  #deps;
 
   /**
    * @param {SpotifyApiDeps} deps
    */
   constructor(deps) {
-    this.deps = deps;
+    this.#deps = deps;
   }
 
   /**
@@ -53,21 +53,21 @@ export class SpotifyApi {
         },
       });
 
-    const token = await this.deps.getAccessToken();
+    const token = await this.#deps.getAccessToken();
     if (!token) {
-      this.deps.handleAuthExpired();
+      this.#deps.handleAuthExpired();
       throw new SpotifyApiHttpError(401, spotifyStatusMessage(401, `Spotify API request failed for ${path}.`));
     }
 
     let response = await makeRequest(token);
     if (response.status === 401) {
-      const refreshedToken = await this.deps.refreshSpotifyAccessToken();
+      const refreshedToken = await this.#deps.refreshSpotifyAccessToken();
       if (refreshedToken) {
         response = await makeRequest(refreshedToken);
       }
 
       if (response.status === 401) {
-        this.deps.handleAuthExpired();
+        this.#deps.handleAuthExpired();
       }
     }
 
