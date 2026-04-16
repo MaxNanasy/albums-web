@@ -126,7 +126,7 @@ test('monitor loop reports recoverable player-state status errors', async () => 
   assert.ok(reportedErrors[0] instanceof PlayerMonitorStatusError);
   const playerMonitorError = /** @type {PlayerMonitorStatusError} */ (reportedErrors[0]);
   assert.equal(playerMonitorError.status, 429);
-  assert.match(playerMonitorError.message, /slow down/);
+  assert.equal(playerMonitorError.message, 'Playback monitor request failed (429): slow down');
 });
 
 test('monitor loop advances when observed context becomes null', async () => {
