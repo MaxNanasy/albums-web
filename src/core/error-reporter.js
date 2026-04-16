@@ -1,6 +1,10 @@
 const ERROR_TOAST_COOLDOWN_MS = 45000;
 
 export class ErrorReporter {
+  /** @type {{setAuthStatus: (message: string) => void; setPlaybackStatus: (message: string) => void; showToast: (message: string, type?: 'success' | 'info' | 'error') => void;}} */
+  #deps;
+  /** @type {Map<string, number>} */
+  #errorToastLastShownAt;
   /**
    * @param {{
    *  setAuthStatus: (message: string) => void;
@@ -9,10 +13,8 @@ export class ErrorReporter {
    * }} deps
    */
   constructor(deps) {
-    /** @type {{setAuthStatus: (message: string) => void; setPlaybackStatus: (message: string) => void; showToast: (message: string, type?: 'success' | 'info' | 'error') => void;}} */
-    this.deps = deps;
-    /** @type {Map<string, number>} */
-    this.errorToastLastShownAt = new Map();
+    this.#deps = deps;
+    this.#errorToastLastShownAt = new Map();
   }
 
   /**
@@ -39,23 +41,23 @@ export class ErrorReporter {
     console.error(`[${options.context}]`, error);
 
     if (options.authStatusMessage) {
-      this.deps.setAuthStatus(options.authStatusMessage);
+      this.#deps.setAuthStatus(options.authStatusMessage);
     }
     if (options.playbackStatusMessage) {
-      this.deps.setPlaybackStatus(options.playbackStatusMessage);
+      this.#deps.setPlaybackStatus(options.playbackStatusMessage);
     }
 
     const toastKey = options.toastKey ?? `${options.context}:${message}`;
     if (options.toastMode === 'cooldown') {
-      const lastAt = this.errorToastLastShownAt.get(toastKey) ?? 0;
+      const lastAt = this.#errorToastLastShownAt.get(toastKey) ?? 0;
       if (Date.now() - lastAt >= ERROR_TOAST_COOLDOWN_MS) {
-        this.errorToastLastShownAt.set(toastKey, Date.now());
-        this.deps.showToast(message, 'error');
+        this.#errorToastLastShownAt.set(toastKey, Date.now());
+        this.#deps.showToast(message, 'error');
       }
       return;
     }
 
-    this.deps.showToast(message, 'error');
+    this.#deps.showToast(message, 'error');
   }
 }
 

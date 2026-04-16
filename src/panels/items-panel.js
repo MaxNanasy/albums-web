@@ -1,6 +1,10 @@
 /** @typedef {{uri: string; title: string}} ShuffleItem */
 
 export class ItemsPanel {
+  /** @type {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement;}} */
+  #el;
+  /** @type {(uri: string) => void} */
+  #onRemove;
   /**
    * @param {{
    *  addForm: HTMLFormElement;
@@ -10,10 +14,8 @@ export class ItemsPanel {
    * }} el
    */
   constructor(el) {
-    /** @type {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement;}} */
-    this.el = el;
-    /** @type {(uri: string) => void} */
-    this.onRemove = () => {};
+    this.#el = el;
+    this.#onRemove = () => {};
   }
 
   /**
@@ -24,18 +26,18 @@ export class ItemsPanel {
    * }} handlers
    */
   bind(handlers) {
-    this.el.addForm.addEventListener('submit', (event) => {
+    this.#el.addForm.addEventListener('submit', (event) => {
       event.preventDefault();
-      handlers.onAdd(this.el.itemUri.value.trim());
+      handlers.onAdd(this.#el.itemUri.value.trim());
     });
 
-    this.el.importPlaylistBtn.addEventListener('click', handlers.onImportPlaylist);
-    this.onRemove = handlers.onRemove;
+    this.#el.importPlaylistBtn.addEventListener('click', handlers.onImportPlaylist);
+    this.#onRemove = handlers.onRemove;
   }
 
   /** @param {ShuffleItem[]} items */
   renderList(items) {
-    this.el.itemList.innerHTML = '';
+    this.#el.itemList.innerHTML = '';
 
     for (const item of items) {
       const li = document.createElement('li');
@@ -50,21 +52,21 @@ export class ItemsPanel {
       removeButton.className = 'danger';
       removeButton.textContent = 'Remove';
       removeButton.addEventListener('click', () => {
-        this.onRemove(item.uri);
+        this.#onRemove(item.uri);
       });
 
       actions.appendChild(removeButton);
       li.append(text, actions);
-      this.el.itemList.appendChild(li);
+      this.#el.itemList.appendChild(li);
     }
   }
 
   clearInput() {
-    this.el.itemUri.value = '';
+    this.#el.itemUri.value = '';
   }
 
   /** @returns {string} */
   getUriInput() {
-    return this.el.itemUri.value.trim();
+    return this.#el.itemUri.value.trim();
   }
 }

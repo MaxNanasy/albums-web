@@ -43,57 +43,56 @@ export class PlayerMonitorStatusError extends Error {
 
 export class PlayerMonitor {
   /** @type {PlayerMonitorDeps} */
-  deps;
-
+  #deps;
   /** @type {ReturnType<typeof setInterval> | null} */
-  monitorTimer;
+  #monitorTimer;
 
   /** @param {PlayerMonitorDeps} deps */
   constructor(deps) {
-    this.deps = deps;
-    this.monitorTimer = null;
+    this.#deps = deps;
+    this.#monitorTimer = null;
   }
 
   start() {
     this.stop();
-    this.monitorTimer = globalThis.setInterval(() => {
+    this.#monitorTimer = globalThis.setInterval(() => {
       void (async () => {
         try {
           await this.monitorPlayback();
         } catch (error) {
-          this.deps.reportError(error);
+          this.#deps.reportError(error);
         }
       })();
     }, 4000);
   }
 
   stop() {
-    if (this.monitorTimer !== null) {
-      clearInterval(this.monitorTimer);
-      this.monitorTimer = null;
+    if (this.#monitorTimer !== null) {
+      clearInterval(this.#monitorTimer);
+      this.#monitorTimer = null;
     }
   }
 
   async monitorPlayback() {
-    const session = this.deps.getSession();
+    const session = this.#deps.getSession();
     if (session.activationState !== 'active' || !session.currentUri) return;
 
-    const token = await this.deps.getUsableAccessToken();
+    const token = await this.#deps.getUsableAccessToken();
     if (!token) {
-      this.deps.transitionToDetached('Spotify session expired. Please reconnect.');
+      this.#deps.transitionToDetached('Spotify session expired. Please reconnect.');
       return;
     }
 
-    const playerState = await this.deps.spotifyAppApi.getPlayerState();
+    const playerState = await this.#deps.spotifyAppApi.getPlayerState();
     if (!playerState.ok) {
-      if (this.deps.isUnrecoverableSpotifyStatus(playerState.status)) {
-        this.deps.transitionToDetached(
+      if (this.#deps.isUnrecoverableSpotifyStatus(playerState.status)) {
+        this.#deps.transitionToDetached(
           spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached.'),
         );
         return;
       }
 
-      this.deps.reportError(new PlayerMonitorStatusError(playerState.status, playerState.errorText));
+      this.#deps.reportError(new PlayerMonitorStatusError(playerState.status, playerState.errorText));
       return;
     }
 
@@ -101,7 +100,7 @@ export class PlayerMonitor {
 
     if (contextUri === session.currentUri) {
       session.observedCurrentContext = true;
-      this.deps.persistRuntimeState();
+      this.#deps.persistRuntimeState();
       return;
     }
 
@@ -110,12 +109,12 @@ export class PlayerMonitor {
     }
 
     if (session.observedCurrentContext && contextUri === null) {
-      await this.deps.goToNextItem();
+      await this.#deps.goToNextItem();
       return;
     }
 
     if (contextUri && contextUri !== session.currentUri) {
-      this.deps.transitionToDetached(
+      this.#deps.transitionToDetached(
         'Spotify is playing a different album/playlist than this app expects. Reattach to resume.',
       );
     }
