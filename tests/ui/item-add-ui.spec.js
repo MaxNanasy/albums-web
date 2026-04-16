@@ -7,8 +7,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('item add', () => {
-  test('adds an album from normal Spotify URL', async ({ context, page }) => {
+test.describe('Item Add', () => {
+  test('Adds an album from normal Spotify URL', async ({ context, page }) => {
     installSpotifyRoutes(context, [
       {
         match: (request) => isSpotifyApiRequest(request, 'GET', '/albums/album123'),
@@ -23,7 +23,7 @@ test.describe('item add', () => {
     await expect(page.getByText('Discovery', { exact: true })).toBeVisible();
   });
 
-  test('adds a playlist from Spotify playlist URL', async ({ context, page }) => {
+  test('Adds a playlist from Spotify playlist URL', async ({ context, page }) => {
     installSpotifyRoutes(context, [
       {
         match: (request) => isSpotifyApiRequest(request, 'GET', '/playlists/playlist123'),
@@ -39,7 +39,7 @@ test.describe('item add', () => {
     await expect(page.getByText('Item added.', { exact: true })).toBeVisible();
   });
 
-  test('duplicate and invalid input show validation toasts', async ({ context, page }) => {
+  test('Duplicate and invalid input show validation toasts', async ({ context, page }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:album123', title: 'Discovery' }]);
 
     await page.goto('/');
@@ -53,7 +53,7 @@ test.describe('item add', () => {
     await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
   });
 
-  test('add while disconnected and title lookup failure both show toasts', async ({ context, page }) => {
+  test('Add while disconnected and title lookup failure both show toasts', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');
       localStorage.removeItem('shuffle-by-album.tokenExpiry');

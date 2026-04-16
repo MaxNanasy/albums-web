@@ -7,8 +7,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('item list', () => {
-  test('remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page }) => {
+test.describe('Item List', () => {
+  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
