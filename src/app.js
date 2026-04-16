@@ -12,6 +12,8 @@ import { ItemsPanel } from './panels/items-panel.js';
 import { SessionPanel } from './panels/session-panel.js';
 import { StoragePanel } from './panels/storage-panel.js';
 
+/** @typedef {import('./core/error-reporter.js').ErrorReportOptions} ErrorReportOptions */
+
 /** @typedef {'album' | 'playlist'} ItemType */
 
 /**
@@ -638,16 +640,6 @@ function reportMonitorError(error) {
 function reportError(error, options) {
   errorReporter.report(error, options);
 }
-
-/**
- * @typedef ErrorReportOptions
- * @property {string} context
- * @property {string} fallbackMessage
- * @property {string} [authStatusMessage]
- * @property {string} [playbackStatusMessage]
- * @property {'always' | 'cooldown'} [toastMode]
- * @property {string} [toastKey]
- */
 
 /**
  * @param {unknown} error
