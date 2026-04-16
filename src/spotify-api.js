@@ -18,11 +18,10 @@ export class SpotifyApiHttpError extends Error {
 }
 
 /**
- * @typedef {{
- * getAccessToken: () => Promise<string | null>;
- * refreshSpotifyAccessToken: () => Promise<string | null>;
- * handleAuthExpired: () => void;
- * }} SpotifyApiDeps
+ * @typedef SpotifyApiDeps
+ * @property {() => Promise<string | null>} getAccessToken
+ * @property {() => Promise<string | null>} refreshSpotifyAccessToken
+ * @property {() => void} handleAuthExpired
  */
 
 export class SpotifyApi {

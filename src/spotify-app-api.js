@@ -3,45 +3,40 @@
 /** @typedef {'album' | 'playlist'} ItemType */
 
 /**
- * @typedef {{
- *   ok: true;
- *   status: number;
- *   contextUri: string | null;
- * }} PlayerStateSuccess
+ * @typedef PlayerStateSuccess
+ * @property {true} ok
+ * @property {number} status
+ * @property {string | null} contextUri
  */
 
 /**
- * @typedef {{
- *   ok: false;
- *   status: number;
- *   errorText: string;
- * }} PlayerStateFailure
+ * @typedef PlayerStateFailure
+ * @property {false} ok
+ * @property {number} status
+ * @property {string} errorText
  */
 
 /** @typedef {PlayerStateSuccess | PlayerStateFailure} PlayerStateResponse */
 
 /**
- * @typedef {{
- *   uri: string;
- *   title: string;
- * }} PlaylistAlbum
+ * @typedef PlaylistAlbum
+ * @property {string} uri
+ * @property {string} title
  */
 
 /**
- * @typedef {{
- *   ok: true;
- *   status: number;
- *   albums: PlaylistAlbum[];
- *   hasNext: boolean;
- * }} PlaylistAlbumsPageSuccess
+ * @typedef PlaylistAlbumsPageSuccess
+ * @property {true} ok
+ * @property {number} status
+ * @property {PlaylistAlbum[]} albums
+ * @property {boolean} hasNext
  */
 
 /**
- * @typedef {{
- *   ok: false;
- *   status: number;
- *   errorText: string;
- * }} PlaylistAlbumsPageFailure
+ * @typedef PlaylistAlbumsPageFailure
+ * @property {false} ok
+ * @property {number} status
+ * @property {string} errorText
  */
 
 /** @typedef {PlaylistAlbumsPageSuccess | PlaylistAlbumsPageFailure} PlaylistAlbumsPageResponse */

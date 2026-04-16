@@ -3,21 +3,20 @@
 /** @typedef {'inactive' | 'active' | 'detached'} SessionActivationState */
 
 /**
- * @typedef {{
- *  runtimeStorageKey: string;
- *  getUsableAccessToken: () => Promise<string | null>;
- *  spotifyAppApi: import('../spotify-app-api.js').SpotifyAppApi;
- *  showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
- *  setPlaybackStatus: (message: string) => void;
- *  renderPlaybackControls: (activationState: SessionActivationState) => void;
- *  renderSessionQueue: (session: SessionState) => void;
- *  reportError: (error: unknown, options: {context: string; fallbackMessage: string; playbackStatusMessage?: string; toastMode?: 'always' | 'cooldown'; toastKey?: string;}) => void;
- *  isUnrecoverableSpotifyError: (error: unknown) => boolean;
- *  isUnrecoverableSpotifyStatus: (status: number) => boolean;
- *  spotifyStatusMessage: (status: number, fallback: string) => string;
- *  getItems: () => ShuffleItem[];
- *  shuffledCopy: (items: ShuffleItem[]) => ShuffleItem[];
- * }} SessionControllerDeps
+ * @typedef SessionControllerDeps
+ * @property {string} runtimeStorageKey
+ * @property {() => Promise<string | null>} getUsableAccessToken
+ * @property {import('../spotify-app-api.js').SpotifyAppApi} spotifyAppApi
+ * @property {(message: string, type?: 'success' | 'info' | 'error') => void} showToast
+ * @property {(message: string) => void} setPlaybackStatus
+ * @property {(activationState: SessionActivationState) => void} renderPlaybackControls
+ * @property {(session: SessionState) => void} renderSessionQueue
+ * @property {(error: unknown, options: {context: string; fallbackMessage: string; playbackStatusMessage?: string; toastMode?: 'always' | 'cooldown'; toastKey?: string;}) => void} reportError
+ * @property {(error: unknown) => boolean} isUnrecoverableSpotifyError
+ * @property {(status: number) => boolean} isUnrecoverableSpotifyStatus
+ * @property {(status: number, fallback: string) => string} spotifyStatusMessage
+ * @property {() => ShuffleItem[]} getItems
+ * @property {(items: ShuffleItem[]) => ShuffleItem[]} shuffledCopy
  */
 
 export class SessionController {

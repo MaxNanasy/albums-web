@@ -3,24 +3,22 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
 /** @typedef {import('./spotify-app-api.js').SpotifyAppApi} SpotifyAppApi */
 
 /**
- * @typedef {{
- *   activationState: 'inactive' | 'active' | 'detached';
- *   currentUri: string | null;
- *   observedCurrentContext: boolean;
- * }} MonitorSession
+ * @typedef MonitorSession
+ * @property {'inactive' | 'active' | 'detached'} activationState
+ * @property {string | null} currentUri
+ * @property {boolean} observedCurrentContext
  */
 
 /**
- * @typedef {{
- *   getSession: () => MonitorSession;
- *   getUsableAccessToken: () => Promise<string | null>;
- *   spotifyAppApi: SpotifyAppApi;
- *   persistRuntimeState: () => void;
- *   transitionToDetached: (message: string) => void;
- *   goToNextItem: () => Promise<void>;
- *   reportError: (error: unknown) => void;
- *   isUnrecoverableSpotifyStatus: (status: number) => boolean;
- * }} PlayerMonitorDeps
+ * @typedef PlayerMonitorDeps
+ * @property {() => MonitorSession} getSession
+ * @property {() => Promise<string | null>} getUsableAccessToken
+ * @property {SpotifyAppApi} spotifyAppApi
+ * @property {() => void} persistRuntimeState
+ * @property {(message: string) => void} transitionToDetached
+ * @property {() => Promise<void>} goToNextItem
+ * @property {(error: unknown) => void} reportError
+ * @property {(status: number) => boolean} isUnrecoverableSpotifyStatus
  */
 
 export class PlayerMonitorStatusError extends Error {
