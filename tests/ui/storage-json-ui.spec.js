@@ -7,8 +7,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('storage JSON import/export', () => {
-  test('export/import JSON validation and valid import resets active session', async ({ context, page }) => {
+test.describe('Storage JSON Import/Export', () => {
+  test('Export/import JSON validation and valid import resets active session', async ({ context, page }) => {
     await context.addInitScript(() => {
       Math.random = () => 0.999;
     });
@@ -63,7 +63,7 @@ test.describe('storage JSON import/export', () => {
     await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeDisabled();
   });
 
-  test('export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page }) => {
+  test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.items', '{bad-json');
     });

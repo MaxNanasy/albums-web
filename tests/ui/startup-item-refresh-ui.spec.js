@@ -7,8 +7,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('startup item title refresh', () => {
-  test('startup title refresh updates missing title and tolerates failures', async ({ context, page }) => {
+test.describe('Startup Item Title Refresh', () => {
+  test('Startup title refresh updates missing title and tolerates failures', async ({ context, page }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:ok', title: '' },
       { type: 'album', uri: 'spotify:album:fail', title: '' },

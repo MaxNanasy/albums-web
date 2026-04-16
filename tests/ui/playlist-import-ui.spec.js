@@ -25,8 +25,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('playlist album import', () => {
-  test('imports playlist albums across pages and skips saved duplicates', async ({ context, page }) => {
+test.describe('Playlist Album Import', () => {
+  test('Imports playlist albums across pages and skips saved duplicates', async ({ context, page }) => {
     await seedItems(context, [
       {
         type: 'album',
@@ -83,7 +83,7 @@ test.describe('playlist album import', () => {
     ]);
   });
 
-  test('imports playlist albums from a Spotify playlist URL', async ({ context, page }) => {
+  test('Imports playlist albums from a Spotify playlist URL', async ({ context, page }) => {
     const requests = installSpotifyRoutes(context, [
       {
         match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
@@ -111,7 +111,7 @@ test.describe('playlist album import', () => {
     );
   });
 
-  test('imports playlist albums from a Spotify playlist URI', async ({ context, page }) => {
+  test('Imports playlist albums from a Spotify playlist URI', async ({ context, page }) => {
     const requests = installSpotifyRoutes(context, [
       {
         match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
@@ -139,7 +139,7 @@ test.describe('playlist album import', () => {
     );
   });
 
-  test('playlist import unhappy paths and no-op imports', async ({ context, page }) => {
+  test('Playlist import unhappy paths and no-op imports', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
@@ -176,7 +176,7 @@ test.describe('playlist album import', () => {
     await expect(page.getByText('Imported 0 album(s) from playlist (0 unique album(s) found).', { exact: true })).toBeVisible();
   });
 
-  test('importing playlist with all albums already saved keeps list unchanged', async ({ context, page }) => {
+  test('Importing playlist with all albums already saved keeps list unchanged', async ({ context, page }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:existing', title: 'Existing Album' }]);
 
     installSpotifyRoutes(context, [

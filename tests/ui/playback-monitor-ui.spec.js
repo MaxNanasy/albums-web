@@ -9,8 +9,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('playback monitor transitions', () => {
-  test('monitor advances on null context after observing current context', async ({ context, page }) => {
+test.describe('Playback Monitor Transitions', () => {
+  test('Monitor advances on null context after observing current context', async ({ context, page }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];
@@ -74,7 +74,7 @@ test.describe('playback monitor transitions', () => {
     await expect(page.getByText('Now playing album 2 of 2: Two', { exact: true })).toBeVisible();
   });
 
-  test('monitor mismatch detaches session with mismatch message', async ({ context, page }) => {
+  test('Monitor mismatch detaches session with mismatch message', async ({ context, page }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];
@@ -138,7 +138,7 @@ test.describe('playback monitor transitions', () => {
     ).toBeVisible();
   });
 
-  test('recoverable monitor errors show status/toast and keep session active', async ({ context, page }) => {
+  test('Recoverable monitor errors show status/toast and keep session active', async ({ context, page }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];

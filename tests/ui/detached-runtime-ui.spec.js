@@ -6,8 +6,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('detached session and runtime restore', () => {
-  test('unrecoverable start error detaches and reattach handles empty queue + missing token', async ({ context, page }) => {
+test.describe('Detached Session and Runtime Restore', () => {
+  test('Unrecoverable start error detaches and reattach handles empty queue + missing token', async ({ context, page }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
     installSpotifyRoutes(context, [
@@ -56,7 +56,7 @@ test.describe('detached session and runtime restore', () => {
     await expect(page.getByText('Spotify session expired. Please reconnect.', { exact: true })).toBeVisible();
   });
 
-  test('reattach with matched context resumes without restarting playback', async ({ context, page }) => {
+  test('Reattach with matched context resumes without restarting playback', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -86,7 +86,7 @@ test.describe('detached session and runtime restore', () => {
     expect(requests.some((request) => request.url.endsWith('/v1/me/player/play'))).toBe(false);
   });
 
-  test('recoverable reattach player-state failure shows retry UI and keeps the session detached', async ({ context, page }) => {
+  test('Recoverable reattach player-state failure shows retry UI and keeps the session detached', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -111,7 +111,7 @@ test.describe('detached session and runtime restore', () => {
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
   });
 
-  test('reattach with mismatched context restarts expected item', async ({ context, page }) => {
+  test('Reattach with mismatched context restarts expected item', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -152,7 +152,7 @@ test.describe('detached session and runtime restore', () => {
     await expect(page.getByText('Playback failed. Session stopped.', { exact: true })).toBeVisible();
   });
 
-  test('restores active runtime state and ignores invalid runtime JSON', async ({ context, page }) => {
+  test('Restores active runtime state and ignores invalid runtime JSON', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'active',

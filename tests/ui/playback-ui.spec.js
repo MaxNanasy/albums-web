@@ -6,8 +6,8 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('playback controls', () => {
-  test('starts playback', async ({ context, page }) => {
+test.describe('Playback Controls', () => {
+  test('Starts playback', async ({ context, page }) => {
     await seedItems(context, [
       {
         type: 'album',
@@ -44,7 +44,7 @@ test.describe('playback controls', () => {
     await expect(page.getByText('▶ 1. Discovery', { exact: true })).toBeVisible();
   });
 
-  test('starts playback for a saved playlist item', async ({ context, page }) => {
+  test('Starts playback for a saved playlist item', async ({ context, page }) => {
     await seedItems(context, [{ type: 'playlist', uri: 'spotify:playlist:playlist123', title: 'Road Trip Mix' }]);
 
     installSpotifyRoutes(context, [
@@ -75,7 +75,7 @@ test.describe('playback controls', () => {
     await expect(page.getByText('▶ 1. Road Trip Mix', { exact: true })).toBeVisible();
   });
 
-  test('start guardrails and active controls for start/skip/stop/final item', async ({ context, page }) => {
+  test('Start guardrails and active controls for start/skip/stop/final item', async ({ context, page }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
@@ -134,7 +134,7 @@ test.describe('playback controls', () => {
     await expect(page.getByText('Session stopped.', { exact: true })).toBeVisible();
   });
 
-  test('recoverable playback-start failure stops session instead of detaching', async ({ context, page }) => {
+  test('Recoverable playback-start failure stops session instead of detaching', async ({ context, page }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
     installSpotifyRoutes(context, [
