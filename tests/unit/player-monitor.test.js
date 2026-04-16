@@ -71,53 +71,11 @@ function createMonitor(options = {}) {
   };
 }
 
-test('monitorPlayback marks context as observed and persists when player context matches current uri', async () => {
-  const { session, monitor, spies } = createMonitor();
-
-  await monitor.monitorPlayback();
-
-  assert.equal(session.observedCurrentContext, true);
-  assert.equal(spies.persistRuntimeState.mock.callCount(), 1);
-  assert.equal(spies.transitionToDetached.mock.callCount(), 0);
-});
-
-test('monitorPlayback detaches when token is unavailable', async () => {
-  const { monitor, detachedMessages, spies } = createMonitor({ token: null });
-
-  await monitor.monitorPlayback();
-
-  assert.deepEqual(detachedMessages, ['Spotify session expired. Please reconnect.']);
-  assert.equal(spies.getPlayerState.mock.callCount(), 0);
-});
-
-test('monitorPlayback reports recoverable player-state status errors', async () => {
-  const { monitor, reportedErrors } = createMonitor({
-    playerState: { ok: false, status: 429, errorText: 'slow down' },
-    isUnrecoverable: () => false,
-  });
-
-  await monitor.monitorPlayback();
-
-  assert.equal(reportedErrors.length, 1);
-  assert.ok(reportedErrors[0] instanceof PlayerMonitorStatusError);
-  const playerMonitorError = /** @type {PlayerMonitorStatusError} */ (reportedErrors[0]);
-  assert.equal(playerMonitorError.status, 429);
-  assert.equal(playerMonitorError.errorText, 'slow down');
-});
-
-test('monitorPlayback advances when observed context becomes null', async () => {
-  const { monitor, spies } = createMonitor({
-    observedCurrentContext: true,
-    playerState: { ok: true, contextUri: null },
-  });
-
-  await monitor.monitorPlayback();
-
-  assert.equal(spies.goToNextItem.mock.callCount(), 1);
-  assert.equal(spies.transitionToDetached.mock.callCount(), 0);
-});
-
-test('start catches monitor loop errors and forwards them to reportError', async () => {
+/**
+ * @param {PlayerMonitor} monitor
+ * @returns {Promise<void>}
+ */
+async function runMonitorCycle(monitor) {
   /** @type {() => void} */
   let intervalCallback = () => {};
 
@@ -131,12 +89,62 @@ test('start catches monitor loop errors and forwards them to reportError', async
     },
   );
 
-  const { monitor, reportedErrors } = createMonitor({ playerStateError: new Error('boom') });
-
   monitor.start();
   assert.equal(setIntervalMock.mock.callCount(), 1);
   intervalCallback();
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+test('monitor loop marks context as observed and persists when player context matches current uri', async () => {
+  const { session, monitor, spies } = createMonitor();
+
+  await runMonitorCycle(monitor);
+
+  assert.equal(session.observedCurrentContext, true);
+  assert.equal(spies.persistRuntimeState.mock.callCount(), 1);
+  assert.equal(spies.transitionToDetached.mock.callCount(), 0);
+});
+
+test('monitor loop detaches when token is unavailable', async () => {
+  const { monitor, detachedMessages, spies } = createMonitor({ token: null });
+
+  await runMonitorCycle(monitor);
+
+  assert.deepEqual(detachedMessages, ['Spotify session expired. Please reconnect.']);
+  assert.equal(spies.getPlayerState.mock.callCount(), 0);
+});
+
+test('monitor loop reports recoverable player-state status errors', async () => {
+  const { monitor, reportedErrors } = createMonitor({
+    playerState: { ok: false, status: 429, errorText: 'slow down' },
+    isUnrecoverable: () => false,
+  });
+
+  await runMonitorCycle(monitor);
+
+  assert.equal(reportedErrors.length, 1);
+  assert.ok(reportedErrors[0] instanceof PlayerMonitorStatusError);
+  const playerMonitorError = /** @type {PlayerMonitorStatusError} */ (reportedErrors[0]);
+  assert.equal(playerMonitorError.status, 429);
+  assert.equal(playerMonitorError.message, 'Playback monitor request failed (429): slow down');
+});
+
+test('monitor loop advances when observed context becomes null', async () => {
+  const { monitor, spies } = createMonitor({
+    observedCurrentContext: true,
+    playerState: { ok: true, contextUri: null },
+  });
+
+  await runMonitorCycle(monitor);
+
+  assert.equal(spies.goToNextItem.mock.callCount(), 1);
+  assert.equal(spies.transitionToDetached.mock.callCount(), 0);
+});
+
+test('start catches monitor loop errors and forwards them to reportError', async () => {
+  const { monitor, reportedErrors } = createMonitor({ playerStateError: new Error('boom') });
+
+  await runMonitorCycle(monitor);
 
   assert.equal(reportedErrors.length, 1);
   assert.ok(reportedErrors[0] instanceof Error);

@@ -27,9 +27,6 @@ export class PlayerMonitorStatusError extends Error {
   /** @type {number} */
   status;
 
-  /** @type {string} */
-  errorText;
-
   /**
    * @param {number} status
    * @param {string} errorText
@@ -37,7 +34,6 @@ export class PlayerMonitorStatusError extends Error {
   constructor(status, errorText) {
     super(`Playback monitor request failed (${status}): ${errorText}`);
     this.status = status;
-    this.errorText = errorText;
   }
 }
 
@@ -58,7 +54,7 @@ export class PlayerMonitor {
     this.#monitorTimer = globalThis.setInterval(() => {
       void (async () => {
         try {
-          await this.monitorPlayback();
+          await this.#monitorPlayback();
         } catch (error) {
           this.#deps.reportError(error);
         }
@@ -73,7 +69,7 @@ export class PlayerMonitor {
     }
   }
 
-  async monitorPlayback() {
+  async #monitorPlayback() {
     const session = this.#deps.getSession();
     if (session.activationState !== 'active' || !session.currentUri) return;
 
