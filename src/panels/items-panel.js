@@ -1,18 +1,12 @@
 /** @typedef {{uri: string; title: string}} ShuffleItem */
+/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement;}} ItemsPanelElements */
 
 export class ItemsPanel {
-  /** @type {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement;}} */
+  /** @type {ItemsPanelElements} */
   #el;
   /** @type {(uri: string) => void} */
   #onRemove;
-  /**
-   * @param {{
-   *  addForm: HTMLFormElement;
-   *  itemUri: HTMLInputElement;
-   *  importPlaylistBtn: HTMLButtonElement;
-   *  itemList: HTMLUListElement;
-   * }} el
-   */
+  /** @param {ItemsPanelElements} el */
   constructor(el) {
     this.#el = el;
     this.#onRemove = () => {};

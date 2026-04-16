@@ -1,13 +1,9 @@
+/** @typedef {{exportStorageBtn: HTMLButtonElement; importStorageBtn: HTMLButtonElement; storageJson: HTMLTextAreaElement;}} StoragePanelElements */
+
 export class StoragePanel {
-  /** @type {{exportStorageBtn: HTMLButtonElement; importStorageBtn: HTMLButtonElement; storageJson: HTMLTextAreaElement;}} */
+  /** @type {StoragePanelElements} */
   #el;
-  /**
-   * @param {{
-   *  exportStorageBtn: HTMLButtonElement;
-   *  importStorageBtn: HTMLButtonElement;
-   *  storageJson: HTMLTextAreaElement;
-   * }} el
-   */
+  /** @param {StoragePanelElements} el */
   constructor(el) {
     this.#el = el;
   }

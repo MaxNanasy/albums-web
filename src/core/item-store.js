@@ -2,12 +2,13 @@ import { exportItemsData, importItemsData } from './storage-transfer.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 /** @typedef {{uri: string; type: ItemType; title: string}} ShuffleItem */
+/** @typedef {{ items: string }} ItemStoreStorageKeys */
 
 export class ItemStore {
-  /** @type {{ items: string }} */
+  /** @type {ItemStoreStorageKeys} */
   #storageKeys;
 
-  /** @param {{ items: string }} storageKeys */
+  /** @param {ItemStoreStorageKeys} storageKeys */
   constructor(storageKeys) {
     this.#storageKeys = storageKeys;
   }

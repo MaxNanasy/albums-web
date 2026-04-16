@@ -1,18 +1,10 @@
 /** @typedef {{title: string}} QueueItem */
+/** @typedef {{startBtn: HTMLButtonElement; reattachBtn: HTMLButtonElement; skipBtn: HTMLButtonElement; stopBtn: HTMLButtonElement; playbackStatus: HTMLParagraphElement; queueList: HTMLUListElement;}} SessionPanelElements */
 
 export class SessionPanel {
-  /** @type {{startBtn: HTMLButtonElement; reattachBtn: HTMLButtonElement; skipBtn: HTMLButtonElement; stopBtn: HTMLButtonElement; playbackStatus: HTMLParagraphElement; queueList: HTMLUListElement;}} */
+  /** @type {SessionPanelElements} */
   #el;
-  /**
-   * @param {{
-   *  startBtn: HTMLButtonElement;
-   *  reattachBtn: HTMLButtonElement;
-   *  skipBtn: HTMLButtonElement;
-   *  stopBtn: HTMLButtonElement;
-   *  playbackStatus: HTMLParagraphElement;
-   *  queueList: HTMLUListElement;
-   * }} el
-   */
+  /** @param {SessionPanelElements} el */
   constructor(el) {
     this.#el = el;
   }

@@ -1,15 +1,17 @@
+/**
+ * @typedef {{
+ *  scopes: string[];
+ *  spotifyAppId: string;
+ *  storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; };
+ *  reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void;
+ *  setAuthStatus: (message: string) => void;
+ * }} AuthFlowDeps
+ */
+
 export class AuthFlow {
-  /** @type {{scopes: string[]; spotifyAppId: string; storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; }; reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void; setAuthStatus: (message: string) => void;}} */
+  /** @type {AuthFlowDeps} */
   #deps;
-  /**
-   * @param {{
-   *  scopes: string[];
-   *  spotifyAppId: string;
-   *  storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; };
-   *  reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void;
-   *  setAuthStatus: (message: string) => void;
-   * }} deps
-   */
+  /** @param {AuthFlowDeps} deps */
   constructor(deps) {
     this.#deps = deps;
   }

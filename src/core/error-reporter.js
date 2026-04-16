@@ -1,17 +1,12 @@
 const ERROR_TOAST_COOLDOWN_MS = 45000;
+/** @typedef {{setAuthStatus: (message: string) => void; setPlaybackStatus: (message: string) => void; showToast: (message: string, type?: 'success' | 'info' | 'error') => void;}} ErrorReporterDeps */
 
 export class ErrorReporter {
-  /** @type {{setAuthStatus: (message: string) => void; setPlaybackStatus: (message: string) => void; showToast: (message: string, type?: 'success' | 'info' | 'error') => void;}} */
+  /** @type {ErrorReporterDeps} */
   #deps;
   /** @type {Map<string, number>} */
   #errorToastLastShownAt;
-  /**
-   * @param {{
-   *  setAuthStatus: (message: string) => void;
-   *  setPlaybackStatus: (message: string) => void;
-   *  showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
-   * }} deps
-   */
+  /** @param {ErrorReporterDeps} deps */
   constructor(deps) {
     this.#deps = deps;
     this.#errorToastLastShownAt = new Map();

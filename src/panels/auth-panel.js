@@ -1,14 +1,10 @@
+/** @typedef {{loginBtn: HTMLButtonElement; logoutBtn: HTMLButtonElement; authStatus: HTMLParagraphElement;}} AuthPanelElements */
+
 export class AuthPanel {
-  /** @type {{loginBtn: HTMLButtonElement; logoutBtn: HTMLButtonElement; authStatus: HTMLParagraphElement;}} */
+  /** @type {AuthPanelElements} */
   #el;
 
-  /**
-   * @param {{
-   *  loginBtn: HTMLButtonElement;
-   *  logoutBtn: HTMLButtonElement;
-   *  authStatus: HTMLParagraphElement;
-   * }} el
-   */
+  /** @param {AuthPanelElements} el */
   constructor(el) {
     this.#el = el;
   }
