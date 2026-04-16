@@ -1,11 +1,10 @@
 /**
- * @typedef {{
- *  scopes: string[];
- *  spotifyAppId: string;
- *  storageKeys: { verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; };
- *  reportError: (error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void;
- *  setAuthStatus: (message: string) => void;
- * }} AuthFlowDeps
+ * @typedef AuthFlowDeps
+ * @property {string[]} scopes
+ * @property {string} spotifyAppId
+ * @property {{ verifier: string; token: string; refreshToken: string; tokenExpiry: string; tokenScope: string; }} storageKeys
+ * @property {(error: unknown, options: {context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string;}) => void} reportError
+ * @property {(message: string) => void} setAuthStatus
  */
 
 export class AuthFlow {

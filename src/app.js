@@ -640,14 +640,13 @@ function reportError(error, options) {
 }
 
 /**
- * @typedef {{
- *   context: string;
- *   fallbackMessage: string;
- *   authStatusMessage?: string;
- *   playbackStatusMessage?: string;
- *   toastMode?: 'always' | 'cooldown';
- *   toastKey?: string;
- * }} ErrorReportOptions
+ * @typedef ErrorReportOptions
+ * @property {string} context
+ * @property {string} fallbackMessage
+ * @property {string} [authStatusMessage]
+ * @property {string} [playbackStatusMessage]
+ * @property {'always' | 'cooldown'} [toastMode]
+ * @property {string} [toastKey]
  */
 
 /**
