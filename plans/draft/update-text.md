@@ -1,6 +1,6 @@
 ## Issue
 
-The web repo has several user-visible strings that should be aligned with the new cross-platform wording, including the add-item success toast, detached/reattach playback messages, the next-item control label, the playlist import button label, and the playlist import failure message.
+The web repo has several user-visible strings that should be aligned with the new cross-platform wording.
 
 ## Solution
 
