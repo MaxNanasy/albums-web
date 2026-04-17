@@ -190,6 +190,6 @@ test.describe('Playback Monitor Transitions', () => {
     await expect(page.getByText('Unable to check playback state right now.', { exact: true })).toBeVisible();
     await expect(page.getByText('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
   });
 });

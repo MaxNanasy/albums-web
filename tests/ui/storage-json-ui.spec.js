@@ -35,7 +35,7 @@ test.describe('Storage JSON Import/Export', () => {
     ]);
 
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Export Data JSON' }).click();
     await expect(page.locator('#storage-json')).toHaveValue(/"shuffle-by-album.items"/);
@@ -60,7 +60,7 @@ test.describe('Storage JSON Import/Export', () => {
     await page.getByRole('button', { name: 'Import Data JSON' }).click();
     await expect(page.getByText('spotify:album:no-title', { exact: true })).toBeVisible();
     await expect(page.getByText('Data imported. Session reset.', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 
   test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page }) => {

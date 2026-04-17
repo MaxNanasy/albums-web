@@ -4,7 +4,7 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
 import { PlayerMonitor, PlayerMonitorStatusError } from './player-monitor.js';
 import { ToastPresenter } from './ui/toast-presenter.js';
 import { ItemStore } from './core/item-store.js';
-import { ErrorReporter } from './core/error-reporter.js';
+import { ErrorReporter, userFacingErrorMessage } from './core/error-reporter.js';
 import { AuthFlow } from './core/auth-flow.js';
 import { SessionController } from './core/session-controller.js';
 import { AuthPanel } from './panels/auth-panel.js';
@@ -205,11 +205,17 @@ function hookEvents() {
       });
     },
     onReattach: () => {
-      void runWithReportedError(() => reattachSession(), {
-        context: 'playback',
-        fallbackMessage: 'Failed to reattach Spotify playback.',
-        playbackStatusMessage: 'Unable to reattach right now. Please try again.',
-      });
+      void (async () => {
+        try {
+          await reattachSession();
+        } catch (error) {
+          reportError(error, {
+            context: 'playback',
+            fallbackMessage: 'Failed to reattach.',
+          });
+          setPlaybackStatus(`Failed to reattach: ${errorDetailForStatus(error, 'Please try again')}.`);
+        }
+      })();
     },
     onSkip: () => {
       void runWithReportedError(() => goToNextItem(), {
@@ -262,7 +268,7 @@ async function addItemFromInput(rawUri) {
     saveItems(items);
     itemsPanel.clearInput();
     renderItemList();
-    showToast('Item added.', 'success');
+    showToast(`Added “${titledItem.title}”.`, 'success');
   } catch (error) {
     reportError(error, {
       context: 'items',
@@ -534,9 +540,10 @@ async function fetchPlaylistAlbums(playlistId) {
   while (true) {
     const page = await spotifyAppApi.getPlaylistAlbumsPage(playlistId, offset, limit);
     if (!page.ok) {
+      const details = page.errorText ? `${page.status} ${page.errorText}` : String(page.status);
       return {
         albums: [],
-        errorMessage: `Unable to import albums from that playlist (${page.status}). ${page.errorText || 'Please try again.'}`,
+        errorMessage: `Error importing albums: ${details}.`,
       };
     }
 
@@ -657,6 +664,18 @@ function isUnrecoverableSpotifyError(error) {
 function spotifyStatusFromError(error) {
   if (error instanceof SpotifyApiHttpError) return error.status;
   return null;
+}
+
+/**
+ * @param {unknown} error
+ * @param {string} fallbackDetail
+ * @returns {string}
+ */
+function errorDetailForStatus(error, fallbackDetail) {
+  const rawFallback = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
+  const detail = userFacingErrorMessage(error, rawFallback || fallbackDetail).trim();
+  if (!detail) return 'Please try again';
+  return detail.replace(/[.!?]+$/u, '');
 }
 
 /**

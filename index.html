@@ -28,17 +28,17 @@
         <form id="add-form" class="row">
           <input
             id="item-uri"
-            placeholder="spotify:album:... or spotify:playlist:..."
+            placeholder="https://open.spotify.com/(album|playlist)/..."
             required
           />
           <button type="submit">Add</button>
           <button type="button" id="import-playlist-btn" class="secondary">
-            Import Albums From Playlist
+            Import Albums
           </button>
         </form>
         <p class="small">
-          Tip: You can paste a normal Spotify URL and it will be converted. For playlist imports, you can
-          also paste a playlist ID.
+          <b>Add</b> adds one item to the list<br />
+          <b>Import Albums</b> processes a playlist and adds each song's album to the list
         </p>
         <ul id="item-list"></ul>
       </section>
@@ -48,7 +48,7 @@
         <div class="row">
           <button id="start-btn">Start</button>
           <button id="reattach-btn" class="secondary" hidden>Reattach</button>
-          <button id="skip-btn" class="secondary">Skip To Next</button>
+          <button id="skip-btn" class="secondary">Next</button>
           <button id="stop-btn" class="danger">Stop</button>
         </div>
         <p id="playback-status" aria-live="polite"></p>

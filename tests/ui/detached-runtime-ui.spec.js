@@ -33,7 +33,12 @@ test.describe('Detached Session and Runtime Restore', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Playback detached due to a Spotify error. Reattach when ready.', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found. device missing.',
+        { exact: true },
+      ),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
 
     await context.addInitScript(() => {
@@ -106,8 +111,12 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(page.getByText('Unable to reattach right now. Please try again.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Failed to reattach Spotify playback.', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Failed to reattach: Unable to check current Spotify playback (500): server busy.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByText('Failed to reattach.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
   });
 
@@ -165,7 +174,7 @@ test.describe('Detached Session and Runtime Restore', () => {
 
     await page.goto('/');
     await expect(page.getByText('Now playing album 1 of 1: One', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', '{bad json');

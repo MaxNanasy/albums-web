@@ -30,15 +30,15 @@ test.describe('Item List', () => {
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
     await expect(page.getByRole('listitem').filter({ hasText: 'A' })).toHaveCount(0);
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:newone');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:newone');
     await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByText('Item added.', { exact: true }).waitFor();
+    await page.getByText('Added “New One”.', { exact: true }).waitFor();
 
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect(page.getByText('Restored “A”.', { exact: true })).toBeVisible();
 
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:a');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:a');
     await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: 'Undo' }).last().click();
     await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
