@@ -68,8 +68,8 @@ test.describe('Playlist Album Import', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
 
     await expect(page.getByText('Existing Album', { exact: true })).toBeVisible();
     await expect(page.getByText('New Album One', { exact: true })).toBeVisible();
@@ -100,8 +100,8 @@ test.describe('Playlist Album Import', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('https://open.spotify.com/playlist/playlist123');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/playlist/playlist123');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
 
     await expect(page.getByText('New Album One', { exact: true })).toBeVisible();
     await expect(page.getByText('Imported 1 album(s) from playlist (1 unique album(s) found).', { exact: true })).toBeVisible();
@@ -128,8 +128,8 @@ test.describe('Playlist Album Import', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:playlist:playlist123');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:playlist:playlist123');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
 
     await expect(page.getByText('New Album Two', { exact: true })).toBeVisible();
     await expect(page.getByText('Imported 1 album(s) from playlist (1 unique album(s) found).', { exact: true })).toBeVisible();
@@ -145,8 +145,8 @@ test.describe('Playlist Album Import', () => {
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
     });
     await page.goto('/');
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
     await expect(page.getByText('Connect Spotify first so the app can import albums.', { exact: true })).toBeVisible();
 
     await seedConnectedAuth(context);
@@ -163,16 +163,16 @@ test.describe('Playlist Album Import', () => {
     ]);
 
     await page.reload();
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('$$$');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('$$$');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
     await expect(page.getByText('Enter a valid Spotify playlist URL, URI, or playlist ID.', { exact: true })).toBeVisible();
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
-    await expect(page.getByText('Unable to import albums from that playlist (500). boom', { exact: true })).toBeVisible();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await expect(page.getByText('Error importing albums: 500 boom.', { exact: true })).toBeVisible();
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('emptyplaylist');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('emptyplaylist');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
     await expect(page.getByText('Imported 0 album(s) from playlist (0 unique album(s) found).', { exact: true })).toBeVisible();
   });
 
@@ -193,8 +193,8 @@ test.describe('Playlist Album Import', () => {
     ]);
 
     await page.goto('/');
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums From Playlist' }).click();
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
+    await page.getByRole('button', { name: 'Import Albums' }).click();
 
     await expect(page.getByText('Imported 0 album(s) from playlist (1 unique album(s) found).', { exact: true })).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'Existing Album' })).toHaveCount(1);

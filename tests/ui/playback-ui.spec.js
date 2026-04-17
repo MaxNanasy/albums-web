@@ -121,12 +121,12 @@ test.describe('Playback Controls', () => {
     await page.reload();
     await page.getByRole('button', { name: 'Start' }).click();
     await expect(page.getByRole('button', { name: 'Start' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Skip To Next' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Stop' })).toBeEnabled();
 
-    await page.getByRole('button', { name: 'Skip To Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText('Now playing album 2 of 2: Two', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Skip To Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText('Finished: all selected albums/playlists were played.', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Start' }).click();

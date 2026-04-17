@@ -32,7 +32,7 @@ export class ErrorReporter {
    * @param {ErrorReportOptions} options
    */
   report(error, options) {
-    const message = errorMessageForUser(error, options.fallbackMessage);
+    const message = userFacingErrorMessage(error, options.fallbackMessage);
     console.error(`[${options.context}]`, error);
 
     if (options.authStatusMessage) {
@@ -70,7 +70,7 @@ export class ErrorReporter {
  * @param {unknown} error
  * @param {string} fallbackMessage
  */
-function errorMessageForUser(error, fallbackMessage) {
+export function userFacingErrorMessage(error, fallbackMessage) {
   const raw = error instanceof Error ? error.message : String(error ?? '');
   if (raw && (/Failed to fetch/i.test(raw) || /NetworkError/i.test(raw))) {
     return 'Network error while contacting Spotify. Please try again.';

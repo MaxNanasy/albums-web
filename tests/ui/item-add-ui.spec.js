@@ -17,7 +17,7 @@ test.describe('Item Add', () => {
     ]);
 
     await page.goto('/');
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('https://open.spotify.com/album/album123');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/album/album123');
     await page.getByRole('button', { name: 'Add' }).click();
 
     await expect(page.getByText('Discovery', { exact: true })).toBeVisible();
@@ -32,11 +32,11 @@ test.describe('Item Add', () => {
     ]);
 
     await page.goto('/');
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('https://open.spotify.com/playlist/playlist123');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/playlist/playlist123');
     await page.getByRole('button', { name: 'Add' }).click();
 
     await expect(page.getByText('Road Trip Mix', { exact: true })).toBeVisible();
-    await expect(page.getByText('Item added.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Added “Road Trip Mix”.', { exact: true })).toBeVisible();
   });
 
   test('Duplicate and invalid input show validation toasts', async ({ context, page }) => {
@@ -44,11 +44,11 @@ test.describe('Item Add', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('not-valid');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('not-valid');
     await page.getByRole('button', { name: 'Add' }).click();
     await expect(page.getByText('Enter a valid Spotify album/playlist URI or URL.', { exact: true })).toBeVisible();
 
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:album123');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:album123');
     await page.getByRole('button', { name: 'Add' }).click();
     await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
   });
@@ -60,7 +60,7 @@ test.describe('Item Add', () => {
     });
 
     await page.goto('/');
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:album123');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:album123');
     await page.getByRole('button', { name: 'Add' }).click();
     await expect(page.getByText('Connect Spotify first so the app can load item titles.', { exact: true })).toBeVisible();
 
@@ -73,7 +73,7 @@ test.describe('Item Add', () => {
     await seedConnectedAuth(context);
 
     await page.reload();
-    await page.getByPlaceholder('spotify:album:... or spotify:playlist:...').fill('spotify:album:missing');
+    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:missing');
     await page.getByRole('button', { name: 'Add' }).click();
     await expect(page.getByText('Unable to load title for that item. Please try another URI.', { exact: true })).toBeVisible();
   });
