@@ -10,7 +10,7 @@
     <main>
       <h1>Shuffle By Album</h1>
       <p>
-        Randomly cycles through your saved set of Spotify albums/playlists while keeping
+        Randomly cycles through a saved set of Spotify albums/playlists while keeping
         each item's tracks in order.
       </p>
 
@@ -58,23 +58,20 @@
       <section class="panel">
         <h2>4) Import / Export Data</h2>
         <div class="row">
-          <button id="export-storage-btn" type="button">Export Data JSON</button>
+          <button id="export-storage-btn" type="button">Export Data</button>
           <button id="import-storage-btn" type="button" class="secondary">
-            Import Data JSON
+            Import Data
           </button>
         </div>
-        <label>
-          Data JSON
-          <textarea
-            id="storage-json"
-            rows="10"
-            placeholder='{"shuffle-by-album.items":[{"type":"album","uri":...'
-          ></textarea>
-        </label>
         <p class="small">
-          Export copies your saved items into the text box.  Import replaces saved items with the
-          data in the text box.
+          <b>Export Data</b> copies your saved items into the text box<br />
+          <b>Import Data</b> replaces your saved items with the data in the text box
         </p>
+        <textarea
+          id="storage-json"
+          rows="10"
+          placeholder='{"shuffle-by-album.items":[{"type":"album","uri":...'
+        ></textarea>
       </section>
     </main>
 
