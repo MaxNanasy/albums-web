@@ -4,7 +4,7 @@ import { spotifyStatusMessage } from './spotify-status-message.js';
 import { PlayerMonitor, PlayerMonitorStatusError } from './player-monitor.js';
 import { ToastPresenter } from './ui/toast-presenter.js';
 import { ItemStore } from './core/item-store.js';
-import { ErrorReporter } from './core/error-reporter.js';
+import { ErrorReporter, userFacingErrorMessage } from './core/error-reporter.js';
 import { AuthFlow } from './core/auth-flow.js';
 import { SessionController } from './core/session-controller.js';
 import { AuthPanel } from './panels/auth-panel.js';
@@ -213,7 +213,7 @@ function hookEvents() {
             context: 'playback',
             fallbackMessage: 'Failed to reattach.',
           });
-          setPlaybackStatus(`Failed to reattach: ${errorDetailForStatus(error)}.`);
+          setPlaybackStatus(`Failed to reattach: ${errorDetailForStatus(error, 'Please try again')}.`);
         }
       })();
     },
@@ -668,10 +668,12 @@ function spotifyStatusFromError(error) {
 
 /**
  * @param {unknown} error
+ * @param {string} fallbackDetail
  * @returns {string}
  */
-function errorDetailForStatus(error) {
-  const detail = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
+function errorDetailForStatus(error, fallbackDetail) {
+  const rawFallback = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
+  const detail = userFacingErrorMessage(error, rawFallback || fallbackDetail).trim();
   if (!detail) return 'Please try again';
   return detail.replace(/[.!?]+$/u, '');
 }

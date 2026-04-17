@@ -1,6 +1,7 @@
 /** @typedef {'album' | 'playlist'} ItemType */
 /** @typedef {{uri: string; type: ItemType; title: string}} ShuffleItem */
 /** @typedef {'inactive' | 'active' | 'detached'} SessionActivationState */
+import { userFacingErrorMessage } from './error-reporter.js';
 
 /**
  * @typedef SessionControllerDeps
@@ -197,8 +198,8 @@ export class SessionController {
         playbackStatusMessage: 'Could not start playback. Ensure an active Spotify device is available.',
       });
       if (this.#deps.isUnrecoverableSpotifyError(error)) {
-        const detail = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
-        const cleanedDetail = (detail || 'Unknown error').replace(/[.!?]+$/u, '');
+        const normalizedDetail = userFacingErrorMessage(error, 'Unable to start playback on Spotify.');
+        const cleanedDetail = normalizedDetail.trim().replace(/[.!?]+$/u, '') || 'Unknown error';
         this.transitionToDetached(`Playback detached due to a Spotify error: ${cleanedDetail}.`);
         return;
       }
