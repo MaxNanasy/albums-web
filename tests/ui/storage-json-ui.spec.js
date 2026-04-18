@@ -33,33 +33,33 @@ test.describe('Storage JSON Import/Export', () => {
       },
     ]);
 
-    await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await ui.playback.startButton.click();
+    await expect(ui.playback.nextButton).toBeEnabled();
 
-    await page.getByRole('button', { name: 'Export Data' }).click();
+    await ui.storage.exportDataButton.click();
     await expect(ui.storage.json).toHaveValue(/"shuffle-by-album.items"/);
 
     await ui.storage.json.fill('');
-    await page.getByRole('button', { name: 'Import Data' }).click();
+    await ui.storage.importDataButton.click();
     await expect(ui.toasts.byText('Paste a JSON object to import.')).toBeVisible();
 
     await ui.storage.json.fill('{bad}');
-    await page.getByRole('button', { name: 'Import Data' }).click();
+    await ui.storage.importDataButton.click();
     await expect(ui.toasts.byText('Invalid JSON. Please provide a valid JSON object.')).toBeVisible();
 
     await ui.storage.json.fill('[]');
-    await page.getByRole('button', { name: 'Import Data' }).click();
+    await ui.storage.importDataButton.click();
     await expect(ui.toasts.byText('Import JSON must be an object of key/value pairs.')).toBeVisible();
 
     await ui.storage.json.fill('{"other":[]}');
-    await page.getByRole('button', { name: 'Import Data' }).click();
+    await ui.storage.importDataButton.click();
     await expect(ui.toasts.byText('Import JSON must include a valid shuffle-by-album.items array.')).toBeVisible();
 
     await ui.storage.json.fill('{"shuffle-by-album.items":[{"type":"album","uri":"spotify:album:no-title"}]}');
-    await page.getByRole('button', { name: 'Import Data' }).click();
+    await ui.storage.importDataButton.click();
     await expect(ui.savedItems.byText('spotify:album:no-title')).toBeVisible();
     await expect(ui.playback.status).toHaveText('Data imported. Session reset.');
-    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+    await expect(ui.playback.nextButton).toBeDisabled();
   });
 
   test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page, ui }) => {
@@ -69,7 +69,7 @@ test.describe('Storage JSON Import/Export', () => {
 
     await page.goto('/');
 
-    await page.getByRole('button', { name: 'Export Data' }).click();
+    await ui.storage.exportDataButton.click();
     await expect(ui.storage.json).toHaveValue('');
     await expect(
       ui.toasts.byText('Unable to export saved items because stored data is invalid JSON.'),

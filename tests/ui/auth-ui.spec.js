@@ -22,7 +22,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/');
 
     await expect(ui.auth.status).toHaveText('Not connected.');
-    await page.getByRole('button', { name: 'Disconnect' }).click();
+    await ui.auth.disconnectButton.click();
     await expect(ui.toasts.byText('Disconnected from Spotify.')).toBeVisible();
   });
 
@@ -41,7 +41,7 @@ test.describe('Auth and Connection States', () => {
       },
     ]);
 
-    await page.getByRole('button', { name: 'Connect', exact: true }).click();
+    await ui.auth.connectButton.click();
     await expect(page).toHaveURL(/^https:\/\/accounts\.spotify\.com\/authorize\?/);
 
     const storageState = await context.storageState();

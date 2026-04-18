@@ -56,7 +56,7 @@ test.describe('Playback Monitor Transitions', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
     await expect(ui.playback.status).toHaveText('Now playing album 1 of 2: One');
 
     await page.evaluate(async () => {
@@ -117,7 +117,7 @@ test.describe('Playback Monitor Transitions', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
     await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: One');
 
     await page.evaluate(async () => {
@@ -174,7 +174,7 @@ test.describe('Playback Monitor Transitions', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
     await page.waitForFunction(
       () => Array.isArray((/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks)
         && (/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks.length > 0,
@@ -186,7 +186,7 @@ test.describe('Playback Monitor Transitions', () => {
 
     await expect(ui.playback.status).toHaveText('Unable to check playback state right now.');
     await expect(ui.toasts.byText('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await expect(ui.playback.reattachButton).toBeHidden();
+    await expect(ui.playback.nextButton).toBeEnabled();
   });
 });

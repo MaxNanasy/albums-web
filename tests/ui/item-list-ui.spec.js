@@ -26,20 +26,20 @@ test.describe('Item List', () => {
 
     await page.goto('/');
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
+    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove', exact: true }).click();
     await expect(page.getByRole('listitem').filter({ hasText: 'A' })).toHaveCount(0);
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:newone');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('spotify:album:newone');
+    await ui.savedItems.addButton.click();
     await ui.toasts.byText('Added “New One”.').waitFor();
 
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(ui.toasts.byText('Restored “A”.')).toBeVisible();
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:a');
-    await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByRole('button', { name: 'Undo' }).last().click();
+    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove', exact: true }).click();
+    await ui.savedItems.uriInput.fill('spotify:album:a');
+    await ui.savedItems.addButton.click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).last().click();
     await expect(ui.toasts.byText('Item is already in your list.')).toBeVisible();
   });
 });

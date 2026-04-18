@@ -16,8 +16,8 @@ test.describe('Item Add', () => {
     ]);
 
     await page.goto('/');
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/album/album123');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('https://open.spotify.com/album/album123');
+    await ui.savedItems.addButton.click();
 
     await expect(ui.savedItems.byText('Discovery')).toBeVisible();
   });
@@ -31,8 +31,8 @@ test.describe('Item Add', () => {
     ]);
 
     await page.goto('/');
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/playlist/playlist123');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('https://open.spotify.com/playlist/playlist123');
+    await ui.savedItems.addButton.click();
 
     await expect(ui.savedItems.byText('Road Trip Mix')).toBeVisible();
     await expect(ui.toasts.byText('Added “Road Trip Mix”.')).toBeVisible();
@@ -43,12 +43,12 @@ test.describe('Item Add', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('not-valid');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('not-valid');
+    await ui.savedItems.addButton.click();
     await expect(ui.toasts.byText('Enter a valid Spotify album/playlist URI or URL.')).toBeVisible();
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:album123');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('spotify:album:album123');
+    await ui.savedItems.addButton.click();
     await expect(ui.toasts.byText('Item is already in your list.')).toBeVisible();
   });
 
@@ -59,8 +59,8 @@ test.describe('Item Add', () => {
     });
 
     await page.goto('/');
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:album123');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('spotify:album:album123');
+    await ui.savedItems.addButton.click();
     await expect(ui.toasts.byText('Connect Spotify first so the app can load item titles.')).toBeVisible();
 
     installSpotifyRoutes(context, [
@@ -72,8 +72,8 @@ test.describe('Item Add', () => {
     await seedConnectedAuth(context);
 
     await page.reload();
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:missing');
-    await page.getByRole('button', { name: 'Add' }).click();
+    await ui.savedItems.uriInput.fill('spotify:album:missing');
+    await ui.savedItems.addButton.click();
     await expect(ui.toasts.byText('Unable to load title for that item. Please try another URI.')).toBeVisible();
   });
 });

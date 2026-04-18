@@ -68,8 +68,8 @@ test.describe('Playlist Album Import', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('playlist123');
+    await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.savedItems.byText('Existing Album')).toBeVisible();
     await expect(ui.savedItems.byText('New Album One')).toBeVisible();
@@ -98,8 +98,8 @@ test.describe('Playlist Album Import', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/playlist/playlist123');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('https://open.spotify.com/playlist/playlist123');
+    await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.savedItems.byText('New Album One')).toBeVisible();
     await expect(ui.toasts.byText('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
@@ -126,8 +126,8 @@ test.describe('Playlist Album Import', () => {
 
     await page.goto('/');
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:playlist:playlist123');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('spotify:playlist:playlist123');
+    await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.savedItems.byText('New Album Two')).toBeVisible();
     await expect(ui.toasts.byText('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
@@ -143,8 +143,8 @@ test.describe('Playlist Album Import', () => {
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
     });
     await page.goto('/');
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('playlist123');
+    await ui.savedItems.importAlbumsButton.click();
     await expect(ui.toasts.byText('Connect Spotify first so the app can import albums.')).toBeVisible();
 
     await seedConnectedAuth(context);
@@ -161,16 +161,16 @@ test.describe('Playlist Album Import', () => {
     ]);
 
     await page.reload();
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('$$$');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('$$$');
+    await ui.savedItems.importAlbumsButton.click();
     await expect(ui.toasts.byText('Enter a valid Spotify playlist URL, URI, or playlist ID.')).toBeVisible();
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('playlist123');
+    await ui.savedItems.importAlbumsButton.click();
     await expect(ui.toasts.byText('Error importing albums: 500 boom.')).toBeVisible();
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('emptyplaylist');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('emptyplaylist');
+    await ui.savedItems.importAlbumsButton.click();
     await expect(ui.toasts.byText('Imported 0 album(s) from playlist (0 unique album(s) found).')).toBeVisible();
   });
 
@@ -191,8 +191,8 @@ test.describe('Playlist Album Import', () => {
     ]);
 
     await page.goto('/');
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
-    await page.getByRole('button', { name: 'Import Albums' }).click();
+    await ui.savedItems.uriInput.fill('playlist123');
+    await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.toasts.byText('Imported 0 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'Existing Album' })).toHaveCount(1);

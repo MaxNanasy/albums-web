@@ -38,7 +38,7 @@ test.describe('Playback Controls', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
 
     await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: Discovery');
     await expect(ui.playback.queueItems.byText('▶ 1. Discovery')).toBeVisible();
@@ -69,7 +69,7 @@ test.describe('Playback Controls', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
 
     await expect(ui.playback.status).toHaveText('Now playing playlist 1 of 1: Road Trip Mix');
     await expect(ui.playback.queueItems.byText('▶ 1. Road Trip Mix')).toBeVisible();
@@ -83,13 +83,13 @@ test.describe('Playback Controls', () => {
     });
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
     await expect(ui.toasts.byText('Connect Spotify first.')).toBeVisible();
 
     await seedConnectedAuth(context);
 
     await page.reload();
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
     await expect(ui.toasts.byText('Add at least one album or playlist first.')).toBeVisible();
 
     await seedItems(context, [
@@ -119,18 +119,18 @@ test.describe('Playback Controls', () => {
     ]);
 
     await page.reload();
-    await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByRole('button', { name: 'Start' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
-    await expect(page.getByRole('button', { name: 'Stop' })).toBeEnabled();
+    await ui.playback.startButton.click();
+    await expect(ui.playback.startButton).toBeDisabled();
+    await expect(ui.playback.nextButton).toBeEnabled();
+    await expect(ui.playback.stopButton).toBeEnabled();
 
-    await page.getByRole('button', { name: 'Next' }).click();
+    await ui.playback.nextButton.click();
     await expect(ui.playback.status).toHaveText('Now playing album 2 of 2: Two');
-    await page.getByRole('button', { name: 'Next' }).click();
+    await ui.playback.nextButton.click();
     await expect(ui.playback.status).toHaveText('Finished: all selected albums/playlists were played.');
 
-    await page.getByRole('button', { name: 'Start' }).click();
-    await page.getByRole('button', { name: 'Stop' }).click();
+    await ui.playback.startButton.click();
+    await ui.playback.stopButton.click();
     await expect(ui.playback.status).toHaveText('Session stopped.');
   });
 
@@ -159,9 +159,9 @@ test.describe('Playback Controls', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
 
     await expect(ui.playback.status).toHaveText('Playback failed. Session stopped.');
-    await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
+    await expect(ui.playback.reattachButton).toBeHidden();
   });
 });
