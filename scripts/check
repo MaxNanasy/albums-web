@@ -22,8 +22,15 @@ if [ "$tests_tc_status" -ne 0 ]; then
   printf '%s\n' "$tests_tc_output"
 fi
 
+test_output_file=$(mktemp)
+trap 'rm -f "$test_output_file"' EXIT
+
 test_status=0
-npm test || test_status=$?
+npm test >"$test_output_file" 2>&1 || test_status=$?
+
+if [ "$test_status" -ne 0 ]; then
+  cat "$test_output_file"
+fi
 
 [ "$tsc_status" -eq 0 ] \
   && [ "$tests_tsc_status" -eq 0 ] \
