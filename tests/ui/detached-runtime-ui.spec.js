@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
+import { authStatus, installStableBrowserState, playbackStatus, seedConnectedAuth, seedItems, toastMessage } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -33,12 +33,9 @@ test.describe('Detached Session and Runtime Restore', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(
-      page.getByText(
-        'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found. device missing.',
-        { exact: true },
-      ),
-    ).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText(
+      'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found. device missing.',
+    );
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
 
     await context.addInitScript(() => {
@@ -58,7 +55,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     });
     await page.reload();
     await page.getByRole('button', { name: 'Reattach' }).click();
-    await expect(page.getByText('Spotify session expired. Please reconnect.', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Spotify session expired. Please reconnect.');
   });
 
   test('Reattach with matched context resumes without restarting playback', async ({ context, page }) => {
@@ -87,7 +84,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(page.getByText('Now playing album 1 of 1: One', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Now playing album 1 of 1: One');
     expect(requests.some((request) => request.url.endsWith('/v1/me/player/play'))).toBe(false);
   });
 
@@ -111,12 +108,10 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(
-      page.getByText('Failed to reattach: Unable to check current Spotify playback (500): server busy.', {
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(page.getByText('Failed to reattach.', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText(
+      'Failed to reattach: Unable to check current Spotify playback (500): server busy.',
+    );
+    await expect(toastMessage(page, 'Failed to reattach.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
   });
 
@@ -158,7 +153,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(page.getByText('Playback failed. Session stopped.', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Playback failed. Session stopped.');
   });
 
   test('Restores active runtime state and ignores invalid runtime JSON', async ({ context, page }) => {
@@ -173,14 +168,14 @@ test.describe('Detached Session and Runtime Restore', () => {
     });
 
     await page.goto('/');
-    await expect(page.getByText('Now playing album 1 of 1: One', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Now playing album 1 of 1: One');
     await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', '{bad json');
     });
     await page.reload();
-    await expect(page.getByText('Connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Connected.');
     const runtimeValue = await page.evaluate(() => localStorage.getItem('shuffle-by-album.runtime'));
     expect(runtimeValue).toBeNull();
   });

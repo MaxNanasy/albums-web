@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth } from './common.js';
+import { authStatus, installStableBrowserState, seedConnectedAuth, toastMessage } from './common.js';
 
 /**
  * @param {import("@playwright/test").Request} request
@@ -21,9 +21,9 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Not connected.');
     await page.getByRole('button', { name: 'Disconnect' }).click();
-    await expect(page.getByText('Disconnected from Spotify.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Disconnected from Spotify.')).toBeVisible();
   });
 
   test('Connect button stores a PKCE verifier and redirects to Spotify authorize', async ({ context, page }) => {
@@ -85,7 +85,7 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(page.getByText('Connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Connected.');
 
     const authState = await page.evaluate(() => ({
       token: localStorage.getItem('shuffle-by-album.token'),
@@ -118,7 +118,7 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Not connected.');
   });
 
   test('Missing playlist scopes shows reconnect warning', async ({ context, page }) => {
@@ -128,11 +128,9 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(
-      page.getByText('Connected, but token is missing playlist import scopes. Disconnect and reconnect.', {
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(authStatus(page)).toHaveText(
+      'Connected, but token is missing playlist import scopes. Disconnect and reconnect.',
+    );
   });
 
   test('Auth redirect with error clears query and records disconnected auth state', async ({ context, page }) => {
@@ -143,7 +141,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?error=access_denied');
 
     await expect(page).toHaveURL('/');
-    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Not connected.');
   });
 
   test('Auth redirect with code and missing verifier keeps code and leaves session disconnected', async ({ context, page }) => {
@@ -154,7 +152,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/?code=abc123');
-    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Not connected.');
   });
 
   test('Successful code exchange stores tokens, clears verifier, and removes code from the URL', async ({ context, page }) => {
@@ -181,7 +179,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/');
-    await expect(page.getByText('Connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Connected.');
 
     const authState = await page.evaluate(() => ({
       token: localStorage.getItem('shuffle-by-album.token'),
@@ -216,7 +214,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/?code=abc123');
-    await expect(page.getByText('Not connected.', { exact: true })).toBeVisible();
+    await expect(authStatus(page)).toHaveText('Not connected.');
     expect(requests).toHaveLength(1);
   });
 });

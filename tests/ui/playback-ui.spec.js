@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
+import { installStableBrowserState, playbackStatus, queueItem, seedConnectedAuth, seedItems, toastMessage } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -40,8 +40,8 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
 
-    await expect(page.getByText('Now playing album 1 of 1: Discovery', { exact: true })).toBeVisible();
-    await expect(page.getByText('▶ 1. Discovery', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Now playing album 1 of 1: Discovery');
+    await expect(queueItem(page, '▶ 1. Discovery')).toBeVisible();
   });
 
   test('Starts playback for a saved playlist item', async ({ context, page }) => {
@@ -71,8 +71,8 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
 
-    await expect(page.getByText('Now playing playlist 1 of 1: Road Trip Mix', { exact: true })).toBeVisible();
-    await expect(page.getByText('▶ 1. Road Trip Mix', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Now playing playlist 1 of 1: Road Trip Mix');
+    await expect(queueItem(page, '▶ 1. Road Trip Mix')).toBeVisible();
   });
 
   test('Start guardrails and active controls for start/skip/stop/final item', async ({ context, page }) => {
@@ -84,13 +84,13 @@ test.describe('Playback Controls', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Connect Spotify first.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Connect Spotify first.')).toBeVisible();
 
     await seedConnectedAuth(context);
 
     await page.reload();
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Add at least one album or playlist first.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Add at least one album or playlist first.')).toBeVisible();
 
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
@@ -125,13 +125,13 @@ test.describe('Playback Controls', () => {
     await expect(page.getByRole('button', { name: 'Stop' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.getByText('Now playing album 2 of 2: Two', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Now playing album 2 of 2: Two');
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.getByText('Finished: all selected albums/playlists were played.', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Finished: all selected albums/playlists were played.');
 
     await page.getByRole('button', { name: 'Start' }).click();
     await page.getByRole('button', { name: 'Stop' }).click();
-    await expect(page.getByText('Session stopped.', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Session stopped.');
   });
 
   test('Recoverable playback-start failure stops session instead of detaching', async ({ context, page }) => {
@@ -161,7 +161,7 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
 
-    await expect(page.getByText('Playback failed. Session stopped.', { exact: true })).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Playback failed. Session stopped.');
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
   });
 });

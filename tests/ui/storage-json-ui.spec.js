@@ -1,6 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { isSpotifyApiRequest } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, itemTitle, playbackStatus, seedConnectedAuth, seedItems, toastMessage } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -42,24 +41,24 @@ test.describe('Storage JSON Import/Export', () => {
 
     await page.locator('#storage-json').fill('');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(page.getByText('Paste a JSON object to import.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Paste a JSON object to import.')).toBeVisible();
 
     await page.locator('#storage-json').fill('{bad}');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(page.getByText('Invalid JSON. Please provide a valid JSON object.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Invalid JSON. Please provide a valid JSON object.')).toBeVisible();
 
     await page.locator('#storage-json').fill('[]');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(page.getByText('Import JSON must be an object of key/value pairs.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Import JSON must be an object of key/value pairs.')).toBeVisible();
 
     await page.locator('#storage-json').fill('{"other":[]}');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(page.getByText('Import JSON must include a valid shuffle-by-album.items array.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Import JSON must include a valid shuffle-by-album.items array.')).toBeVisible();
 
     await page.locator('#storage-json').fill('{"shuffle-by-album.items":[{"type":"album","uri":"spotify:album:no-title"}]}');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(page.getByText('spotify:album:no-title', { exact: true })).toBeVisible();
-    await expect(page.getByText('Data imported. Session reset.', { exact: true })).toBeVisible();
+    await expect(itemTitle(page, 'spotify:album:no-title')).toBeVisible();
+    await expect(playbackStatus(page)).toHaveText('Data imported. Session reset.');
     await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 
@@ -73,7 +72,7 @@ test.describe('Storage JSON Import/Export', () => {
     await page.getByRole('button', { name: 'Export Data' }).click();
     await expect(page.locator('#storage-json')).toHaveValue('');
     await expect(
-      page.getByText('Unable to export saved items because stored data is invalid JSON.', { exact: true }),
+      toastMessage(page, 'Unable to export saved items because stored data is invalid JSON.'),
     ).toBeVisible();
   });
 });

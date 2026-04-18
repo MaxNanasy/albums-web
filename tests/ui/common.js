@@ -1,5 +1,6 @@
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
+/** @typedef {import('@playwright/test').Page} Page */
 
 /**
  * @typedef SavedItem
@@ -14,6 +15,50 @@ const CONNECTED_SCOPES = [
   'playlist-read-private',
   'playlist-read-collaborative',
 ].join(' ');
+
+/** @param {string} value */
+export function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** @param {string} text */
+export function exactText(text) {
+  return new RegExp(`^${escapeRegExp(text)}$`);
+}
+
+/** @param {Page} page */
+export function authStatus(page) {
+  return page.locator('#auth-status');
+}
+
+/** @param {Page} page */
+export function playbackStatus(page) {
+  return page.locator('#playback-status');
+}
+
+/**
+ * @param {Page} page
+ * @param {string} text
+ */
+export function itemTitle(page, text) {
+  return page.locator('#item-list > li > span').filter({ hasText: exactText(text) });
+}
+
+/**
+ * @param {Page} page
+ * @param {string} text
+ */
+export function queueItem(page, text) {
+  return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
+}
+
+/**
+ * @param {Page} page
+ * @param {string} text
+ */
+export function toastMessage(page, text) {
+  return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
+}
 
 /** @param {BrowserContext} context */
 export async function installStableBrowserState(context) {

@@ -1,6 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { isSpotifyApiRequest } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems, toastMessage } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -32,15 +31,15 @@ test.describe('Item List', () => {
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:newone');
     await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByText('Added “New One”.', { exact: true }).waitFor();
+    await toastMessage(page, 'Added “New One”.').waitFor();
 
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.getByText('Restored “A”.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Restored “A”.')).toBeVisible();
 
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:a');
     await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: 'Undo' }).last().click();
-    await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
+    await expect(toastMessage(page, 'Item is already in your list.')).toBeVisible();
   });
 });
