@@ -31,15 +31,15 @@ test.describe('Item List', () => {
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:newone');
     await page.getByRole('button', { name: 'Add' }).click();
-    await ui.toast.message('Added “New One”.').waitFor();
+    await ui.toasts.byText('Added “New One”.').waitFor();
 
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(ui.toast.message('Restored “A”.')).toBeVisible();
+    await expect(ui.toasts.byText('Restored “A”.')).toBeVisible();
 
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:a');
     await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: 'Undo' }).last().click();
-    await expect(ui.toast.message('Item is already in your list.')).toBeVisible();
+    await expect(ui.toasts.byText('Item is already in your list.')).toBeVisible();
   });
 });

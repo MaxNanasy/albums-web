@@ -26,7 +26,7 @@ test.describe('Startup Item Title Refresh', () => {
 
     await page.goto('/');
 
-    await expect(ui.items.title('OK Title')).toBeVisible();
-    await expect(ui.items.title('spotify:album:fail')).toBeVisible();
+    await expect(ui.savedItems.byText('OK Title')).toBeVisible();
+    await expect(ui.savedItems.byText('spotify:album:fail')).toBeVisible();
   });
 });

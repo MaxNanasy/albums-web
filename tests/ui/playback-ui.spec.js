@@ -41,7 +41,7 @@ test.describe('Playback Controls', () => {
     await page.getByRole('button', { name: 'Start' }).click();
 
     await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: Discovery');
-    await expect(ui.playback.queueItem('▶ 1. Discovery')).toBeVisible();
+    await expect(ui.playback.queueItems.byText('▶ 1. Discovery')).toBeVisible();
   });
 
   test('Starts playback for a saved playlist item', async ({ context, page, ui }) => {
@@ -72,7 +72,7 @@ test.describe('Playback Controls', () => {
     await page.getByRole('button', { name: 'Start' }).click();
 
     await expect(ui.playback.status).toHaveText('Now playing playlist 1 of 1: Road Trip Mix');
-    await expect(ui.playback.queueItem('▶ 1. Road Trip Mix')).toBeVisible();
+    await expect(ui.playback.queueItems.byText('▶ 1. Road Trip Mix')).toBeVisible();
   });
 
   test('Start guardrails and active controls for start/skip/stop/final item', async ({ context, page, ui }) => {
@@ -84,13 +84,13 @@ test.describe('Playback Controls', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(ui.toast.message('Connect Spotify first.')).toBeVisible();
+    await expect(ui.toasts.byText('Connect Spotify first.')).toBeVisible();
 
     await seedConnectedAuth(context);
 
     await page.reload();
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(ui.toast.message('Add at least one album or playlist first.')).toBeVisible();
+    await expect(ui.toasts.byText('Add at least one album or playlist first.')).toBeVisible();
 
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },

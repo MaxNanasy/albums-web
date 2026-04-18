@@ -29,20 +29,22 @@ export function createUi(page) {
     },
     playback: {
       status: page.locator('#playback-status'),
-      /** @param {string} text */
-      queueItem(text) {
-        return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
+      queueItems: {
+        /** @param {string} text */
+        byText(text) {
+          return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
+        },
       },
     },
-    items: {
+    savedItems: {
       /** @param {string} text */
-      title(text) {
+      byText(text) {
         return page.locator('#item-list > li > span').filter({ hasText: exactText(text) });
       },
     },
-    toast: {
+    toasts: {
       /** @param {string} text */
-      message(text) {
+      byText(text) {
         return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
       },
     },
