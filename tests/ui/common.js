@@ -16,14 +16,9 @@ const CONNECTED_SCOPES = [
   'playlist-read-collaborative',
 ].join(' ');
 
-/** @param {string} value */
-export function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /** @param {string} text */
-export function exactText(text) {
-  return new RegExp(`^${escapeRegExp(text)}$`);
+function exactText(text) {
+  return new RegExp(`^${RegExp.escape(text)}$`);
 }
 
 /** @param {Page} page */
