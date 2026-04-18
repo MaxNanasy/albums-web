@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { authStatus, installStableBrowserState, seedConnectedAuth, toastMessage } from './common.js';
+import { installStableBrowserState, seedConnectedAuth } from './common.js';
 
 /**
  * @param {import("@playwright/test").Request} request
@@ -14,19 +14,19 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Auth and Connection States', () => {
-  test('Cold start without token shows disconnected and disconnect clears auth', async ({ context, page }) => {
+  test('Cold start without token shows disconnected and disconnect clears auth', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
 
     await page.goto('/');
 
-    await expect(authStatus(page)).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Not connected.');
     await page.getByRole('button', { name: 'Disconnect' }).click();
-    await expect(toastMessage(page, 'Disconnected from Spotify.')).toBeVisible();
+    await expect(ui.toast.message('Disconnected from Spotify.')).toBeVisible();
   });
 
-  test('Connect button stores a PKCE verifier and redirects to Spotify authorize', async ({ context, page }) => {
+  test('Connect button stores a PKCE verifier and redirects to Spotify authorize', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -60,7 +60,7 @@ test.describe('Auth and Connection States', () => {
     expect(url.searchParams.get('show_dialog')).toBe('true');
   });
 
-  test('Expired access token with refresh token silently refreshes during bootstrap', async ({ context, page }) => {
+  test('Expired access token with refresh token silently refreshes during bootstrap', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.token', 'expired-access-token');
       localStorage.setItem('shuffle-by-album.refreshToken', 'refresh-token');
@@ -85,7 +85,7 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(authStatus(page)).toHaveText('Connected.');
+    await expect(ui.auth.status).toHaveText('Connected.');
 
     const authState = await page.evaluate(() => ({
       token: localStorage.getItem('shuffle-by-album.token'),
@@ -102,7 +102,7 @@ test.describe('Auth and Connection States', () => {
     );
   });
 
-  test('Expired access token with unsuccessful refresh falls back to disconnected startup state', async ({ context, page }) => {
+  test('Expired access token with unsuccessful refresh falls back to disconnected startup state', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.token', 'expired-access-token');
       localStorage.setItem('shuffle-by-album.refreshToken', 'refresh-token');
@@ -118,22 +118,22 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(authStatus(page)).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Not connected.');
   });
 
-  test('Missing playlist scopes shows reconnect warning', async ({ context, page }) => {
+  test('Missing playlist scopes shows reconnect warning', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.tokenScope', 'user-modify-playback-state user-read-playback-state');
     });
 
     await page.goto('/');
 
-    await expect(authStatus(page)).toHaveText(
+    await expect(ui.auth.status).toHaveText(
       'Connected, but token is missing playlist import scopes. Disconnect and reconnect.',
     );
   });
 
-  test('Auth redirect with error clears query and records disconnected auth state', async ({ context, page }) => {
+  test('Auth redirect with error clears query and records disconnected auth state', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -141,10 +141,10 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?error=access_denied');
 
     await expect(page).toHaveURL('/');
-    await expect(authStatus(page)).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Not connected.');
   });
 
-  test('Auth redirect with code and missing verifier keeps code and leaves session disconnected', async ({ context, page }) => {
+  test('Auth redirect with code and missing verifier keeps code and leaves session disconnected', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -152,10 +152,10 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/?code=abc123');
-    await expect(authStatus(page)).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Not connected.');
   });
 
-  test('Successful code exchange stores tokens, clears verifier, and removes code from the URL', async ({ context, page }) => {
+  test('Successful code exchange stores tokens, clears verifier, and removes code from the URL', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
       localStorage.setItem('shuffle-by-album.pkceVerifier', 'verifier');
@@ -179,7 +179,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/');
-    await expect(authStatus(page)).toHaveText('Connected.');
+    await expect(ui.auth.status).toHaveText('Connected.');
 
     const authState = await page.evaluate(() => ({
       token: localStorage.getItem('shuffle-by-album.token'),
@@ -198,7 +198,7 @@ test.describe('Auth and Connection States', () => {
     expect(authState.verifier).toBeNull();
   });
 
-  test('Failed code exchange attempts token request and keeps code in URL', async ({ context, page }) => {
+  test('Failed code exchange attempts token request and keeps code in URL', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
       localStorage.setItem('shuffle-by-album.pkceVerifier', 'verifier');
@@ -214,7 +214,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/?code=abc123');
-    await expect(authStatus(page)).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Not connected.');
     expect(requests).toHaveLength(1);
   });
 });

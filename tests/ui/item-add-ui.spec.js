@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, isSpotifyApiRequest, itemTitle, seedConnectedAuth, seedItems, toastMessage } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Item Add', () => {
-  test('Adds an album from normal Spotify URL', async ({ context, page }) => {
+  test('Adds an album from normal Spotify URL', async ({ context, page, ui }) => {
     installSpotifyRoutes(context, [
       {
         match: (request) => isSpotifyApiRequest(request, 'GET', '/albums/album123'),
@@ -19,10 +19,10 @@ test.describe('Item Add', () => {
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/album/album123');
     await page.getByRole('button', { name: 'Add' }).click();
 
-    await expect(itemTitle(page, 'Discovery')).toBeVisible();
+    await expect(ui.items.title('Discovery')).toBeVisible();
   });
 
-  test('Adds a playlist from Spotify playlist URL', async ({ context, page }) => {
+  test('Adds a playlist from Spotify playlist URL', async ({ context, page, ui }) => {
     installSpotifyRoutes(context, [
       {
         match: (request) => isSpotifyApiRequest(request, 'GET', '/playlists/playlist123'),
@@ -34,25 +34,25 @@ test.describe('Item Add', () => {
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/playlist/playlist123');
     await page.getByRole('button', { name: 'Add' }).click();
 
-    await expect(itemTitle(page, 'Road Trip Mix')).toBeVisible();
-    await expect(toastMessage(page, 'Added “Road Trip Mix”.')).toBeVisible();
+    await expect(ui.items.title('Road Trip Mix')).toBeVisible();
+    await expect(ui.toast.message('Added “Road Trip Mix”.')).toBeVisible();
   });
 
-  test('Duplicate and invalid input show validation toasts', async ({ context, page }) => {
+  test('Duplicate and invalid input show validation toasts', async ({ context, page, ui }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:album123', title: 'Discovery' }]);
 
     await page.goto('/');
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('not-valid');
     await page.getByRole('button', { name: 'Add' }).click();
-    await expect(toastMessage(page, 'Enter a valid Spotify album/playlist URI or URL.')).toBeVisible();
+    await expect(ui.toast.message('Enter a valid Spotify album/playlist URI or URL.')).toBeVisible();
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:album123');
     await page.getByRole('button', { name: 'Add' }).click();
-    await expect(toastMessage(page, 'Item is already in your list.')).toBeVisible();
+    await expect(ui.toast.message('Item is already in your list.')).toBeVisible();
   });
 
-  test('Add while disconnected and title lookup failure both show toasts', async ({ context, page }) => {
+  test('Add while disconnected and title lookup failure both show toasts', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
@@ -61,7 +61,7 @@ test.describe('Item Add', () => {
     await page.goto('/');
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:album123');
     await page.getByRole('button', { name: 'Add' }).click();
-    await expect(toastMessage(page, 'Connect Spotify first so the app can load item titles.')).toBeVisible();
+    await expect(ui.toast.message('Connect Spotify first so the app can load item titles.')).toBeVisible();
 
     installSpotifyRoutes(context, [
       {
@@ -74,6 +74,6 @@ test.describe('Item Add', () => {
     await page.reload();
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:missing');
     await page.getByRole('button', { name: 'Add' }).click();
-    await expect(toastMessage(page, 'Unable to load title for that item. Please try another URI.')).toBeVisible();
+    await expect(ui.toast.message('Unable to load title for that item. Please try another URI.')).toBeVisible();
   });
 });

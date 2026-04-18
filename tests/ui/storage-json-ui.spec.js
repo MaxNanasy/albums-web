@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, isSpotifyApiRequest, itemTitle, playbackStatus, seedConnectedAuth, seedItems, toastMessage } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Storage JSON Import/Export', () => {
-  test('Export/import JSON validation and valid import resets active session', async ({ context, page }) => {
+  test('Export/import JSON validation and valid import resets active session', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       Math.random = () => 0.999;
     });
@@ -37,32 +37,32 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Export Data' }).click();
-    await expect(page.locator('#storage-json')).toHaveValue(/"shuffle-by-album.items"/);
+    await expect(ui.storage.json).toHaveValue(/"shuffle-by-album.items"/);
 
-    await page.locator('#storage-json').fill('');
+    await ui.storage.json.fill('');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(toastMessage(page, 'Paste a JSON object to import.')).toBeVisible();
+    await expect(ui.toast.message('Paste a JSON object to import.')).toBeVisible();
 
-    await page.locator('#storage-json').fill('{bad}');
+    await ui.storage.json.fill('{bad}');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(toastMessage(page, 'Invalid JSON. Please provide a valid JSON object.')).toBeVisible();
+    await expect(ui.toast.message('Invalid JSON. Please provide a valid JSON object.')).toBeVisible();
 
-    await page.locator('#storage-json').fill('[]');
+    await ui.storage.json.fill('[]');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(toastMessage(page, 'Import JSON must be an object of key/value pairs.')).toBeVisible();
+    await expect(ui.toast.message('Import JSON must be an object of key/value pairs.')).toBeVisible();
 
-    await page.locator('#storage-json').fill('{"other":[]}');
+    await ui.storage.json.fill('{"other":[]}');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(toastMessage(page, 'Import JSON must include a valid shuffle-by-album.items array.')).toBeVisible();
+    await expect(ui.toast.message('Import JSON must include a valid shuffle-by-album.items array.')).toBeVisible();
 
-    await page.locator('#storage-json').fill('{"shuffle-by-album.items":[{"type":"album","uri":"spotify:album:no-title"}]}');
+    await ui.storage.json.fill('{"shuffle-by-album.items":[{"type":"album","uri":"spotify:album:no-title"}]}');
     await page.getByRole('button', { name: 'Import Data' }).click();
-    await expect(itemTitle(page, 'spotify:album:no-title')).toBeVisible();
-    await expect(playbackStatus(page)).toHaveText('Data imported. Session reset.');
+    await expect(ui.items.title('spotify:album:no-title')).toBeVisible();
+    await expect(ui.playback.status).toHaveText('Data imported. Session reset.');
     await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 
-  test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page }) => {
+  test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.items', '{bad-json');
     });
@@ -70,9 +70,9 @@ test.describe('Storage JSON Import/Export', () => {
     await page.goto('/');
 
     await page.getByRole('button', { name: 'Export Data' }).click();
-    await expect(page.locator('#storage-json')).toHaveValue('');
+    await expect(ui.storage.json).toHaveValue('');
     await expect(
-      toastMessage(page, 'Unable to export saved items because stored data is invalid JSON.'),
+      ui.toast.message('Unable to export saved items because stored data is invalid JSON.'),
     ).toBeVisible();
   });
 });

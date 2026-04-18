@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { authStatus, installStableBrowserState, playbackStatus, seedConnectedAuth, seedItems, toastMessage } from './common.js';
+import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Detached Session and Runtime Restore', () => {
-  test('Unrecoverable start error detaches and reattach handles empty queue + missing token', async ({ context, page }) => {
+  test('Unrecoverable start error detaches and reattach handles empty queue + missing token', async ({ context, page, ui }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
     installSpotifyRoutes(context, [
@@ -33,7 +33,7 @@ test.describe('Detached Session and Runtime Restore', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(playbackStatus(page)).toHaveText(
+    await expect(ui.playback.status).toHaveText(
       'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found. device missing.',
     );
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
@@ -55,10 +55,10 @@ test.describe('Detached Session and Runtime Restore', () => {
     });
     await page.reload();
     await page.getByRole('button', { name: 'Reattach' }).click();
-    await expect(playbackStatus(page)).toHaveText('Spotify session expired. Please reconnect.');
+    await expect(ui.playback.status).toHaveText('Spotify session expired. Please reconnect.');
   });
 
-  test('Reattach with matched context resumes without restarting playback', async ({ context, page }) => {
+  test('Reattach with matched context resumes without restarting playback', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -84,11 +84,11 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(playbackStatus(page)).toHaveText('Now playing album 1 of 1: One');
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: One');
     expect(requests.some((request) => request.url.endsWith('/v1/me/player/play'))).toBe(false);
   });
 
-  test('Recoverable reattach player-state failure shows retry UI and keeps the session detached', async ({ context, page }) => {
+  test('Recoverable reattach player-state failure shows retry UI and keeps the session detached', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -108,14 +108,14 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(playbackStatus(page)).toHaveText(
+    await expect(ui.playback.status).toHaveText(
       'Failed to reattach: Unable to check current Spotify playback (500): server busy.',
     );
-    await expect(toastMessage(page, 'Failed to reattach.')).toBeVisible();
+    await expect(ui.toast.message('Failed to reattach.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeVisible();
   });
 
-  test('Reattach with mismatched context restarts expected item', async ({ context, page }) => {
+  test('Reattach with mismatched context restarts expected item', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -153,10 +153,10 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Reattach' }).click();
 
-    await expect(playbackStatus(page)).toHaveText('Playback failed. Session stopped.');
+    await expect(ui.playback.status).toHaveText('Playback failed. Session stopped.');
   });
 
-  test('Restores active runtime state and ignores invalid runtime JSON', async ({ context, page }) => {
+  test('Restores active runtime state and ignores invalid runtime JSON', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'active',
@@ -168,14 +168,14 @@ test.describe('Detached Session and Runtime Restore', () => {
     });
 
     await page.goto('/');
-    await expect(playbackStatus(page)).toHaveText('Now playing album 1 of 1: One');
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: One');
     await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
 
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', '{bad json');
     });
     await page.reload();
-    await expect(authStatus(page)).toHaveText('Connected.');
+    await expect(ui.auth.status).toHaveText('Connected.');
     const runtimeValue = await page.evaluate(() => localStorage.getItem('shuffle-by-album.runtime'));
     expect(runtimeValue).toBeNull();
   });

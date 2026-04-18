@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, playbackStatus, queueItem, seedConnectedAuth, seedItems, toastMessage } from './common.js';
+import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Playback Controls', () => {
-  test('Starts playback', async ({ context, page }) => {
+  test('Starts playback', async ({ context, page, ui }) => {
     await seedItems(context, [
       {
         type: 'album',
@@ -40,11 +40,11 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
 
-    await expect(playbackStatus(page)).toHaveText('Now playing album 1 of 1: Discovery');
-    await expect(queueItem(page, '▶ 1. Discovery')).toBeVisible();
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: Discovery');
+    await expect(ui.playback.queueItem('▶ 1. Discovery')).toBeVisible();
   });
 
-  test('Starts playback for a saved playlist item', async ({ context, page }) => {
+  test('Starts playback for a saved playlist item', async ({ context, page, ui }) => {
     await seedItems(context, [{ type: 'playlist', uri: 'spotify:playlist:playlist123', title: 'Road Trip Mix' }]);
 
     installSpotifyRoutes(context, [
@@ -71,11 +71,11 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
 
-    await expect(playbackStatus(page)).toHaveText('Now playing playlist 1 of 1: Road Trip Mix');
-    await expect(queueItem(page, '▶ 1. Road Trip Mix')).toBeVisible();
+    await expect(ui.playback.status).toHaveText('Now playing playlist 1 of 1: Road Trip Mix');
+    await expect(ui.playback.queueItem('▶ 1. Road Trip Mix')).toBeVisible();
   });
 
-  test('Start guardrails and active controls for start/skip/stop/final item', async ({ context, page }) => {
+  test('Start guardrails and active controls for start/skip/stop/final item', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
@@ -84,13 +84,13 @@ test.describe('Playback Controls', () => {
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(toastMessage(page, 'Connect Spotify first.')).toBeVisible();
+    await expect(ui.toast.message('Connect Spotify first.')).toBeVisible();
 
     await seedConnectedAuth(context);
 
     await page.reload();
     await page.getByRole('button', { name: 'Start' }).click();
-    await expect(toastMessage(page, 'Add at least one album or playlist first.')).toBeVisible();
+    await expect(ui.toast.message('Add at least one album or playlist first.')).toBeVisible();
 
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
@@ -125,16 +125,16 @@ test.describe('Playback Controls', () => {
     await expect(page.getByRole('button', { name: 'Stop' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect(playbackStatus(page)).toHaveText('Now playing album 2 of 2: Two');
+    await expect(ui.playback.status).toHaveText('Now playing album 2 of 2: Two');
     await page.getByRole('button', { name: 'Next' }).click();
-    await expect(playbackStatus(page)).toHaveText('Finished: all selected albums/playlists were played.');
+    await expect(ui.playback.status).toHaveText('Finished: all selected albums/playlists were played.');
 
     await page.getByRole('button', { name: 'Start' }).click();
     await page.getByRole('button', { name: 'Stop' }).click();
-    await expect(playbackStatus(page)).toHaveText('Session stopped.');
+    await expect(ui.playback.status).toHaveText('Session stopped.');
   });
 
-  test('Recoverable playback-start failure stops session instead of detaching', async ({ context, page }) => {
+  test('Recoverable playback-start failure stops session instead of detaching', async ({ context, page, ui }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
     installSpotifyRoutes(context, [
@@ -161,7 +161,7 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Start' }).click();
 
-    await expect(playbackStatus(page)).toHaveText('Playback failed. Session stopped.');
+    await expect(ui.playback.status).toHaveText('Playback failed. Session stopped.');
     await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
   });
 });

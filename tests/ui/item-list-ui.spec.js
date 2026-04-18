@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems, toastMessage } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Item List', () => {
-  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page }) => {
+  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
@@ -31,15 +31,15 @@ test.describe('Item List', () => {
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:newone');
     await page.getByRole('button', { name: 'Add' }).click();
-    await toastMessage(page, 'Added “New One”.').waitFor();
+    await ui.toast.message('Added “New One”.').waitFor();
 
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(toastMessage(page, 'Restored “A”.')).toBeVisible();
+    await expect(ui.toast.message('Restored “A”.')).toBeVisible();
 
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:a');
     await page.getByRole('button', { name: 'Add' }).click();
     await page.getByRole('button', { name: 'Undo' }).last().click();
-    await expect(toastMessage(page, 'Item is already in your list.')).toBeVisible();
+    await expect(ui.toast.message('Item is already in your list.')).toBeVisible();
   });
 });

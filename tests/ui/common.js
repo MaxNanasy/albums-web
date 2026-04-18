@@ -22,37 +22,34 @@ function exactText(text) {
 }
 
 /** @param {Page} page */
-export function authStatus(page) {
-  return page.locator('#auth-status');
-}
-
-/** @param {Page} page */
-export function playbackStatus(page) {
-  return page.locator('#playback-status');
-}
-
-/**
- * @param {Page} page
- * @param {string} text
- */
-export function itemTitle(page, text) {
-  return page.locator('#item-list > li > span').filter({ hasText: exactText(text) });
-}
-
-/**
- * @param {Page} page
- * @param {string} text
- */
-export function queueItem(page, text) {
-  return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
-}
-
-/**
- * @param {Page} page
- * @param {string} text
- */
-export function toastMessage(page, text) {
-  return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
+export function createUi(page) {
+  return {
+    auth: {
+      status: page.locator('#auth-status'),
+    },
+    playback: {
+      status: page.locator('#playback-status'),
+      /** @param {string} text */
+      queueItem(text) {
+        return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
+      },
+    },
+    items: {
+      /** @param {string} text */
+      title(text) {
+        return page.locator('#item-list > li > span').filter({ hasText: exactText(text) });
+      },
+    },
+    toast: {
+      /** @param {string} text */
+      message(text) {
+        return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
+      },
+    },
+    storage: {
+      json: page.locator('#storage-json'),
+    },
+  };
 }
 
 /** @param {BrowserContext} context */

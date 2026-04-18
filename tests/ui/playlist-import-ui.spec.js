@@ -1,5 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, itemTitle, seedConnectedAuth, seedItems, toastMessage } from './common.js';
+import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
 
 /** @typedef {import('@playwright/test').Request} Request */
 
@@ -26,7 +26,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Playlist Album Import', () => {
-  test('Imports playlist albums across pages and skips saved duplicates', async ({ context, page }) => {
+  test('Imports playlist albums across pages and skips saved duplicates', async ({ context, page, ui }) => {
     await seedItems(context, [
       {
         type: 'album',
@@ -71,17 +71,17 @@ test.describe('Playlist Album Import', () => {
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
     await page.getByRole('button', { name: 'Import Albums' }).click();
 
-    await expect(itemTitle(page, 'Existing Album')).toBeVisible();
-    await expect(itemTitle(page, 'New Album One')).toBeVisible();
-    await expect(itemTitle(page, 'New Album Two')).toBeVisible();
-    await expect(toastMessage(page, 'Imported 2 album(s) from playlist (3 unique album(s) found).')).toBeVisible();
+    await expect(ui.items.title('Existing Album')).toBeVisible();
+    await expect(ui.items.title('New Album One')).toBeVisible();
+    await expect(ui.items.title('New Album Two')).toBeVisible();
+    await expect(ui.toast.message('Imported 2 album(s) from playlist (3 unique album(s) found).')).toBeVisible();
     expect(requests.map((request) => request.url)).toEqual([
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=50&additional_types=track&market=from_token',
     ]);
   });
 
-  test('Imports playlist albums from a Spotify playlist URL', async ({ context, page }) => {
+  test('Imports playlist albums from a Spotify playlist URL', async ({ context, page, ui }) => {
     const requests = installSpotifyRoutes(context, [
       {
         match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
@@ -101,15 +101,15 @@ test.describe('Playlist Album Import', () => {
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('https://open.spotify.com/playlist/playlist123');
     await page.getByRole('button', { name: 'Import Albums' }).click();
 
-    await expect(itemTitle(page, 'New Album One')).toBeVisible();
-    await expect(toastMessage(page, 'Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
+    await expect(ui.items.title('New Album One')).toBeVisible();
+    await expect(ui.toast.message('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toBe(
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
     );
   });
 
-  test('Imports playlist albums from a Spotify playlist URI', async ({ context, page }) => {
+  test('Imports playlist albums from a Spotify playlist URI', async ({ context, page, ui }) => {
     const requests = installSpotifyRoutes(context, [
       {
         match: (request) => isPlaylistItemsRequest(request, 'playlist123', 0),
@@ -129,15 +129,15 @@ test.describe('Playlist Album Import', () => {
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:playlist:playlist123');
     await page.getByRole('button', { name: 'Import Albums' }).click();
 
-    await expect(itemTitle(page, 'New Album Two')).toBeVisible();
-    await expect(toastMessage(page, 'Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
+    await expect(ui.items.title('New Album Two')).toBeVisible();
+    await expect(ui.toast.message('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toBe(
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
     );
   });
 
-  test('Playlist import unhappy paths and no-op imports', async ({ context, page }) => {
+  test('Playlist import unhappy paths and no-op imports', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.removeItem('shuffle-by-album.token');
       localStorage.removeItem('shuffle-by-album.tokenExpiry');
@@ -145,7 +145,7 @@ test.describe('Playlist Album Import', () => {
     await page.goto('/');
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
     await page.getByRole('button', { name: 'Import Albums' }).click();
-    await expect(toastMessage(page, 'Connect Spotify first so the app can import albums.')).toBeVisible();
+    await expect(ui.toast.message('Connect Spotify first so the app can import albums.')).toBeVisible();
 
     await seedConnectedAuth(context);
 
@@ -163,18 +163,18 @@ test.describe('Playlist Album Import', () => {
     await page.reload();
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('$$$');
     await page.getByRole('button', { name: 'Import Albums' }).click();
-    await expect(toastMessage(page, 'Enter a valid Spotify playlist URL, URI, or playlist ID.')).toBeVisible();
+    await expect(ui.toast.message('Enter a valid Spotify playlist URL, URI, or playlist ID.')).toBeVisible();
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
     await page.getByRole('button', { name: 'Import Albums' }).click();
-    await expect(toastMessage(page, 'Error importing albums: 500 boom.')).toBeVisible();
+    await expect(ui.toast.message('Error importing albums: 500 boom.')).toBeVisible();
 
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('emptyplaylist');
     await page.getByRole('button', { name: 'Import Albums' }).click();
-    await expect(toastMessage(page, 'Imported 0 album(s) from playlist (0 unique album(s) found).')).toBeVisible();
+    await expect(ui.toast.message('Imported 0 album(s) from playlist (0 unique album(s) found).')).toBeVisible();
   });
 
-  test('Importing playlist with all albums already saved keeps list unchanged', async ({ context, page }) => {
+  test('Importing playlist with all albums already saved keeps list unchanged', async ({ context, page, ui }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:existing', title: 'Existing Album' }]);
 
     installSpotifyRoutes(context, [
@@ -194,7 +194,7 @@ test.describe('Playlist Album Import', () => {
     await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('playlist123');
     await page.getByRole('button', { name: 'Import Albums' }).click();
 
-    await expect(toastMessage(page, 'Imported 0 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
+    await expect(ui.toast.message('Imported 0 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'Existing Album' })).toHaveCount(1);
   });
 });
