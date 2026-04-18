@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "scripts/check",
+    "check": "bash scripts/check",
     "test": "c8 node --test",
     "test:ui": "playwright test",
     "test:ui:headed": "playwright test --headed"
