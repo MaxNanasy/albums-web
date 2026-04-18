@@ -2,6 +2,31 @@
 
 set -euo pipefail
 
+with_failed_output() (
+  output_file="$(mktemp)"
+  trap 'rm -f "$output_file"' EXIT
+
+  should_force_color=0
+  if [ -z "${FORCE_COLOR+x}" ] && [ -z "${NO_COLOR+x}" ] && [ -t 1 ]; then
+    should_force_color=1
+  fi
+
+  status=0
+  (
+    if [ "$should_force_color" -eq 1 ]; then
+      export FORCE_COLOR=1
+    fi
+
+    "$@"
+  ) >"$output_file" 2>&1 || status=$?
+
+  if [ "$status" -ne 0 ]; then
+    cat "$output_file"
+  fi
+
+  exit "$status"
+)
+
 tsc_status=0
 npx tsc || tsc_status=$?
 
@@ -9,28 +34,13 @@ tests_tsc_status=0
 npx tsc -p tests/tsconfig.json || tests_tsc_status=$?
 
 tc_status=0
-tc_output=$(npx type-coverage 2>&1) || tc_status=$?
-
-if [ "$tc_status" -ne 0 ]; then
-  printf '%s\n' "$tc_output"
-fi
+with_failed_output npx type-coverage || tc_status=$?
 
 tests_tc_status=0
-tests_tc_output=$(npx type-coverage --project tests/tsconfig.json 2>&1) || tests_tc_status=$?
-
-if [ "$tests_tc_status" -ne 0 ]; then
-  printf '%s\n' "$tests_tc_output"
-fi
-
-test_output_file=$(mktemp)
-trap 'rm -f "$test_output_file"' EXIT
+with_failed_output npx type-coverage --project tests/tsconfig.json || tests_tc_status=$?
 
 test_status=0
-npm test >"$test_output_file" 2>&1 || test_status=$?
-
-if [ "$test_status" -ne 0 ]; then
-  cat "$test_output_file"
-fi
+with_failed_output npm test || test_status=$?
 
 [ "$tsc_status" -eq 0 ] \
   && [ "$tests_tsc_status" -eq 0 ] \
