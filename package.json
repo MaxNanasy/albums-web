@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "bash scripts/check",
+    "check:types": "node scripts/check-types.js",
     "test": "c8 node --test",
     "test:ui": "playwright test",
     "test:ui:headed": "playwright test --headed"
