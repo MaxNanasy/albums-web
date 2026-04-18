@@ -1,10 +1,10 @@
 import { expect, test as base } from '@playwright/test';
-import { createUi } from './common.js';
+import { makeUi } from './common.js';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
 /** @typedef {import('@playwright/test').Route} Route */
-/** @typedef {ReturnType<typeof createUi>} Ui */
+/** @typedef {ReturnType<typeof makeUi>} Ui */
 
 /**
  * @typedef RecordedSpotifyRequest
@@ -58,7 +58,7 @@ const fixtures = {
     }
   }, { auto: true }],
   ui: async ({ page }, use) => {
-    await use(createUi(page));
+    await use(makeUi(page));
   },
 };
 

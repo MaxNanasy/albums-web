@@ -22,7 +22,7 @@ function exactText(text) {
 }
 
 /** @param {Page} page */
-export function createUi(page) {
+export function makeUi(page) {
   return {
     auth: {
       status: page.locator('#auth-status'),
