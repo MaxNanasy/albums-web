@@ -1,6 +1,5 @@
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
-/** @typedef {import('@playwright/test').Page} Page */
 
 /**
  * @typedef SavedItem
@@ -15,55 +14,6 @@ const CONNECTED_SCOPES = [
   'playlist-read-private',
   'playlist-read-collaborative',
 ].join(' ');
-
-/** @param {string} text */
-function exactText(text) {
-  return new RegExp(`^${RegExp.escape(text)}$`);
-}
-
-/** @param {Page} page */
-export function makeUi(page) {
-  return {
-    auth: {
-      status: page.locator('#auth-status'),
-      connectButton: page.getByRole('button', { name: 'Connect', exact: true }),
-      disconnectButton: page.getByRole('button', { name: 'Disconnect', exact: true }),
-    },
-    playback: {
-      status: page.locator('#playback-status'),
-      startButton: page.getByRole('button', { name: 'Start', exact: true }),
-      reattachButton: page.getByRole('button', { name: 'Reattach', exact: true }),
-      nextButton: page.getByRole('button', { name: 'Next', exact: true }),
-      stopButton: page.getByRole('button', { name: 'Stop', exact: true }),
-      queueItems: {
-        /** @param {string} text */
-        byText(text) {
-          return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
-        },
-      },
-    },
-    savedItems: {
-      uriInput: page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...'),
-      addButton: page.getByRole('button', { name: 'Add', exact: true }),
-      importAlbumsButton: page.getByRole('button', { name: 'Import Albums', exact: true }),
-      /** @param {string} text */
-      byText(text) {
-        return page.locator('#item-list > li > span').filter({ hasText: exactText(text) });
-      },
-    },
-    toasts: {
-      /** @param {string} text */
-      byText(text) {
-        return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
-      },
-    },
-    storage: {
-      json: page.locator('#storage-json'),
-      exportDataButton: page.getByRole('button', { name: 'Export Data', exact: true }),
-      importDataButton: page.getByRole('button', { name: 'Import Data', exact: true }),
-    },
-  };
-}
 
 /** @param {BrowserContext} context */
 export async function installStableBrowserState(context) {

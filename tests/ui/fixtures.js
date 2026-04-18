@@ -1,5 +1,5 @@
 import { expect, test as base } from '@playwright/test';
-import { makeUi } from './common.js';
+import { makeUi } from './ui.js';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
