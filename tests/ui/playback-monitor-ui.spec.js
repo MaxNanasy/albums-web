@@ -184,8 +184,8 @@ test.describe('Playback Monitor Transitions', () => {
       if (typeof callback === 'function') await callback();
     });
 
-    await expect(ui.playback.status).toHaveText('Unable to check playback state right now.');
-    await expect(ui.toasts.instance('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
+    await expect(ui.playback.status).toHaveText('Playback monitor encountered an error: Spotify rate limit reached. Please wait a moment and retry.');
+    await expect(ui.toasts.instance('Playback monitor encountered an error.')).toBeVisible();
     await expect(ui.playback.reattachButton).toBeHidden();
     await expect(ui.playback.nextButton).toBeEnabled();
   });

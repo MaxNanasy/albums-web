@@ -621,10 +621,11 @@ async function runWithReportedError(task, reportErrorOptions) {
 /** @param {unknown} error */
 function reportMonitorError(error) {
   if (error instanceof PlayerMonitorStatusError) {
+    const detail = spotifyStatusMessage(error.status, 'Could not check playback state.');
     reportError(error, {
       context: 'monitor',
-      fallbackMessage: spotifyStatusMessage(error.status, 'Could not check playback state.'),
-      playbackStatusMessage: 'Unable to check playback state right now.',
+      fallbackMessage: 'Playback monitor encountered an error.',
+      playbackStatusMessage: `Playback monitor encountered an error: ${detail}`,
       toastMode: 'cooldown',
       toastKey: `monitor-http-${error.status}`,
     });
