@@ -23,38 +23,36 @@ export async function installStableBrowserState(context) {
       (() => /** @type {unknown} */ (1));
     window.clearInterval = () => {};
 
-    /** @type {Map<number, () => void>} */
-    const timeoutCallbacks = new Map();
     let nextTimeoutId = 1;
 
-    window.setTimeout =
-      /** @type {typeof window.setTimeout} */
-      ((handler, timeout = 0, ...args) => {
-        const timeoutId = nextTimeoutId++;
-        const callback = () => {
-          if (!timeoutCallbacks.has(timeoutId)) {
-            return;
-          }
-          timeoutCallbacks.delete(timeoutId);
-          if (typeof handler === 'function') {
-            handler(...args);
-            return;
-          }
-          globalThis.eval(handler);
-        };
+    /**
+     * @param {((...args: unknown[]) => unknown) | string} handler
+     * @param {number} timeout
+     * @param {...unknown} args
+     */
+    function stableSetTimeout(handler, timeout = 0, ...args) {
+      const timeoutId = nextTimeoutId++;
 
-        timeoutCallbacks.set(timeoutId, callback);
-        // Preserve short timers so toast close and leave animations still finish,
-        // while blocking long auto-dismiss timers that can race test assertions.
-        if (timeout <= 200) {
-          queueMicrotask(callback);
-        }
-
+      // Preserve short timers so toast close and leave animations still finish,
+      // while suppressing longer auto-dismiss timers that can race test assertions.
+      if (timeout > 200) {
         return /** @type {unknown} */ (timeoutId);
+      }
+
+      queueMicrotask(() => {
+        if (typeof handler === 'function') {
+          handler(...args);
+          return;
+        }
+        globalThis.eval(handler);
       });
-    window.clearTimeout = (timeoutId) => {
-      timeoutCallbacks.delete(Number(timeoutId));
+
+      return timeoutId;
     };
+
+    window.setTimeout =
+      /** @type {typeof window.setTimeout} */ (/** @type unknown */ (stableSetTimeout));
+    window.clearTimeout = () => {};
   });
 }
 
