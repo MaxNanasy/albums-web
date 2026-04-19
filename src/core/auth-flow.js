@@ -10,9 +10,12 @@
 export class AuthFlow {
   /** @type {AuthFlowDeps} */
   #deps;
+  /** @type {string | null} */
+  #pendingRefreshFailureStatus;
   /** @param {AuthFlowDeps} deps */
   constructor(deps) {
     this.#deps = deps;
+    this.#pendingRefreshFailureStatus = null;
   }
 
   async startLogin() {
@@ -118,7 +121,14 @@ export class AuthFlow {
     return new Set(scopeText.split(/\s+/).filter(Boolean));
   }
 
+  consumePendingRefreshFailureStatus() {
+    const pendingStatus = this.#pendingRefreshFailureStatus;
+    this.#pendingRefreshFailureStatus = null;
+    return pendingStatus;
+  }
+
   async refreshSpotifyAccessToken() {
+    this.#pendingRefreshFailureStatus = null;
     const refreshToken = localStorage.getItem(this.#deps.storageKeys.refreshToken);
     if (!refreshToken) return null;
 
@@ -137,6 +147,7 @@ export class AuthFlow {
         body: formData,
       });
     } catch (error) {
+      this.#pendingRefreshFailureStatus = 'Network issue refreshing Spotify session. Please reconnect if this continues.';
       this.#deps.reportError(error, {
         context: 'auth',
         fallbackMessage: 'Unable to refresh Spotify session.',
@@ -147,10 +158,27 @@ export class AuthFlow {
       return null;
     }
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      this.#pendingRefreshFailureStatus = 'Unable to validate Spotify session. Please reconnect.';
+      return null;
+    }
 
-    /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-    const data = /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */ (await response.json());
+    /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */
+    let data;
+    try {
+      data = /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */ (await response.json());
+    } catch {
+      this.#pendingRefreshFailureStatus = 'Unable to validate Spotify session. Please reconnect.';
+      return null;
+    }
+    if (!(
+      typeof data.access_token === 'string' &&
+      typeof data.expires_in === 'number' &&
+      Number.isFinite(data.expires_in))
+    ) {
+      this.#pendingRefreshFailureStatus = 'Unable to validate Spotify session. Please reconnect.';
+      return null;
+    }
     localStorage.setItem(this.#deps.storageKeys.token, data.access_token);
     localStorage.setItem(this.#deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
     if (typeof data.scope === 'string') {

@@ -51,6 +51,22 @@ test('getToken and getGrantedScopes read current auth state', () => {
   assert.equal(authFlow.getGrantedScopes().has('playlist-read-private'), true);
 });
 
+test('refreshSpotifyAccessToken captures a validation failure status for non-ok responses', async () => {
+  const store = installLocalStorage();
+  store.set('r', 'refresh-token');
+
+  const authFlow = createAuthFlow();
+
+  const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('bad refresh', { status: 400 }));
+
+  const token = await authFlow.refreshSpotifyAccessToken();
+
+  assert.equal(token, null);
+  assert.equal(authFlow.consumePendingRefreshFailureStatus(), 'Unable to validate Spotify session. Please reconnect.');
+  assert.equal(authFlow.consumePendingRefreshFailureStatus(), null);
+  fetchMock.mock.restore();
+});
+
 test('refreshSpotifyAccessToken reports network failures and returns null', async () => {
   const store = installLocalStorage();
   store.set('r', 'refresh-token');

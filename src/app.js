@@ -149,7 +149,7 @@ async function bootstrap() {
   renderItemList();
   renderSessionQueue();
   renderPlaybackControls();
-  refreshAuthStatus();
+  refreshStartupAuthStatus();
   await ensureStoredItemTitles();
 }
 
@@ -315,6 +315,15 @@ function refreshAuthStatus() {
     return;
   }
   setAuthStatus('Connected.');
+}
+
+function refreshStartupAuthStatus() {
+  const refreshFailureStatus = authFlow.consumePendingRefreshFailureStatus();
+  if (refreshFailureStatus && !getToken()) {
+    setAuthStatus(refreshFailureStatus);
+    return;
+  }
+  refreshAuthStatus();
 }
 
 function getGrantedScopes() {
