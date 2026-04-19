@@ -41,23 +41,23 @@ test.describe('Storage JSON Import/Export', () => {
 
     await ui.storage.json.fill('');
     await ui.storage.importDataButton.click();
-    await expect(ui.toasts.byText('Paste a JSON object to import.')).toBeVisible();
+    await expect(ui.toasts.instance('Paste a JSON object to import.')).toBeVisible();
 
     await ui.storage.json.fill('{bad}');
     await ui.storage.importDataButton.click();
-    await expect(ui.toasts.byText('Invalid JSON. Please provide a valid JSON object.')).toBeVisible();
+    await expect(ui.toasts.instance('Invalid JSON. Please provide a valid JSON object.')).toBeVisible();
 
     await ui.storage.json.fill('[]');
     await ui.storage.importDataButton.click();
-    await expect(ui.toasts.byText('Import JSON must be an object of key/value pairs.')).toBeVisible();
+    await expect(ui.toasts.instance('Import JSON must be an object of key/value pairs.')).toBeVisible();
 
     await ui.storage.json.fill('{"other":[]}');
     await ui.storage.importDataButton.click();
-    await expect(ui.toasts.byText('Import JSON must include a valid shuffle-by-album.items array.')).toBeVisible();
+    await expect(ui.toasts.instance('Import JSON must include a valid shuffle-by-album.items array.')).toBeVisible();
 
     await ui.storage.json.fill('{"shuffle-by-album.items":[{"type":"album","uri":"spotify:album:no-title"}]}');
     await ui.storage.importDataButton.click();
-    await expect(ui.savedItems.byText('spotify:album:no-title')).toBeVisible();
+    await expect(ui.savedItems.row('spotify:album:no-title')).toBeVisible();
     await expect(ui.playback.status).toHaveText('Data imported. Session reset.');
     await expect(ui.playback.nextButton).toBeDisabled();
   });
@@ -72,7 +72,7 @@ test.describe('Storage JSON Import/Export', () => {
     await ui.storage.exportDataButton.click();
     await expect(ui.storage.json).toHaveValue('');
     await expect(
-      ui.toasts.byText('Unable to export saved items because stored data is invalid JSON.'),
+      ui.toasts.instance('Unable to export saved items because stored data is invalid JSON.'),
     ).toBeVisible();
   });
 });

@@ -23,7 +23,7 @@ test.describe('Auth and Connection States', () => {
 
     await expect(ui.auth.status).toHaveText('Not connected.');
     await ui.auth.disconnectButton.click();
-    await expect(ui.toasts.byText('Disconnected from Spotify.')).toBeVisible();
+    await expect(ui.toasts.instance('Disconnected from Spotify.')).toBeVisible();
   });
 
   test('Connect button stores a PKCE verifier and redirects to Spotify authorize', async ({ context, page, ui }) => {

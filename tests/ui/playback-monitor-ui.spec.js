@@ -185,7 +185,7 @@ test.describe('Playback Monitor Transitions', () => {
     });
 
     await expect(ui.playback.status).toHaveText('Unable to check playback state right now.');
-    await expect(ui.toasts.byText('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
+    await expect(ui.toasts.instance('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
     await expect(ui.playback.reattachButton).toBeHidden();
     await expect(ui.playback.nextButton).toBeEnabled();
   });

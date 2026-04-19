@@ -111,7 +111,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await expect(ui.playback.status).toHaveText(
       'Failed to reattach: Unable to check current Spotify playback (500): server busy.',
     );
-    await expect(ui.toasts.byText('Failed to reattach.')).toBeVisible();
+    await expect(ui.toasts.instance('Failed to reattach.')).toBeVisible();
     await expect(ui.playback.reattachButton).toBeVisible();
   });
 

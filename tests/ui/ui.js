@@ -21,7 +21,7 @@ export function makeUi(page) {
       stopButton: page.getByRole('button', { name: 'Stop', exact: true }),
       queueItems: {
         /** @param {string} text */
-        byText(text) {
+        row(text) {
           return page.locator('#queue-list > li').filter({ hasText: exactText(text) });
         },
       },
@@ -31,13 +31,13 @@ export function makeUi(page) {
       addButton: page.getByRole('button', { name: 'Add', exact: true }),
       importAlbumsButton: page.getByRole('button', { name: 'Import Albums', exact: true }),
       /** @param {string} text */
-      byText(text) {
-        return page.locator('#item-list > li > span').filter({ hasText: exactText(text) });
+      row(text) {
+        return page.locator('#item-list > li').filter({ has: page.getByText(text, { exact: true }) });
       },
     },
     toasts: {
       /** @param {string} text */
-      byText(text) {
+      instance(text) {
         return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
       },
     },
