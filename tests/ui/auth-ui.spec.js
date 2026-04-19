@@ -102,7 +102,7 @@ test.describe('Auth and Connection States', () => {
     );
   });
 
-  test('Expired access token with unsuccessful refresh shows auth validation failure', async ({ context, page, ui }) => {
+  test('Expired access token with unsuccessful refresh shows auth restore failure', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.token', 'expired-access-token');
       localStorage.setItem('shuffle-by-album.refreshToken', 'refresh-token');
@@ -118,7 +118,7 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(ui.auth.status).toHaveText('Unable to validate Spotify session. Please reconnect.');
+    await expect(ui.auth.status).toHaveText('Unable to restore Spotify session. Please reconnect.');
   });
 
   test('Missing playlist scopes shows reconnect warning', async ({ context, page, ui }) => {

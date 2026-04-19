@@ -158,8 +158,8 @@ async function ensureValidAccessToken() {
     await getUsableAccessToken();
   }, {
     context: 'auth',
-    fallbackMessage: 'Unable to validate Spotify session.',
-    authStatusMessage: 'Unable to validate Spotify session. Please reconnect.',
+    fallbackMessage: 'Unable to restore Spotify session.',
+    authStatusMessage: 'Unable to restore Spotify session. Please reconnect.',
     toastMode: 'cooldown',
     toastKey: 'auth-validate',
   });

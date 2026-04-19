@@ -62,7 +62,7 @@ test('refreshSpotifyAccessToken captures a validation failure status for non-ok 
   const token = await authFlow.refreshSpotifyAccessToken();
 
   assert.equal(token, null);
-  assert.equal(authFlow.consumePendingRefreshFailureStatus(), 'Unable to validate Spotify session. Please reconnect.');
+  assert.equal(authFlow.consumePendingRefreshFailureStatus(), 'Unable to restore Spotify session. Please reconnect.');
   assert.equal(authFlow.consumePendingRefreshFailureStatus(), null);
   fetchMock.mock.restore();
 });

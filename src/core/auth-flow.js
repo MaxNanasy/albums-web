@@ -150,7 +150,7 @@ export class AuthFlow {
       this.#pendingRefreshFailureStatus = 'Network issue refreshing Spotify session. Please reconnect if this continues.';
       this.#deps.reportError(error, {
         context: 'auth',
-        fallbackMessage: 'Unable to refresh Spotify session.',
+        fallbackMessage: 'Unable to restore Spotify session.',
         authStatusMessage: 'Network issue refreshing Spotify session. Please reconnect if this continues.',
         toastMode: 'cooldown',
         toastKey: 'refresh-token-network',
@@ -159,7 +159,7 @@ export class AuthFlow {
     }
 
     if (!response.ok) {
-      this.#pendingRefreshFailureStatus = 'Unable to validate Spotify session. Please reconnect.';
+      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session. Please reconnect.';
       return null;
     }
 
@@ -168,7 +168,7 @@ export class AuthFlow {
     try {
       data = /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */ (await response.json());
     } catch {
-      this.#pendingRefreshFailureStatus = 'Unable to validate Spotify session. Please reconnect.';
+      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session. Please reconnect.';
       return null;
     }
     if (!(
@@ -176,7 +176,7 @@ export class AuthFlow {
       typeof data.expires_in === 'number' &&
       Number.isFinite(data.expires_in))
     ) {
-      this.#pendingRefreshFailureStatus = 'Unable to validate Spotify session. Please reconnect.';
+      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session. Please reconnect.';
       return null;
     }
     localStorage.setItem(this.#deps.storageKeys.token, data.access_token);
