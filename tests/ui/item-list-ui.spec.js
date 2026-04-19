@@ -27,7 +27,7 @@ test.describe('Item List', () => {
     await page.goto('/');
 
     await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove', exact: true }).click();
-    await expect(page.getByRole('listitem').filter({ hasText: 'A' })).toHaveCount(0);
+    await expect(ui.savedItems.row('A')).toHaveCount(0);
 
     await ui.savedItems.uriInput.fill('spotify:album:newone');
     await ui.savedItems.addButton.click();

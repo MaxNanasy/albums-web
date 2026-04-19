@@ -195,6 +195,6 @@ test.describe('Playlist Album Import', () => {
     await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.toasts.instance('Imported 0 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
-    await expect(page.getByRole('listitem').filter({ hasText: 'Existing Album' })).toHaveCount(1);
+    await expect(ui.savedItems.row('Existing Album')).toHaveCount(1);
   });
 });
