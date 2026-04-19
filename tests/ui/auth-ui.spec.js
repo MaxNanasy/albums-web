@@ -133,7 +133,7 @@ test.describe('Auth and Connection States', () => {
     );
   });
 
-  test('Auth redirect with error clears query and records disconnected auth state', async ({ context, page, ui }) => {
+  test('Auth redirect with error clears query and records an explicit auth error state', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -141,18 +141,18 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?error=access_denied');
 
     await expect(page).toHaveURL('/');
-    await expect(ui.auth.status).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Spotify authorization error: access_denied');
   });
 
-  test('Auth redirect with code and missing verifier keeps code and leaves session disconnected', async ({ context, page, ui }) => {
+  test('Auth redirect with code and missing verifier clears the code and records the missing verifier state', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
 
     await page.goto('/?code=abc123');
 
-    await expect(page).toHaveURL('/?code=abc123');
-    await expect(ui.auth.status).toHaveText('Not connected.');
+    await expect(page).toHaveURL('/');
+    await expect(ui.auth.status).toHaveText('Missing PKCE verifier. Try connecting again.');
   });
 
   test('Successful code exchange stores tokens, clears verifier, and removes code from the URL', async ({ context, page, ui }) => {
@@ -198,7 +198,7 @@ test.describe('Auth and Connection States', () => {
     expect(authState.verifier).toBeNull();
   });
 
-  test('Failed code exchange attempts token request and keeps code in URL', async ({ context, page, ui }) => {
+  test('Failed code exchange clears the code, clears the verifier, and records the exchange failure', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
       localStorage.setItem('shuffle-by-album.pkceVerifier', 'verifier');
@@ -213,8 +213,12 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/?code=abc123');
 
-    await expect(page).toHaveURL('/?code=abc123');
-    await expect(ui.auth.status).toHaveText('Not connected.');
+    await expect(page).toHaveURL('/');
+    await expect(ui.auth.status).toHaveText(
+      'Spotify token exchange failed: Network error while contacting Spotify. Please try again.',
+    );
+    const verifier = await page.evaluate(() => localStorage.getItem('shuffle-by-album.pkceVerifier'));
+    expect(verifier).toBeNull();
     expect(requests).toHaveLength(1);
   });
 });

@@ -1,3 +1,6 @@
+import { spotifyStatusMessage } from '../spotify-status-message.js';
+import { userFacingErrorMessage } from './error-reporter.js';
+
 /**
  * @typedef AuthFlowDeps
  * @property {string[]} scopes
@@ -49,11 +52,16 @@ export class AuthFlow {
     const url = new URL(locationRef.href);
     const code = url.searchParams.get('code');
     const error = url.searchParams.get('error');
+    const clearHandledRedirectUrl = () => {
+      url.searchParams.delete('code');
+      url.searchParams.delete('error');
+      historyRef.replaceState({}, '', url.toString());
+    };
 
     if (error) {
       this.#deps.setAuthStatus(`Spotify authorization error: ${error}`);
-      url.searchParams.delete('error');
-      historyRef.replaceState({}, '', url.toString());
+      localStorage.removeItem(this.#deps.storageKeys.verifier);
+      clearHandledRedirectUrl();
       return;
     }
 
@@ -63,6 +71,7 @@ export class AuthFlow {
 
     if (!verifier) {
       this.#deps.setAuthStatus('Missing PKCE verifier. Try connecting again.');
+      clearHandledRedirectUrl();
       return;
     }
 
@@ -74,29 +83,63 @@ export class AuthFlow {
       code_verifier: verifier,
     });
 
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      this.#deps.setAuthStatus('Failed to exchange Spotify code for token.');
+    /** @type {Response} */
+    let response;
+    try {
+      response = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData,
+      });
+    } catch (error) {
+      localStorage.removeItem(this.#deps.storageKeys.verifier);
+      this.#deps.setAuthStatus(
+        tokenExchangeFailureStatus(
+          userFacingErrorMessage(error, 'Network error while contacting Spotify. Please try again.'),
+        ),
+      );
+      clearHandledRedirectUrl();
       return;
     }
 
-    /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */
-    const data = /** @type {{access_token: string; refresh_token?: string; expires_in: number; scope?: string}} */ (await response.json());
+    localStorage.removeItem(this.#deps.storageKeys.verifier);
+
+    if (!response.ok) {
+      this.#deps.setAuthStatus(
+        tokenExchangeFailureStatus(
+          spotifyStatusMessage(response.status, 'Network error while contacting Spotify. Please try again.'),
+        ),
+      );
+      clearHandledRedirectUrl();
+      return;
+    }
+
+    /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */
+    let data;
+    try {
+      data = /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */ (await response.json());
+    } catch {
+      this.#deps.setAuthStatus(tokenExchangeFailureStatus('invalid token response'));
+      clearHandledRedirectUrl();
+      return;
+    }
+    if (!(
+      typeof data.access_token === 'string' &&
+      typeof data.expires_in === 'number' &&
+      Number.isFinite(data.expires_in)
+    )) {
+      this.#deps.setAuthStatus(tokenExchangeFailureStatus('invalid token response'));
+      clearHandledRedirectUrl();
+      return;
+    }
     localStorage.setItem(this.#deps.storageKeys.token, data.access_token);
     if (data.refresh_token) {
       localStorage.setItem(this.#deps.storageKeys.refreshToken, data.refresh_token);
     }
     localStorage.setItem(this.#deps.storageKeys.tokenExpiry, String(Date.now() + data.expires_in * 1000));
     localStorage.setItem(this.#deps.storageKeys.tokenScope, data.scope ?? '');
-    localStorage.removeItem(this.#deps.storageKeys.verifier);
 
-    url.searchParams.delete('code');
-    historyRef.replaceState({}, '', url.toString());
+    clearHandledRedirectUrl();
   }
 
   clearAuth() {
@@ -222,4 +265,16 @@ async function codeChallengeFromVerifier(verifier) {
   for (const byte of bytes) str += String.fromCharCode(byte);
 
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+
+/** @param {string} detail */
+function tokenExchangeFailureStatus(detail) {
+  return `Spotify token exchange failed: ${ensureTrailingPeriod(detail)}`;
+}
+
+/** @param {string} message */
+function ensureTrailingPeriod(message) {
+  const trimmed = message.trim().replace(/[.!?]+$/u, '');
+  return `${trimmed}.`;
 }
