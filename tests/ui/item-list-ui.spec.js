@@ -26,20 +26,20 @@ test.describe('Item List', () => {
 
     await page.goto('/');
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove', exact: true }).click();
+    await ui.savedItems.removeButton('A').click();
     await expect(ui.savedItems.row('A')).toHaveCount(0);
 
     await ui.savedItems.uriInput.fill('spotify:album:newone');
     await ui.savedItems.addButton.click();
     await ui.toasts.instance('Added “New One”.').waitFor();
 
-    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await ui.toasts.undoButton('Removed “A”.').click();
     await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove', exact: true }).click();
+    await ui.savedItems.removeButton('A').click();
     await ui.savedItems.uriInput.fill('spotify:album:a');
     await ui.savedItems.addButton.click();
-    await page.getByRole('button', { name: 'Undo', exact: true }).last().click();
+    await ui.toasts.undoButton('Removed “A”.').click();
     await expect(ui.toasts.instance('Item is already in your list.')).toBeVisible();
   });
 });

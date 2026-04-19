@@ -34,11 +34,21 @@ export function makeUi(page) {
       row(text) {
         return page.locator('#item-list > li').filter({ has: page.getByText(text, { exact: true }) });
       },
+      /** @param {string} itemText */
+      removeButton(itemText) {
+        return this.row(itemText).getByRole('button', { name: 'Remove', exact: true });
+      },
     },
     toasts: {
       /** @param {string} text */
       instance(text) {
-        return page.locator('#toast-stack .toast-message').filter({ hasText: exactText(text) });
+        return page.locator('#toast-stack .toast').filter({
+          has: page.locator('.toast-message', { hasText: exactText(text) }),
+        });
+      },
+      /** @param {string} toastText */
+      undoButton(toastText) {
+        return this.instance(toastText).getByRole('button', { name: 'Undo', exact: true });
       },
     },
     storage: {
