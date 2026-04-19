@@ -22,6 +22,37 @@ export async function installStableBrowserState(context) {
       /** @type {typeof window.setInterval} */
       (() => /** @type {unknown} */ (1));
     window.clearInterval = () => {};
+
+    let nextTimeoutId = 1;
+
+    /**
+     * @param {((...args: unknown[]) => unknown) | string} handler
+     * @param {number} timeout
+     * @param {...unknown} args
+     */
+    function stableSetTimeout(handler, timeout = 0, ...args) {
+      const timeoutId = nextTimeoutId++;
+
+      // Preserve short timers so toast close and leave animations still finish,
+      // while suppressing longer auto-dismiss timers that can race test assertions.
+      if (timeout > 200) {
+        return /** @type {unknown} */ (timeoutId);
+      }
+
+      queueMicrotask(() => {
+        if (typeof handler === 'function') {
+          handler(...args);
+          return;
+        }
+        globalThis.eval(handler);
+      });
+
+      return timeoutId;
+    };
+
+    window.setTimeout =
+      /** @type {typeof window.setTimeout} */ (/** @type unknown */ (stableSetTimeout));
+    window.clearTimeout = () => {};
   });
 }
 
