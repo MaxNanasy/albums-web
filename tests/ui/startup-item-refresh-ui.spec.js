@@ -1,6 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { isSpotifyApiRequest } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -8,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Startup Item Title Refresh', () => {
-  test('Startup title refresh updates missing title and tolerates failures', async ({ context, page }) => {
+  test('Startup title refresh updates missing title and tolerates failures', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:ok', title: '' },
       { type: 'album', uri: 'spotify:album:fail', title: '' },
@@ -27,7 +26,7 @@ test.describe('Startup Item Title Refresh', () => {
 
     await page.goto('/');
 
-    await expect(page.getByText('OK Title', { exact: true })).toBeVisible();
-    await expect(page.getByText('spotify:album:fail', { exact: true })).toBeVisible();
+    await expect(ui.savedItems.row('OK Title')).toBeVisible();
+    await expect(ui.savedItems.row('spotify:album:fail')).toBeVisible();
   });
 });

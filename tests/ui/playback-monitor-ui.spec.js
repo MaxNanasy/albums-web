@@ -1,6 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { isSpotifyApiRequest } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems } from './common.js';
 
 /** @typedef {typeof globalThis & { __monitorCallbacks: Array<() => void> }} TestGlobal */
 
@@ -10,7 +9,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Playback Monitor Transitions', () => {
-  test('Monitor advances on null context after observing current context', async ({ context, page }) => {
+  test('Monitor advances on null context after observing current context', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];
@@ -57,8 +56,8 @@ test.describe('Playback Monitor Transitions', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Now playing album 1 of 2: One', { exact: true })).toBeVisible();
+    await ui.playback.startButton.click();
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 2: One');
 
     await page.evaluate(async () => {
       const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
@@ -71,10 +70,10 @@ test.describe('Playback Monitor Transitions', () => {
       const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
       if (typeof callback === 'function') await callback();
     });
-    await expect(page.getByText('Now playing album 2 of 2: Two', { exact: true })).toBeVisible();
+    await expect(ui.playback.status).toHaveText('Now playing album 2 of 2: Two');
   });
 
-  test('Monitor mismatch detaches session with mismatch message', async ({ context, page }) => {
+  test('Monitor mismatch detaches session with mismatch message', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];
@@ -118,8 +117,8 @@ test.describe('Playback Monitor Transitions', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
-    await expect(page.getByText('Now playing album 1 of 1: One', { exact: true })).toBeVisible();
+    await ui.playback.startButton.click();
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: One');
 
     await page.evaluate(async () => {
       const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
@@ -131,14 +130,12 @@ test.describe('Playback Monitor Transitions', () => {
       const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
       if (typeof callback === 'function') await callback();
     });
-    await expect(
-      page.getByText('Spotify is playing a different album/playlist than this app expects. Reattach to resume.', {
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(ui.playback.status).toHaveText(
+      'Spotify is playing a different album/playlist than this app expects. Reattach to resume.',
+    );
   });
 
-  test('Recoverable monitor errors show status/toast and keep session active', async ({ context, page }) => {
+  test('Recoverable monitor errors show status/toast and keep session active', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];
@@ -177,7 +174,7 @@ test.describe('Playback Monitor Transitions', () => {
     ]);
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start' }).click();
+    await ui.playback.startButton.click();
     await page.waitForFunction(
       () => Array.isArray((/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks)
         && (/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks.length > 0,
@@ -187,9 +184,9 @@ test.describe('Playback Monitor Transitions', () => {
       if (typeof callback === 'function') await callback();
     });
 
-    await expect(page.getByText('Unable to check playback state right now.', { exact: true })).toBeVisible();
-    await expect(page.getByText('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reattach' })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await expect(ui.playback.status).toHaveText('Unable to check playback state right now.');
+    await expect(ui.toasts.instance('Spotify rate limit reached. Please wait a moment and retry.')).toBeVisible();
+    await expect(ui.playback.reattachButton).toBeHidden();
+    await expect(ui.playback.nextButton).toBeEnabled();
   });
 });

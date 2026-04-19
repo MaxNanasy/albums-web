@@ -1,6 +1,5 @@
 import { expect, installSpotifyRoutes, test } from './fixtures.js';
-import { installStableBrowserState, seedConnectedAuth, seedItems } from './common.js';
-import { isSpotifyApiRequest } from './common.js';
+import { installStableBrowserState, isSpotifyApiRequest, seedConnectedAuth, seedItems } from './common.js';
 
 test.beforeEach(async ({ context }) => {
   await installStableBrowserState(context);
@@ -8,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Item List', () => {
-  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page }) => {
+  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
@@ -27,20 +26,20 @@ test.describe('Item List', () => {
 
     await page.goto('/');
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
-    await expect(page.getByRole('listitem').filter({ hasText: 'A' })).toHaveCount(0);
+    await ui.savedItems.removeButton('A').click();
+    await expect(ui.savedItems.row('A')).toHaveCount(0);
 
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:newone');
-    await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByText('Added “New One”.', { exact: true }).waitFor();
+    await ui.savedItems.uriInput.fill('spotify:album:newone');
+    await ui.savedItems.addButton.click();
+    await ui.toasts.instance('Added “New One”.').waitFor();
 
-    await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(page.getByText('Restored “A”.', { exact: true })).toBeVisible();
+    await ui.toasts.undoButton('Removed “A”.').click();
+    await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
 
-    await page.getByRole('listitem').filter({ hasText: 'A' }).getByRole('button', { name: 'Remove' }).click();
-    await page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...').fill('spotify:album:a');
-    await page.getByRole('button', { name: 'Add' }).click();
-    await page.getByRole('button', { name: 'Undo' }).last().click();
-    await expect(page.getByText('Item is already in your list.', { exact: true })).toBeVisible();
+    await ui.savedItems.removeButton('A').click();
+    await ui.savedItems.uriInput.fill('spotify:album:a');
+    await ui.savedItems.addButton.click();
+    await ui.toasts.undoButton('Removed “A”.').click();
+    await expect(ui.toasts.instance('Item is already in your list.')).toBeVisible();
   });
 });

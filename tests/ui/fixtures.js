@@ -1,8 +1,10 @@
 import { expect, test as base } from '@playwright/test';
+import { makeUi } from './ui.js';
 
 /** @typedef {import('@playwright/test').BrowserContext} BrowserContext */
 /** @typedef {import('@playwright/test').Request} Request */
 /** @typedef {import('@playwright/test').Route} Route */
+/** @typedef {ReturnType<typeof makeUi>} Ui */
 
 /**
  * @typedef RecordedSpotifyRequest
@@ -45,7 +47,7 @@ async function installSpotifyRouteGuard(context) {
 /** @typedef {import('@playwright/test').PlaywrightTestArgs & import('@playwright/test').PlaywrightTestOptions} PlaywrightTestContext */
 /** @typedef {import('@playwright/test').PlaywrightWorkerArgs & import('@playwright/test').PlaywrightWorkerOptions} PlaywrightWorkerContext */
 
-/** @type {import('@playwright/test').Fixtures<{ _spotifyRouteGuard: void }, {}, PlaywrightTestContext, PlaywrightWorkerContext>} */
+/** @type {import('@playwright/test').Fixtures<{ _spotifyRouteGuard: void, ui: Ui }, {}, PlaywrightTestContext, PlaywrightWorkerContext>} */
 const fixtures = {
   _spotifyRouteGuard: [async ({ context }, use) => {
     await installSpotifyRouteGuard(context);
@@ -55,6 +57,9 @@ const fixtures = {
       spotifyRouteDefinitionsByContext.delete(context);
     }
   }, { auto: true }],
+  ui: async ({ page }, use) => {
+    await use(makeUi(page));
+  },
 };
 
 const test = base.extend(fixtures);
