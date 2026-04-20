@@ -318,11 +318,18 @@ function refreshAuthStatus() {
 }
 
 function refreshStartupAuthStatus() {
+  const redirectStatus = authFlow.consumePendingRedirectStatus();
+  if (redirectStatus && !getToken()) {
+    setAuthStatus(redirectStatus);
+    return;
+  }
+
   const refreshFailureStatus = authFlow.consumePendingRefreshFailureStatus();
   if (refreshFailureStatus && !getToken()) {
     setAuthStatus(refreshFailureStatus);
     return;
   }
+
   refreshAuthStatus();
 }
 
