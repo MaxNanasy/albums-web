@@ -133,7 +133,7 @@ test.describe('Auth and Connection States', () => {
     );
   });
 
-  test('Auth redirect with error clears query and reports an explicit auth error', async ({ context, page, ui }) => {
+  test('Auth redirect with `access_denied` clears query and reports authorization denied', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -141,7 +141,18 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?error=access_denied');
 
     await expect(page).toHaveURL('/');
-    await expect(ui.auth.status).toHaveText('Spotify authorization error: access_denied');
+    await expect(ui.auth.status).toHaveText('Spotify authorization denied.');
+  });
+
+  test('Auth redirect with other error clears query and reports an explicit auth error', async ({ context, page, ui }) => {
+    await context.addInitScript(() => {
+      localStorage.clear();
+    });
+
+    await page.goto('/?error=unauthorized_client');
+
+    await expect(page).toHaveURL('/');
+    await expect(ui.auth.status).toHaveText('Spotify authorization error: unauthorized_client');
   });
 
   test('Auth redirect with code and missing verifier clears the code and reports the missing verifier', async ({ context, page, ui }) => {
