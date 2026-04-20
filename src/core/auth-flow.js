@@ -15,10 +15,13 @@ export class AuthFlow {
   #deps;
   /** @type {string | null} */
   #pendingRefreshFailureStatus;
+  /** @type {string | null} */
+  #pendingRedirectStatus;
   /** @param {AuthFlowDeps} deps */
   constructor(deps) {
     this.#deps = deps;
     this.#pendingRefreshFailureStatus = null;
+    this.#pendingRedirectStatus = null;
   }
 
   async startLogin() {
@@ -43,6 +46,8 @@ export class AuthFlow {
   }
 
   async handleAuthRedirect() {
+    this.#pendingRedirectStatus = null;
+
     const locationRef = /** @type {{origin: string; pathname: string; href: string}} */ (
       /** @type {unknown} */ (Reflect.get(globalThis, 'location'))
     );
@@ -59,7 +64,9 @@ export class AuthFlow {
     };
 
     if (error) {
-      this.#deps.setAuthStatus(`Spotify authorization error: ${error}`);
+      const status = `Spotify authorization error: ${error}`;
+      this.#pendingRedirectStatus = status;
+      this.#deps.setAuthStatus(status);
       localStorage.removeItem(this.#deps.storageKeys.verifier);
       clearHandledRedirectUrl();
       return;
@@ -70,7 +77,9 @@ export class AuthFlow {
     const verifier = localStorage.getItem(this.#deps.storageKeys.verifier);
 
     if (!verifier) {
-      this.#deps.setAuthStatus('Missing PKCE verifier. Try connecting again.');
+      const status = 'Missing PKCE verifier. Try connecting again.';
+      this.#pendingRedirectStatus = status;
+      this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
       return;
     }
@@ -93,11 +102,11 @@ export class AuthFlow {
       });
     } catch (error) {
       localStorage.removeItem(this.#deps.storageKeys.verifier);
-      this.#deps.setAuthStatus(
-        tokenExchangeFailureStatus(
-          userFacingErrorMessage(error, 'Network error while contacting Spotify. Please try again.'),
-        ),
+      const status = tokenExchangeFailureStatus(
+        userFacingErrorMessage(error, 'Network error while contacting Spotify. Please try again.'),
       );
+      this.#pendingRedirectStatus = status;
+      this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
       return;
     }
@@ -105,11 +114,11 @@ export class AuthFlow {
     localStorage.removeItem(this.#deps.storageKeys.verifier);
 
     if (!response.ok) {
-      this.#deps.setAuthStatus(
-        tokenExchangeFailureStatus(
-          spotifyStatusMessage(response.status, 'Network error while contacting Spotify. Please try again.'),
-        ),
+      const status = tokenExchangeFailureStatus(
+        spotifyStatusMessage(response.status, 'Network error while contacting Spotify. Please try again.'),
       );
+      this.#pendingRedirectStatus = status;
+      this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
       return;
     }
@@ -119,7 +128,9 @@ export class AuthFlow {
     try {
       data = /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */ (await response.json());
     } catch {
-      this.#deps.setAuthStatus(tokenExchangeFailureStatus('invalid token response'));
+      const status = tokenExchangeFailureStatus('invalid token response');
+      this.#pendingRedirectStatus = status;
+      this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
       return;
     }
@@ -128,7 +139,9 @@ export class AuthFlow {
       typeof data.expires_in === 'number' &&
       Number.isFinite(data.expires_in)
     )) {
-      this.#deps.setAuthStatus(tokenExchangeFailureStatus('invalid token response'));
+      const status = tokenExchangeFailureStatus('invalid token response');
+      this.#pendingRedirectStatus = status;
+      this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
       return;
     }
@@ -167,6 +180,12 @@ export class AuthFlow {
   consumePendingRefreshFailureStatus() {
     const pendingStatus = this.#pendingRefreshFailureStatus;
     this.#pendingRefreshFailureStatus = null;
+    return pendingStatus;
+  }
+
+  consumePendingRedirectStatus() {
+    const pendingStatus = this.#pendingRedirectStatus;
+    this.#pendingRedirectStatus = null;
     return pendingStatus;
   }
 
