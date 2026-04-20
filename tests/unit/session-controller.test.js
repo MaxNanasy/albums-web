@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SessionController } from '../src/core/session-controller.js';
+import { SessionController } from '#src/core/session-controller.js';
 
 function installLocalStorage() {
   /** @type {Map<string, string>} */
@@ -34,7 +34,7 @@ function createController() {
   const controller = new SessionController({
     runtimeStorageKey: 'runtime',
     getUsableAccessToken: async () => 'token',
-    spotifyAppApi: /** @type {import('../src/spotify-app-api.js').SpotifyAppApi} */ (/** @type {unknown} */ ({
+    spotifyAppApi: /** @type {import('#src/spotify-app-api.js').SpotifyAppApi} */ (/** @type {unknown} */ ({
       disableShuffle: async () => {},
       disableRepeat: async () => {},
       playContext: async () => {},

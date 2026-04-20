@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ItemStore } from '../src/core/item-store.js';
+import { ItemStore } from '#src/core/item-store.js';
 
 function installLocalStorage() {
   /** @type {Map<string, string>} */

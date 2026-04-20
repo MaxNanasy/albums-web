@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ErrorReporter } from '../src/core/error-reporter.js';
+import { ErrorReporter } from '#src/core/error-reporter.js';
 
 test('ErrorReporter reports and cooldown-gates toasts', () => {
   /** @type {{message: string; type: 'success' | 'info' | 'error' | undefined}[]} */

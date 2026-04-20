@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { exportItemsData, importItemsData } from '../src/core/storage-transfer.js';
+import { exportItemsData, importItemsData } from '#src/core/storage-transfer.js';
 
 test('exportItemsData exports parsed items or empty array', () => {
   const exported = exportItemsData('[{"type":"album","uri":"spotify:album:a"}]', 'shuffle-by-album.items');

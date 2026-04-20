@@ -1,7 +1,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AuthFlow } from '../src/core/auth-flow.js';
+import { AuthFlow } from '#src/core/auth-flow.js';
 
 function installLocalStorage() {
   /** @type {Map<string, string>} */
