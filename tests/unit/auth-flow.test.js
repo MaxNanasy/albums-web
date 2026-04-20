@@ -23,7 +23,36 @@ function installLocalStorage() {
   return store;
 }
 
-function createAuthFlow(reportError = () => {}) {
+function installBrowserState(href = 'http://127.0.0.1:4173/') {
+  const locationRef = {
+    origin: 'http://127.0.0.1:4173',
+    pathname: '/',
+    href,
+  };
+  Object.defineProperty(globalThis, 'location', {
+    value: locationRef,
+    configurable: true,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, 'history', {
+    value: {
+      replaceState: (/** @type {unknown} */ _data, /** @type {string} */ _unused, /** @type {string} */ url) => {
+        locationRef.href = url;
+      },
+    },
+    configurable: true,
+    writable: true,
+  });
+  return locationRef;
+}
+
+/**
+ * @param {{
+ *   reportError?: (error: unknown, options: { context: string; fallbackMessage: string; authStatusMessage?: string; toastMode?: 'always'|'cooldown'; toastKey?: string; }) => void;
+ *   setAuthStatus?: (message: string) => void;
+ * }} [options]
+ */
+function createAuthFlow({ reportError = () => {}, setAuthStatus = () => {} } = {}) {
   return new AuthFlow({
     scopes: ['a'],
     spotifyAppId: 'id',
@@ -35,7 +64,7 @@ function createAuthFlow(reportError = () => {}) {
       tokenScope: 's',
     },
     reportError,
-    setAuthStatus: () => {},
+    setAuthStatus,
   });
 }
 
@@ -72,8 +101,10 @@ test('refreshSpotifyAccessToken reports network failures and returns null', asyn
   store.set('r', 'refresh-token');
 
   let reported = false;
-  const authFlow = createAuthFlow(() => {
-    reported = true;
+  const authFlow = createAuthFlow({
+    reportError: () => {
+      reported = true;
+    },
   });
 
   const fetchMock = mock.method(globalThis, 'fetch', async () => {
@@ -84,5 +115,90 @@ test('refreshSpotifyAccessToken reports network failures and returns null', asyn
 
   assert.equal(token, null);
   assert.equal(reported, true);
+  fetchMock.mock.restore();
+});
+
+
+test('handleAuthRedirect records an authorization error, clears the verifier, and removes the query', async () => {
+  const store = installLocalStorage();
+  store.set('v', 'verifier');
+  installBrowserState('http://127.0.0.1:4173/?error=access_denied');
+
+  /** @type {string[]} */
+  const statuses = [];
+  const authFlow = createAuthFlow({
+    setAuthStatus: (message) => {
+      statuses.push(message);
+    },
+  });
+
+  await authFlow.handleAuthRedirect();
+
+  assert.deepEqual(statuses, ['Spotify authorization denied.']);
+  assert.equal(globalThis.localStorage.getItem('v'), null);
+  assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
+});
+
+test('handleAuthRedirect reports a missing verifier and clears the handled code from the URL', async () => {
+  installLocalStorage();
+  installBrowserState('http://127.0.0.1:4173/?code=abc123');
+
+  /** @type {string[]} */
+  const statuses = [];
+  const authFlow = createAuthFlow({
+    setAuthStatus: (message) => {
+      statuses.push(message);
+    },
+  });
+
+  await authFlow.handleAuthRedirect();
+
+  assert.deepEqual(statuses, ['Missing PKCE verifier. Try connecting again.']);
+  assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
+});
+
+test('handleAuthRedirect reports exchange failures, clears the verifier, and removes the handled code', async () => {
+  const store = installLocalStorage();
+  store.set('v', 'verifier');
+  installBrowserState('http://127.0.0.1:4173/?code=abc123');
+
+  /** @type {string[]} */
+  const statuses = [];
+  const authFlow = createAuthFlow({
+    setAuthStatus: (message) => {
+      statuses.push(message);
+    },
+  });
+
+  const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('bad code', { status: 400 }));
+
+  await authFlow.handleAuthRedirect();
+
+  assert.deepEqual(statuses, ['Spotify token exchange failed: Network error while contacting Spotify. Please try again.']);
+  assert.equal(globalThis.localStorage.getItem('v'), null);
+  assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
+  fetchMock.mock.restore();
+});
+
+test('handleAuthRedirect reports invalid token responses after a successful exchange HTTP response', async () => {
+  const store = installLocalStorage();
+  store.set('v', 'verifier');
+  installBrowserState('http://127.0.0.1:4173/?code=abc123');
+
+  /** @type {string[]} */
+  const statuses = [];
+  const authFlow = createAuthFlow({
+    setAuthStatus: (message) => {
+      statuses.push(message);
+    },
+  });
+
+  const fetchMock = mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ expires_in: 3600 }), { status: 200 }));
+
+  await authFlow.handleAuthRedirect();
+
+  assert.deepEqual(statuses, ['Spotify token exchange failed: invalid token response.']);
+  assert.equal(globalThis.localStorage.getItem('v'), null);
+  assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
   fetchMock.mock.restore();
 });
