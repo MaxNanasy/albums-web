@@ -134,7 +134,7 @@ test('handleAuthRedirect records an authorization error, clears the verifier, an
 
   await authFlow.handleAuthRedirect();
 
-  assert.deepEqual(statuses, ['Spotify authorization error: access_denied']);
+  assert.deepEqual(statuses, ['Spotify authorization denied.']);
   assert.equal(globalThis.localStorage.getItem('v'), null);
   assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
 });
