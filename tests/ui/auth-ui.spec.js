@@ -133,7 +133,7 @@ test.describe('Auth and Connection States', () => {
     );
   });
 
-  test('Auth redirect with error clears query and records an explicit auth error state', async ({ context, page, ui }) => {
+  test('Auth redirect with error clears query and reports an explicit auth error', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -144,7 +144,7 @@ test.describe('Auth and Connection States', () => {
     await expect(ui.auth.status).toHaveText('Spotify authorization error: access_denied');
   });
 
-  test('Auth redirect with code and missing verifier clears the code and records the missing verifier state', async ({ context, page, ui }) => {
+  test('Auth redirect with code and missing verifier clears the code and reports the missing verifier', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
     });
@@ -198,7 +198,7 @@ test.describe('Auth and Connection States', () => {
     expect(authState.verifier).toBeNull();
   });
 
-  test('Failed code exchange clears the code, clears the verifier, and records the exchange failure', async ({ context, page, ui }) => {
+  test('Failed code exchange clears the code, clears the verifier, and reports the exchange failure', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.clear();
       localStorage.setItem('shuffle-by-album.pkceVerifier', 'verifier');
