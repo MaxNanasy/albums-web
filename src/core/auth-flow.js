@@ -64,7 +64,9 @@ export class AuthFlow {
     };
 
     if (error) {
-      const status = `Spotify authorization error: ${error}`;
+      const status = error === 'access_denied'
+        ? 'Spotify authorization denied.'
+        : `Spotify authorization error: ${error}`;
       this.#pendingRedirectStatus = status;
       this.#deps.setAuthStatus(status);
       localStorage.removeItem(this.#deps.storageKeys.verifier);
