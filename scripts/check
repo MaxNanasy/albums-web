@@ -27,23 +27,11 @@ with_failed_output() (
   exit "$status"
 )
 
-tsc_status=0
-npx tsc || tsc_status=$?
-
-tests_tsc_status=0
-npx tsc -p tests/tsconfig.json || tests_tsc_status=$?
-
-tc_status=0
-with_failed_output npx type-coverage || tc_status=$?
-
-tests_tc_status=0
-with_failed_output npx type-coverage --project tests/tsconfig.json || tests_tc_status=$?
+typechecking_status=0
+npm run check:types || typechecking_status=$?
 
 test_status=0
 with_failed_output npm test || test_status=$?
 
-[ "$tsc_status" -eq 0 ] \
-  && [ "$tests_tsc_status" -eq 0 ] \
-  && [ "$tc_status" -eq 0 ] \
-  && [ "$tests_tc_status" -eq 0 ] \
+[ "$typechecking_status" -eq 0 ] \
   && [ "$test_status" -eq 0 ]
