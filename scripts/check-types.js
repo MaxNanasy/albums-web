@@ -44,10 +44,9 @@ function loadTypeCoverageCore() {
 }
 
 function runTypescriptCheck(project) {
-  printSection(`TypeScript (${project.name})`);
-
   const parsed = parseTsConfig(project.configPath);
   if (!parsed.ok) {
+    printFailureHeader(`TypeScript (${project.name})`);
     printDiagnostics(parsed.diagnostics);
     return false;
   }
@@ -60,10 +59,10 @@ function runTypescriptCheck(project) {
   const diagnostics = ts.getPreEmitDiagnostics(program);
 
   if (diagnostics.length === 0) {
-    console.log('OK');
     return true;
   }
 
+  printFailureHeader(`TypeScript (${project.name})`);
   printDiagnostics(diagnostics);
   return false;
 }
@@ -109,8 +108,6 @@ function printDiagnostics(diagnostics) {
 }
 
 async function runTypeCoverageCheck(project) {
-  printSection(`type-coverage (${project.name})`);
-
   try {
     const result = await lint(project.configPath, {
       enableCache: false,
@@ -124,7 +121,12 @@ async function runTypeCoverageCheck(project) {
     const threshold = getCoverageThreshold(typeCoverageConfig);
     const passed = threshold === null ? true : summary.coverage >= threshold;
 
-    console.log(
+    if (passed) {
+      return true;
+    }
+
+    printFailureHeader(`type-coverage (${project.name})`);
+    console.error(
       `${summary.coverageText}% (${result.correctCount}/${result.totalCount})`,
     );
 
@@ -132,16 +134,12 @@ async function runTypeCoverageCheck(project) {
       printTypeCoverageDetails(result.anys);
     }
 
-    if (passed) {
-      console.log('OK');
-      return true;
-    }
-
     console.error(
       `Coverage ${summary.coverageText}% is below required ${formatPercentage(threshold)}%.`,
     );
     return false;
   } catch (error) {
+    printFailureHeader(`type-coverage (${project.name})`);
     console.error(error instanceof Error ? error.stack ?? error.message : String(error));
     return false;
   }
@@ -180,6 +178,6 @@ function printTypeCoverageDetails(anys) {
   }
 }
 
-function printSection(title) {
-  console.log(`\n${title}`);
+function printFailureHeader(title) {
+  console.error(`\n${title}`);
 }
