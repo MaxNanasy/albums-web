@@ -62,6 +62,49 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(ui.playback.nextButton).toBeDisabled();
   });
 
+  test('Export includes Removed Items and import restores it', async ({ context, page, ui }) => {
+    await seedItems(context, [
+      { type: 'album', uri: 'spotify:album:one', title: 'One' },
+      { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+    ]);
+
+    await page.goto('/');
+
+    await ui.savedItems.removeButton('One').click();
+    await expect(ui.removedItems.row('One')).toBeVisible();
+
+    await ui.storage.exportDataButton.click();
+    /** @type {Record<string, unknown>} */
+    const exported = JSON.parse(await ui.storage.json.inputValue());
+    await expect(exported['shuffle-by-album.items']).toEqual([
+      { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+    ]);
+    await expect(exported['shuffle-by-album.removedItems']).toEqual([
+      { type: 'album', uri: 'spotify:album:one', title: 'One' },
+    ]);
+
+    await ui.storage.json.fill(JSON.stringify({
+      'shuffle-by-album.items': [
+        { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+      ],
+      'shuffle-by-album.removedItems': [
+        { type: 'album', uri: 'spotify:album:restorable', title: 'Restorable' },
+      ],
+    }));
+    await ui.storage.importDataButton.click();
+
+    await expect(ui.savedItems.row('Two')).toBeVisible();
+    await expect(ui.savedItems.row('One')).toHaveCount(0);
+    await expect(ui.removedItems.section).toBeVisible();
+    await expect(ui.removedItems.row('Restorable')).toBeVisible();
+    await expect(ui.removedItems.row('One')).toHaveCount(0);
+
+    await ui.removedItems.restoreButton('Restorable').click();
+    await expect(ui.savedItems.row('Restorable')).toBeVisible();
+    await expect(ui.savedItems.titles).toHaveText(['Two', 'Restorable']);
+    await expect(ui.removedItems.section).toBeHidden();
+  });
+
   test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.items', '{bad-json');

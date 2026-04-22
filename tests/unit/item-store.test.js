@@ -25,7 +25,10 @@ function installLocalStorage() {
 
 test('ItemStore normalizes import/get and supports remove/restore', () => {
   installLocalStorage();
-  const itemStore = new ItemStore({ items: 'shuffle-by-album.items' });
+  const itemStore = new ItemStore({
+    items: 'shuffle-by-album.items',
+    removedItems: 'shuffle-by-album.removedItems',
+  });
 
   const imported = itemStore.importFromJson(
     JSON.stringify({

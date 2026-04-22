@@ -30,6 +30,7 @@ export function makeUi(page) {
       uriInput: page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...'),
       addButton: page.getByRole('button', { name: 'Add', exact: true }),
       importAlbumsButton: page.getByRole('button', { name: 'Import Albums', exact: true }),
+      titles: page.locator('#item-list > li > span'),
       /** @param {string} text */
       row(text) {
         return page.locator('#item-list > li').filter({ has: page.getByText(text, { exact: true }) });
@@ -37,6 +38,25 @@ export function makeUi(page) {
       /** @param {string} itemText */
       removeButton(itemText) {
         return this.row(itemText).getByRole('button', { name: 'Remove', exact: true });
+      },
+    },
+    removedItems: {
+      section: page.locator('#removed-items-section'),
+      count: page.locator('#removed-items-count'),
+      purgeDialog: page.locator('#purge-removed-items-dialog'),
+      purgeDialogMessage: page.locator('#purge-removed-items-message'),
+      /** @param {string} text */
+      row(text) {
+        return page.locator('#removed-items-list > li').filter({
+          has: page.getByText(text, { exact: true }),
+        });
+      },
+      purgeButton: page.getByRole('button', { name: 'Purge', exact: true }),
+      cancelPurgeButton: page.getByRole('button', { name: 'Cancel', exact: true }),
+      confirmPurgeButton: page.getByRole('button', { name: 'Purge', exact: true }).nth(1),
+      /** @param {string} itemText */
+      restoreButton(itemText) {
+        return this.row(itemText).getByRole('button', { name: 'Restore', exact: true });
       },
     },
     toasts: {

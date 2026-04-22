@@ -4,15 +4,24 @@ import assert from 'node:assert/strict';
 import { exportItemsData, importItemsData } from '#src/core/storage-transfer.js';
 
 test('exportItemsData exports parsed items or empty array', () => {
-  const exported = exportItemsData('[{"type":"album","uri":"spotify:album:a"}]', 'shuffle-by-album.items');
+  const exported = exportItemsData(
+    '[{"type":"album","uri":"spotify:album:a"}]',
+    'shuffle-by-album.items',
+    null,
+    'shuffle-by-album.removedItems',
+  );
   assert.equal(exported.error, null);
   assert.deepEqual(exported.data, {
     'shuffle-by-album.items': [{ type: 'album', uri: 'spotify:album:a' }],
+    'shuffle-by-album.removedItems': [],
   });
 
-  const empty = exportItemsData(null, 'shuffle-by-album.items');
+  const empty = exportItemsData(null, 'shuffle-by-album.items', null, 'shuffle-by-album.removedItems');
   assert.equal(empty.error, null);
-  assert.deepEqual(empty.data, { 'shuffle-by-album.items': [] });
+  assert.deepEqual(empty.data, {
+    'shuffle-by-album.items': [],
+    'shuffle-by-album.removedItems': [],
+  });
 });
 
 test('importItemsData validates shape and filters invalid entries', () => {
@@ -24,6 +33,7 @@ test('importItemsData validates shape and filters invalid entries', () => {
       ],
     }),
     'shuffle-by-album.items',
+    'shuffle-by-album.removedItems',
   );
 
   assert.equal(parsed.ok, true);
@@ -31,6 +41,6 @@ test('importItemsData validates shape and filters invalid entries', () => {
     assert.deepEqual(parsed.items, [{ type: 'album', uri: 'spotify:album:1', title: 'One' }]);
   }
 
-  const invalid = importItemsData('{"foo":[]}', 'shuffle-by-album.items');
+  const invalid = importItemsData('{"foo":[]}', 'shuffle-by-album.items', 'shuffle-by-album.removedItems');
   assert.equal(invalid.ok, false);
 });

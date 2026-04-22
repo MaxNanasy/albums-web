@@ -49,6 +49,7 @@ const STORAGE_KEYS = {
   tokenExpiry: 'shuffle-by-album.tokenExpiry',
   tokenScope: 'shuffle-by-album.tokenScope',
   items: 'shuffle-by-album.items',
+  removedItems: 'shuffle-by-album.removedItems',
   runtime: 'shuffle-by-album.runtime',
 };
 
@@ -62,6 +63,30 @@ const el = {
     document.getElementById('import-playlist-btn')
   ),
   itemList: /** @type {HTMLUListElement} */ (document.getElementById('item-list')),
+  removedItemsSection: /** @type {HTMLElement} */ (
+    document.getElementById('removed-items-section')
+  ),
+  removedItemsCount: /** @type {HTMLElement} */ (
+    document.getElementById('removed-items-count')
+  ),
+  removedItemsList: /** @type {HTMLUListElement} */ (
+    document.getElementById('removed-items-list')
+  ),
+  purgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('purge-removed-items-btn')
+  ),
+  purgeRemovedItemsDialog: /** @type {HTMLDialogElement} */ (
+    document.getElementById('purge-removed-items-dialog')
+  ),
+  purgeRemovedItemsMessage: /** @type {HTMLParagraphElement} */ (
+    document.getElementById('purge-removed-items-message')
+  ),
+  cancelPurgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('cancel-purge-removed-items-btn')
+  ),
+  confirmPurgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('confirm-purge-removed-items-btn')
+  ),
   startBtn: /** @type {HTMLButtonElement} */ (document.getElementById('start-btn')),
   reattachBtn: /** @type {HTMLButtonElement} */ (document.getElementById('reattach-btn')),
   skipBtn: /** @type {HTMLButtonElement} */ (document.getElementById('skip-btn')),
@@ -79,7 +104,10 @@ const el = {
 };
 
 const toastPresenter = new ToastPresenter(el.toastStack);
-const itemStore = new ItemStore({ items: STORAGE_KEYS.items });
+const itemStore = new ItemStore({
+  items: STORAGE_KEYS.items,
+  removedItems: STORAGE_KEYS.removedItems,
+});
 const authPanel = new AuthPanel(el);
 const itemsPanel = new ItemsPanel(el);
 const sessionPanel = new SessionPanel(el);
@@ -133,6 +161,11 @@ const playerMonitor = new PlayerMonitor({
 });
 sessionController.setPlayerMonitor(playerMonitor);
 
+/** @type {ShuffleItem[]} */
+const removedItems = itemStore.getRemovedItems();
+/** @type {Map<string, { item: ShuffleItem; index: number }>} */
+const pendingUndoRemovals = new Map();
+
 void runWithReportedError(bootstrap, {
   context: 'startup',
   fallbackMessage: 'The app failed to initialize.',
@@ -147,6 +180,7 @@ async function bootstrap() {
   await handleAuthRedirect();
   await ensureValidAccessToken();
   renderItemList();
+  renderRemovedItems();
   renderSessionQueue();
   renderPlaybackControls();
   refreshStartupAuthStatus();
@@ -194,6 +228,12 @@ function hookEvents() {
     onRemove: (uri) => {
       removeItemWithUndo(uri);
     },
+    onRestoreRemovedItems: (uri) => {
+      restoreRemovedItem(uri);
+    },
+    onPurgeRemovedItems: () => {
+      purgeRemovedItems();
+    },
   });
 
   sessionPanel.bind({
@@ -237,6 +277,9 @@ function hookEvents() {
       importLocalStorageJson();
     },
   });
+
+  el.cancelPurgeRemovedItemsBtn.addEventListener('click', closePurgeRemovedItemsDialog);
+  el.confirmPurgeRemovedItemsBtn.addEventListener('click', confirmPurgeRemovedItems);
 }
 
 /** @param {string} rawUri */
@@ -249,6 +292,8 @@ async function addItemFromInput(rawUri) {
     }
     const items = getItems();
     if (items.some((item) => item.uri === parsed.uri)) {
+      removeRemovedItemByUri(parsed.uri);
+      renderRemovedItems();
       showToast('Item is already in your list.', 'info');
       return;
     }
@@ -267,7 +312,9 @@ async function addItemFromInput(rawUri) {
     items.push(titledItem);
     saveItems(items);
     itemsPanel.clearInput();
+    removeRemovedItemByUri(titledItem.uri);
     renderItemList();
+    renderRemovedItems();
     showToast(`Added “${titledItem.title}”.`, 'success');
   } catch (error) {
     reportError(error, {
@@ -282,24 +329,140 @@ function removeItemWithUndo(uri) {
   const removed = itemStore.removeByUri(uri);
   if (!removed) return;
 
+  pendingUndoRemovals.set(uri, {
+    item: removed.removedItem,
+    index: removed.removedIndex,
+  });
+  upsertRemovedItem(removed.removedItem);
+
   renderItemList();
+  renderRemovedItems();
   showToast(`Removed “${removed.removedItem.title}”.`, 'info', {
     action: {
       actionLabel: 'Undo',
       onAction: () => {
-        const restore = itemStore.restoreItem(removed.removedItem, removed.removedIndex);
-        if (!restore.ok) {
-          showToast('Item is already in your list.', 'info');
-          return;
-        }
-
-        renderItemList();
-        showToast(`Restored “${removed.removedItem.title}”.`, 'success');
+        undoRemovedItem(uri);
       },
     },
   });
 }
 
+/** @param {string} uri */
+function undoRemovedItem(uri) {
+  const pendingRemoval = pendingUndoRemovals.get(uri);
+  if (!pendingRemoval) return;
+
+  const restore = itemStore.restoreItem(pendingRemoval.item, pendingRemoval.index);
+  pendingUndoRemovals.delete(uri);
+
+  if (!restore.ok) {
+    showToast('Item is already in your list.', 'info');
+    return;
+  }
+
+  removeRemovedItemByUri(uri);
+  renderItemList();
+  renderRemovedItems();
+  showToast(`Restored “${pendingRemoval.item.title}”.`, 'success');
+}
+
+/** @param {string} uri */
+function restoreRemovedItem(uri) {
+  const entryIndex = removedItems.findIndex((item) => item.uri === uri);
+  if (entryIndex < 0) return;
+
+  const [item] = removedItems.splice(entryIndex, 1);
+  persistRemovedItems();
+  pendingUndoRemovals.delete(uri);
+  const restore = itemStore.restoreItem(item, getItems().length);
+  renderRemovedItems();
+
+  if (!restore.ok) {
+    showToast('Item is already in your list.', 'info');
+    return;
+  }
+
+  renderItemList();
+  showToast(`Restored “${item.title}”.`, 'success');
+}
+
+function clearRemovedItems() {
+  removedItems.splice(0, removedItems.length);
+  persistRemovedItems();
+  closePurgeRemovedItemsDialog();
+  renderRemovedItems();
+}
+
+function purgeRemovedItems() {
+  if (removedItems.length === 0) return;
+
+  const itemLabel = removedItems.length === 1 ? '1 item' : `${removedItems.length} items`;
+  el.purgeRemovedItemsMessage.textContent = `Permanently remove ${itemLabel} from Removed Items?`;
+
+  if (typeof el.purgeRemovedItemsDialog.showModal === 'function') {
+    if (!el.purgeRemovedItemsDialog.open) {
+      el.purgeRemovedItemsDialog.showModal();
+    }
+    return;
+  }
+
+  el.purgeRemovedItemsDialog.setAttribute('open', 'open');
+}
+
+function closePurgeRemovedItemsDialog() {
+  if (typeof el.purgeRemovedItemsDialog.close === 'function') {
+    if (el.purgeRemovedItemsDialog.open) {
+      el.purgeRemovedItemsDialog.close();
+    }
+    return;
+  }
+
+  el.purgeRemovedItemsDialog.removeAttribute('open');
+}
+
+function confirmPurgeRemovedItems() {
+  if (removedItems.length === 0) {
+    closePurgeRemovedItemsDialog();
+    return;
+  }
+
+  clearRemovedItems();
+  showToast('Purged Removed Items.', 'info');
+}
+
+function persistRemovedItems() {
+  itemStore.saveRemovedItems(removedItems);
+}
+
+/** @param {ShuffleItem} item */
+function upsertRemovedItem(item) {
+  removeRemovedItemByUri(item.uri);
+  removedItems.unshift(item);
+  persistRemovedItems();
+}
+
+/** @param {string} uri */
+function removeRemovedItemByUri(uri) {
+  const entryIndex = removedItems.findIndex((item) => item.uri === uri);
+  if (entryIndex < 0) return false;
+
+  removedItems.splice(entryIndex, 1);
+  persistRemovedItems();
+  return true;
+}
+
+/** @param {string[]} uris */
+function removeRemovedItemsByUris(uris) {
+  if (uris.length === 0) return false;
+
+  const uriSet = new Set(uris);
+  const remainingItems = removedItems.filter((item) => !uriSet.has(item.uri));
+  if (remainingItems.length === removedItems.length) return false;
+
+  removedItems.splice(0, removedItems.length, ...remainingItems);
+  persistRemovedItems();
+  return true;
+}
 
 function refreshAuthStatus() {
   const token = getToken();
@@ -441,7 +604,9 @@ function importLocalStorageJson() {
   }
 
   stopSession('Data imported. Session reset.');
+  removedItems.splice(0, removedItems.length, ...imported.removedItems);
   renderItemList();
+  renderRemovedItems();
   refreshAuthStatus();
   showToast('Imported saved items.', 'success');
 }
@@ -466,6 +631,10 @@ function saveItems(items) {
 
 function renderItemList() {
   itemsPanel.renderList(getItems());
+}
+
+function renderRemovedItems() {
+  itemsPanel.renderRemovedItems(removedItems);
 }
 
 async function startShuffleSession() {
@@ -536,7 +705,9 @@ async function importAlbumsFromPlaylist() {
   }
 
   saveItems(existingItems);
+  removeRemovedItemsByUris(albumsFromPlaylist.map((album) => album.uri));
   renderItemList();
+  renderRemovedItems();
   showToast(
     `Imported ${added} album(s) from playlist (${albumsFromPlaylist.length} unique album(s) found).`,
     'success',

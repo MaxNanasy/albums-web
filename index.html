@@ -41,6 +41,16 @@
           <b>Import Albums</b> processes a playlist and adds each song's album to the list
         </p>
         <ul id="item-list"></ul>
+        <section id="removed-items-section" class="subpanel" hidden>
+          <div class="row subpanel-header">
+            <h3 id="removed-items-heading">Removed Items</h3>
+            <span id="removed-items-count" class="small" aria-live="polite"></span>
+            <button type="button" id="purge-removed-items-btn" class="secondary danger">
+              Purge
+            </button>
+          </div>
+          <ul id="removed-items-list" aria-labelledby="removed-items-heading"></ul>
+        </section>
       </section>
 
       <section class="panel">
@@ -74,6 +84,26 @@
         ></textarea>
       </section>
     </main>
+
+
+    <dialog
+      id="purge-removed-items-dialog"
+      aria-labelledby="purge-removed-items-title"
+      aria-describedby="purge-removed-items-message"
+    >
+      <div class="dialog-panel">
+        <h3 id="purge-removed-items-title">Purge Removed Items?</h3>
+        <p id="purge-removed-items-message"></p>
+        <div class="row dialog-actions">
+          <button type="button" id="cancel-purge-removed-items-btn" class="secondary">
+            Cancel
+          </button>
+          <button type="button" id="confirm-purge-removed-items-btn" class="danger">
+            Purge
+          </button>
+        </div>
+      </div>
+    </dialog>
 
     <div id="toast-stack" aria-live="polite" aria-atomic="false"></div>
 

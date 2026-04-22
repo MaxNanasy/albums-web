@@ -3,9 +3,16 @@
 /**
  * @param {string | null} rawItems
  * @param {string} itemsStorageKey
+ * @param {string | null} rawRemovedItems
+ * @param {string} removedItemsStorageKey
  * @returns {{ data: Record<string, unknown> | null; error: string | null }}
  */
-export function exportItemsData(rawItems, itemsStorageKey) {
+export function exportItemsData(
+  rawItems,
+  itemsStorageKey,
+  rawRemovedItems,
+  removedItemsStorageKey,
+) {
   /** @type {Record<string, unknown>} */
   const data = {};
 
@@ -19,15 +26,29 @@ export function exportItemsData(rawItems, itemsStorageKey) {
     data[itemsStorageKey] = [];
   }
 
+  if (rawRemovedItems) {
+    try {
+      data[removedItemsStorageKey] = JSON.parse(rawRemovedItems);
+    } catch {
+      return {
+        data: null,
+        error: 'Unable to export Removed Items because stored data is invalid JSON.',
+      };
+    }
+  } else {
+    data[removedItemsStorageKey] = [];
+  }
+
   return { data, error: null };
 }
 
 /**
  * @param {string} raw
  * @param {string} itemsStorageKey
- * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[] }}
+ * @param {string} removedItemsStorageKey
+ * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[]; removedItems: {type: ItemType; uri: string; title?: unknown}[] }}
  */
-export function importItemsData(raw, itemsStorageKey) {
+export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
   if (!raw.trim()) {
     return { ok: false, error: 'Paste a JSON object to import.' };
   }
@@ -49,10 +70,17 @@ export function importItemsData(raw, itemsStorageKey) {
   if (!Array.isArray(maybeItems)) {
     return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array.' };
   }
+  const parsedItems = /** @type {unknown[]} */ (maybeItems);
 
-  /** @type {unknown[]} */
-  const rawItems = maybeItems;
-  const parsedItems = rawItems.filter(
+  const maybeRemovedItems = parsedObject[removedItemsStorageKey];
+  if (maybeRemovedItems !== undefined && !Array.isArray(maybeRemovedItems)) {
+    return {
+      ok: false,
+      error: 'Import JSON must include a valid shuffle-by-album.removedItems array when provided.',
+    };
+  }
+
+  const itemFilter =
     /**
      * @param {unknown} item
      * @returns {item is {type: ItemType; uri: string; title?: unknown}}
@@ -64,11 +92,13 @@ export function importItemsData(raw, itemsStorageKey) {
         (parsedItem.type === 'album' || parsedItem.type === 'playlist') &&
         typeof parsedItem.uri === 'string'
       );
-    },
-  );
+    };
 
   return {
     ok: true,
-    items: parsedItems,
+    items: parsedItems.filter(itemFilter),
+    removedItems: Array.isArray(maybeRemovedItems)
+      ? /** @type {unknown[]} */ (maybeRemovedItems).filter(itemFilter)
+      : [],
   };
 }
