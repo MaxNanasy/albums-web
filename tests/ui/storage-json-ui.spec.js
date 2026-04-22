@@ -62,7 +62,7 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(ui.playback.nextButton).toBeDisabled();
   });
 
-  test('Export includes Removed Items and import restores it with flattened items', async ({ context, page, ui }) => {
+  test('Export includes Removed Items and import restores it', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
