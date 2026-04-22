@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Item List', () => {
-  test('Remove then undo keeps Removed Items in sync while manual add clears it', async ({ context, page, ui }) => {
+  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
