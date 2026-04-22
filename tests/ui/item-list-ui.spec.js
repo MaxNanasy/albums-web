@@ -40,7 +40,7 @@ test.describe('Item List', () => {
     await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
     await expect(ui.savedItems.row('A')).toBeVisible();
     await expect(ui.removedItems.section).toBeHidden();
-    await expect(page.locator('#item-list > li > span')).toHaveText(['A', 'B', 'New One']);
+    await expect(ui.savedItems.titles).toHaveText(['A', 'B', 'New One']);
 
     await ui.savedItems.removeButton('A').click();
     await expect(ui.removedItems.row('A')).toBeVisible();
@@ -49,7 +49,7 @@ test.describe('Item List', () => {
     await ui.savedItems.addButton.click();
     await expect(ui.toasts.instance('Added “A”.')).toBeVisible();
     await expect(ui.removedItems.section).toBeHidden();
-    await expect(page.locator('#item-list > li > span')).toHaveText(['B', 'New One', 'A']);
+    await expect(ui.savedItems.titles).toHaveText(['B', 'New One', 'A']);
 
     await ui.toasts.undoButton('Removed “A”.').click();
     await expect(ui.toasts.instance('Item is already in your list.')).toBeVisible();
@@ -100,14 +100,14 @@ test.describe('Item List', () => {
     await ui.removedItems.restoreButton('A').click();
     await expect(ui.savedItems.row('A')).toBeVisible();
     await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
-    await expect(page.locator('#item-list > li > span')).toHaveText(['B', 'A']);
+    await expect(ui.savedItems.titles).toHaveText(['B', 'A']);
     await expect(ui.removedItems.count).toHaveText('1 item');
 
     await ui.savedItems.uriInput.fill('spotify:playlist:importme');
     await ui.savedItems.importAlbumsButton.click();
     await expect(ui.toasts.instance('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
     await expect(ui.savedItems.row('C')).toBeVisible();
-    await expect(page.locator('#item-list > li > span')).toHaveText(['B', 'A', 'C']);
+    await expect(ui.savedItems.titles).toHaveText(['B', 'A', 'C']);
     await expect(ui.removedItems.section).toBeHidden();
   });
 

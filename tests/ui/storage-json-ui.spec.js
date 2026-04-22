@@ -100,7 +100,7 @@ test.describe('Storage JSON Import/Export', () => {
 
     await ui.removedItems.restoreButton('Restorable').click();
     await expect(ui.savedItems.row('Restorable')).toBeVisible();
-    await expect(page.locator('#item-list > li > span')).toHaveText(['Two', 'Restorable']);
+    await expect(ui.savedItems.titles).toHaveText(['Two', 'Restorable']);
     await expect(ui.removedItems.section).toBeHidden();
   });
 

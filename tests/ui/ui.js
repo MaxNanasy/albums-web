@@ -30,6 +30,7 @@ export function makeUi(page) {
       uriInput: page.getByPlaceholder('https://open.spotify.com/(album|playlist)/...'),
       addButton: page.getByRole('button', { name: 'Add', exact: true }),
       importAlbumsButton: page.getByRole('button', { name: 'Import Albums', exact: true }),
+      titles: page.locator('#item-list > li > span'),
       /** @param {string} text */
       row(text) {
         return page.locator('#item-list > li').filter({ has: page.getByText(text, { exact: true }) });
