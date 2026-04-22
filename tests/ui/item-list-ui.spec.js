@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Item List', () => {
-  test('Remove then undo keeps Recently Removed in sync and duplicate-undo is prevented', async ({ context, page, ui }) => {
+  test('Remove then undo keeps Recently Removed in sync while manual add clears it', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
@@ -40,21 +40,49 @@ test.describe('Item List', () => {
     await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
     await expect(ui.savedItems.row('A')).toBeVisible();
     await expect(ui.recentlyRemoved.section).toBeHidden();
+    await expect(page.locator('#item-list > li > span')).toHaveText(['A', 'B', 'New One']);
 
     await ui.savedItems.removeButton('A').click();
     await expect(ui.recentlyRemoved.row('A')).toBeVisible();
+
     await ui.savedItems.uriInput.fill('spotify:album:a');
     await ui.savedItems.addButton.click();
+    await expect(ui.toasts.instance('Added “A”.')).toBeVisible();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
+    await expect(page.locator('#item-list > li > span')).toHaveText(['B', 'New One', 'A']);
+
     await ui.toasts.undoButton('Removed “A”.').click();
     await expect(ui.toasts.instance('Item is already in your list.')).toBeVisible();
     await expect(ui.recentlyRemoved.section).toBeHidden();
   });
 
-  test('Recently Removed tracks multiple removals and restores each item independently', async ({ context, page, ui }) => {
+  test('Recently Removed restores items to the bottom and import albums clears restored uris', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
       { type: 'album', uri: 'spotify:album:c', title: 'C' },
+    ]);
+
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/playlists/importme/items'),
+        handle: (route) => route.fulfill({
+          status: 200,
+          json: {
+            items: [
+              {
+                item: {
+                  album: {
+                    uri: 'spotify:album:c',
+                    name: 'C',
+                  },
+                },
+              },
+            ],
+            next: null,
+          },
+        }),
+      },
     ]);
 
     await page.goto('/');
@@ -72,12 +100,14 @@ test.describe('Item List', () => {
     await ui.recentlyRemoved.restoreButton('A').click();
     await expect(ui.savedItems.row('A')).toBeVisible();
     await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
+    await expect(page.locator('#item-list > li > span')).toHaveText(['B', 'A']);
     await expect(ui.recentlyRemoved.count).toHaveText('1 item');
-    await expect(ui.recentlyRemoved.row('C')).toBeVisible();
 
-    await ui.recentlyRemoved.restoreButton('C').click();
+    await ui.savedItems.uriInput.fill('spotify:playlist:importme');
+    await ui.savedItems.importAlbumsButton.click();
+    await expect(ui.toasts.instance('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
     await expect(ui.savedItems.row('C')).toBeVisible();
-    await expect(ui.toasts.instance('Restored “C”.')).toBeVisible();
+    await expect(page.locator('#item-list > li > span')).toHaveText(['B', 'A', 'C']);
     await expect(ui.recentlyRemoved.section).toBeHidden();
   });
 

@@ -32,13 +32,6 @@ import { StoragePanel } from './panels/storage-panel.js';
  * @property {boolean} observedCurrentContext
  */
 
-/**
- * @typedef RecentlyRemovedEntry
- * @property {number} id
- * @property {ShuffleItem} item
- * @property {number} index
- */
-
 const SCOPES = [
   // control playback + read active playback context
   'user-modify-playback-state',
@@ -156,9 +149,10 @@ const playerMonitor = new PlayerMonitor({
 });
 sessionController.setPlayerMonitor(playerMonitor);
 
-/** @type {RecentlyRemovedEntry[]} */
+/** @type {ShuffleItem[]} */
 const recentlyRemovedItems = itemStore.getRecentlyRemoved();
-let nextRecentlyRemovedId = getNextRecentlyRemovedId(recentlyRemovedItems);
+/** @type {Map<string, { item: ShuffleItem; index: number }>} */
+const pendingUndoRemovals = new Map();
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -222,8 +216,8 @@ function hookEvents() {
     onRemove: (uri) => {
       removeItemWithUndo(uri);
     },
-    onRestoreRecentlyRemoved: (entryId) => {
-      restoreRecentlyRemovedEntry(entryId);
+    onRestoreRecentlyRemoved: (uri) => {
+      restoreRecentlyRemovedEntry(uri);
     },
     onPurgeRecentlyRemoved: () => {
       purgeRecentlyRemoved();
@@ -283,6 +277,8 @@ async function addItemFromInput(rawUri) {
     }
     const items = getItems();
     if (items.some((item) => item.uri === parsed.uri)) {
+      removeRecentlyRemovedByUri(parsed.uri);
+      renderRecentlyRemoved();
       showToast('Item is already in your list.', 'info');
       return;
     }
@@ -301,7 +297,9 @@ async function addItemFromInput(rawUri) {
     items.push(titledItem);
     saveItems(items);
     itemsPanel.clearInput();
+    removeRecentlyRemovedByUri(titledItem.uri);
     renderItemList();
+    renderRecentlyRemoved();
     showToast(`Added “${titledItem.title}”.`, 'success');
   } catch (error) {
     reportError(error, {
@@ -316,14 +314,11 @@ function removeItemWithUndo(uri) {
   const removed = itemStore.removeByUri(uri);
   if (!removed) return;
 
-  const entry = {
-    id: nextRecentlyRemovedId,
+  pendingUndoRemovals.set(uri, {
     item: removed.removedItem,
     index: removed.removedIndex,
-  };
-  nextRecentlyRemovedId += 1;
-  recentlyRemovedItems.unshift(entry);
-  persistRecentlyRemoved();
+  });
+  upsertRecentlyRemovedItem(removed.removedItem);
 
   renderItemList();
   renderRecentlyRemoved();
@@ -331,20 +326,40 @@ function removeItemWithUndo(uri) {
     action: {
       actionLabel: 'Undo',
       onAction: () => {
-        restoreRecentlyRemovedEntry(entry.id);
+        undoRemovedItem(uri);
       },
     },
   });
 }
 
-/** @param {number} entryId */
-function restoreRecentlyRemovedEntry(entryId) {
-  const entryIndex = recentlyRemovedItems.findIndex((entry) => entry.id === entryId);
+/** @param {string} uri */
+function undoRemovedItem(uri) {
+  const pendingRemoval = pendingUndoRemovals.get(uri);
+  if (!pendingRemoval) return;
+
+  const restore = itemStore.restoreItem(pendingRemoval.item, pendingRemoval.index);
+  pendingUndoRemovals.delete(uri);
+
+  if (!restore.ok) {
+    showToast('Item is already in your list.', 'info');
+    return;
+  }
+
+  removeRecentlyRemovedByUri(uri);
+  renderItemList();
+  renderRecentlyRemoved();
+  showToast(`Restored “${pendingRemoval.item.title}”.`, 'success');
+}
+
+/** @param {string} uri */
+function restoreRecentlyRemovedEntry(uri) {
+  const entryIndex = recentlyRemovedItems.findIndex((item) => item.uri === uri);
   if (entryIndex < 0) return;
 
-  const [entry] = recentlyRemovedItems.splice(entryIndex, 1);
+  const [item] = recentlyRemovedItems.splice(entryIndex, 1);
   persistRecentlyRemoved();
-  const restore = itemStore.restoreItem(entry.item, entry.index);
+  pendingUndoRemovals.delete(uri);
+  const restore = itemStore.restoreItem(item, getItems().length);
   renderRecentlyRemoved();
 
   if (!restore.ok) {
@@ -353,12 +368,11 @@ function restoreRecentlyRemovedEntry(entryId) {
   }
 
   renderItemList();
-  showToast(`Restored “${entry.item.title}”.`, 'success');
+  showToast(`Restored “${item.title}”.`, 'success');
 }
 
 function clearRecentlyRemoved() {
   recentlyRemovedItems.splice(0, recentlyRemovedItems.length);
-  nextRecentlyRemovedId = 0;
   persistRecentlyRemoved();
   renderRecentlyRemoved();
 }
@@ -379,9 +393,34 @@ function persistRecentlyRemoved() {
   itemStore.saveRecentlyRemoved(recentlyRemovedItems);
 }
 
-/** @param {RecentlyRemovedEntry[]} entries */
-function getNextRecentlyRemovedId(entries) {
-  return entries.reduce((maxId, entry) => Math.max(maxId, entry.id), -1) + 1;
+/** @param {ShuffleItem} item */
+function upsertRecentlyRemovedItem(item) {
+  removeRecentlyRemovedByUri(item.uri);
+  recentlyRemovedItems.unshift(item);
+  persistRecentlyRemoved();
+}
+
+/** @param {string} uri */
+function removeRecentlyRemovedByUri(uri) {
+  const entryIndex = recentlyRemovedItems.findIndex((item) => item.uri === uri);
+  if (entryIndex < 0) return false;
+
+  recentlyRemovedItems.splice(entryIndex, 1);
+  persistRecentlyRemoved();
+  return true;
+}
+
+/** @param {string[]} uris */
+function removeRecentlyRemovedByUris(uris) {
+  if (uris.length === 0) return false;
+
+  const uriSet = new Set(uris);
+  const remainingItems = recentlyRemovedItems.filter((item) => !uriSet.has(item.uri));
+  if (remainingItems.length === recentlyRemovedItems.length) return false;
+
+  recentlyRemovedItems.splice(0, recentlyRemovedItems.length, ...remainingItems);
+  persistRecentlyRemoved();
+  return true;
 }
 
 function refreshAuthStatus() {
@@ -525,7 +564,6 @@ function importLocalStorageJson() {
 
   stopSession('Data imported. Session reset.');
   recentlyRemovedItems.splice(0, recentlyRemovedItems.length, ...imported.recentlyRemoved);
-  nextRecentlyRemovedId = getNextRecentlyRemovedId(recentlyRemovedItems);
   renderItemList();
   renderRecentlyRemoved();
   refreshAuthStatus();
@@ -626,7 +664,9 @@ async function importAlbumsFromPlaylist() {
   }
 
   saveItems(existingItems);
+  removeRecentlyRemovedByUris(albumsFromPlaylist.map((album) => album.uri));
   renderItemList();
+  renderRecentlyRemoved();
   showToast(
     `Imported ${added} album(s) from playlist (${albumsFromPlaylist.length} unique album(s) found).`,
     'success',

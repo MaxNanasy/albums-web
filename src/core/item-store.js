@@ -2,7 +2,6 @@ import { exportItemsData, importItemsData } from './storage-transfer.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 /** @typedef {{uri: string; type: ItemType; title: string}} ShuffleItem */
-/** @typedef {{id: number; item: ShuffleItem; index: number}} RecentlyRemovedEntry */
 /** @typedef {{ items: string; recentlyRemoved: string }} ItemStoreStorageKeys */
 
 export class ItemStore {
@@ -34,8 +33,7 @@ export class ItemStore {
     localStorage.setItem(this.#storageKeys.items, JSON.stringify(items));
   }
 
-
-  /** @returns {RecentlyRemovedEntry[]} */
+  /** @returns {ShuffleItem[]} */
   getRecentlyRemoved() {
     const raw = localStorage.getItem(this.#storageKeys.recentlyRemoved);
     if (!raw) return [];
@@ -44,13 +42,13 @@ export class ItemStore {
       /** @type {unknown} */
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
-      return normalizeRecentlyRemoved(parsed);
+      return normalizeItems(parsed);
     } catch {
       return [];
     }
   }
 
-  /** @param {RecentlyRemovedEntry[]} entries */
+  /** @param {ShuffleItem[]} entries */
   saveRecentlyRemoved(entries) {
     if (entries.length === 0) {
       localStorage.removeItem(this.#storageKeys.recentlyRemoved);
@@ -78,13 +76,18 @@ export class ItemStore {
 
   /**
    * @param {string} raw
-   * @returns {{ ok: false; error: string } | { ok: true; items: ShuffleItem[]; recentlyRemoved: RecentlyRemovedEntry[] }}
+   * @returns {{ ok: false; error: string } | { ok: true; items: ShuffleItem[]; recentlyRemoved: ShuffleItem[] }}
    */
   importFromJson(raw) {
     const parsed = importItemsData(raw, this.#storageKeys.items, this.#storageKeys.recentlyRemoved);
     if (!parsed.ok) return parsed;
+
     const items = normalizeItems(parsed.items);
-    const recentlyRemoved = normalizeRecentlyRemoved(parsed.recentlyRemoved);
+    const itemUriSet = new Set(items.map((item) => item.uri));
+    const recentlyRemoved = normalizeItems(parsed.recentlyRemoved).filter(
+      (item) => !itemUriSet.has(item.uri)
+    );
+
     this.saveItems(items);
     this.saveRecentlyRemoved(recentlyRemoved);
     return { ok: true, items, recentlyRemoved };
@@ -138,35 +141,4 @@ function normalizeItems(parsedItems) {
       uri: item.uri,
       title: typeof item.title === 'string' ? item.title : item.uri,
     }));
-}
-
-
-/** @param {unknown[]} parsedEntries @returns {RecentlyRemovedEntry[]} */
-function normalizeRecentlyRemoved(parsedEntries) {
-  return parsedEntries
-    .filter(
-      /**
-       * @param {unknown} entry
-       * @returns {entry is {id: number; item: unknown; index: number}}
-       */
-      (entry) => {
-        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
-        const parsedEntry = /** @type {Record<string, unknown>} */ (entry);
-        return (
-          Number.isInteger(parsedEntry.id) &&
-          typeof parsedEntry.index === 'number' &&
-          Number.isFinite(parsedEntry.index) &&
-          parsedEntry.item !== undefined
-        );
-      },
-    )
-    .flatMap((entry) => {
-      const [item] = normalizeItems([entry.item]);
-      if (!item) return [];
-      return [{
-        id: entry.id,
-        item,
-        index: Math.max(0, Math.trunc(entry.index)),
-      }];
-    });
 }

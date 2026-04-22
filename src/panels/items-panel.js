@@ -1,5 +1,4 @@
 /** @typedef {{uri: string; title: string}} ShuffleItem */
-/** @typedef {{id: number; item: ShuffleItem; index: number}} RecentlyRemovedEntry */
 /** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement; recentlyRemovedSection: HTMLElement; recentlyRemovedCount: HTMLElement; recentlyRemovedList: HTMLUListElement; purgeRecentlyRemovedBtn: HTMLButtonElement;}} ItemsPanelElements */
 
 export class ItemsPanel {
@@ -7,7 +6,7 @@ export class ItemsPanel {
   #el;
   /** @type {(uri: string) => void} */
   #onRemove;
-  /** @type {(entryId: number) => void} */
+  /** @type {(uri: string) => void} */
   #onRestoreRecentlyRemoved;
   /** @type {() => void} */
   #onPurgeRecentlyRemoved;
@@ -25,7 +24,7 @@ export class ItemsPanel {
    *  onAdd: (rawUri: string) => void;
    *  onImportPlaylist: () => void;
    *  onRemove: (uri: string) => void;
-   *  onRestoreRecentlyRemoved: (entryId: number) => void;
+   *  onRestoreRecentlyRemoved: (uri: string) => void;
    *  onPurgeRecentlyRemoved: () => void;
    * }} handlers
    */
@@ -70,7 +69,7 @@ export class ItemsPanel {
     }
   }
 
-  /** @param {RecentlyRemovedEntry[]} entries */
+  /** @param {ShuffleItem[]} entries */
   renderRecentlyRemoved(entries) {
     this.#el.recentlyRemovedList.innerHTML = '';
     this.#el.recentlyRemovedSection.hidden = entries.length === 0;
@@ -80,7 +79,7 @@ export class ItemsPanel {
     for (const entry of entries) {
       const li = document.createElement('li');
       const text = document.createElement('span');
-      text.textContent = entry.item.title ? entry.item.title : entry.item.uri;
+      text.textContent = entry.title ? entry.title : entry.uri;
 
       const actions = document.createElement('div');
       actions.className = 'row';
@@ -89,7 +88,7 @@ export class ItemsPanel {
       restoreButton.type = 'button';
       restoreButton.textContent = 'Restore';
       restoreButton.addEventListener('click', () => {
-        this.#onRestoreRecentlyRemoved(entry.id);
+        this.#onRestoreRecentlyRemoved(entry.uri);
       });
 
       actions.appendChild(restoreButton);

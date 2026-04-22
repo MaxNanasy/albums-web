@@ -46,7 +46,7 @@ export function exportItemsData(
  * @param {string} raw
  * @param {string} itemsStorageKey
  * @param {string} recentlyRemovedStorageKey
- * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[]; recentlyRemoved: unknown[] }}
+ * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[]; recentlyRemoved: {type: ItemType; uri: string; title?: unknown}[] }}
  */
 export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey) {
   if (!raw.trim()) {
@@ -79,9 +79,7 @@ export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey)
     };
   }
 
-  /** @type {unknown[]} */
-  const rawItems = maybeItems;
-  const parsedItems = rawItems.filter(
+  const itemFilter =
     /**
      * @param {unknown} item
      * @returns {item is {type: ItemType; uri: string; title?: unknown}}
@@ -93,12 +91,11 @@ export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey)
         (parsedItem.type === 'album' || parsedItem.type === 'playlist') &&
         typeof parsedItem.uri === 'string'
       );
-    },
-  );
+    };
 
   return {
     ok: true,
-    items: parsedItems,
-    recentlyRemoved: Array.isArray(maybeRecentlyRemoved) ? maybeRecentlyRemoved : [],
+    items: maybeItems.filter(itemFilter),
+    recentlyRemoved: Array.isArray(maybeRecentlyRemoved) ? maybeRecentlyRemoved.filter(itemFilter) : [],
   };
 }

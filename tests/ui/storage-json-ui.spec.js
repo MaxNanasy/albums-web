@@ -62,7 +62,7 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(ui.playback.nextButton).toBeDisabled();
   });
 
-  test('Export includes Recently Removed and import restores it', async ({ context, page, ui }) => {
+  test('Export includes Recently Removed and import restores it with flattened items', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
@@ -79,11 +79,7 @@ test.describe('Storage JSON Import/Export', () => {
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
     ]);
     await expect(exported['shuffle-by-album.recentlyRemoved']).toEqual([
-      {
-        id: 0,
-        item: { type: 'album', uri: 'spotify:album:one', title: 'One' },
-        index: 0,
-      },
+      { type: 'album', uri: 'spotify:album:one', title: 'One' },
     ]);
 
     await ui.storage.json.fill(JSON.stringify({
@@ -91,11 +87,7 @@ test.describe('Storage JSON Import/Export', () => {
         { type: 'album', uri: 'spotify:album:two', title: 'Two' },
       ],
       'shuffle-by-album.recentlyRemoved': [
-        {
-          id: 12,
-          item: { type: 'album', uri: 'spotify:album:restorable', title: 'Restorable' },
-          index: 0,
-        },
+        { type: 'album', uri: 'spotify:album:restorable', title: 'Restorable' },
       ],
     }));
     await ui.storage.importDataButton.click();
@@ -108,6 +100,7 @@ test.describe('Storage JSON Import/Export', () => {
 
     await ui.recentlyRemoved.restoreButton('Restorable').click();
     await expect(ui.savedItems.row('Restorable')).toBeVisible();
+    await expect(page.locator('#item-list > li > span')).toHaveText(['Two', 'Restorable']);
     await expect(ui.recentlyRemoved.section).toBeHidden();
   });
 
