@@ -127,21 +127,22 @@ test.describe('Item List', () => {
     await expect(ui.removedItems.count).toHaveText('1 item');
     await expect(ui.removedItems.row('A')).toBeVisible();
 
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toBe('Permanently remove 1 item from Removed Items?');
-      await dialog.dismiss();
-    });
     await ui.removedItems.purgeButton.click();
+    await expect(ui.removedItems.purgeDialog).toBeVisible();
+    await expect(ui.removedItems.purgeDialogMessage).toHaveText(
+      'Permanently remove 1 item from Removed Items?'
+    );
+
+    await ui.removedItems.cancelPurgeButton.click();
+    await expect(ui.removedItems.purgeDialog).toBeHidden();
     await expect(ui.removedItems.section).toBeVisible();
     await expect(ui.removedItems.row('A')).toBeVisible();
 
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toBe('Permanently remove 1 item from Removed Items?');
-      await dialog.accept();
-    });
     await ui.removedItems.purgeButton.click();
+    await ui.removedItems.confirmPurgeButton.click();
     await expect(ui.toasts.instance('Purged Removed Items.')).toBeVisible();
     await expect(ui.removedItems.section).toBeHidden();
+    await expect(ui.removedItems.purgeDialog).toBeHidden();
 
     await page.reload();
     await expect(ui.removedItems.section).toBeHidden();

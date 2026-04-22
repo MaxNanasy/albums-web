@@ -42,6 +42,8 @@ export function makeUi(page) {
     removedItems: {
       section: page.locator('#removed-items-section'),
       count: page.locator('#removed-items-count'),
+      purgeDialog: page.locator('#purge-removed-items-dialog'),
+      purgeDialogMessage: page.locator('#purge-removed-items-message'),
       /** @param {string} text */
       row(text) {
         return page.locator('#removed-items-list > li').filter({
@@ -49,6 +51,8 @@ export function makeUi(page) {
         });
       },
       purgeButton: page.getByRole('button', { name: 'Purge', exact: true }),
+      cancelPurgeButton: page.getByRole('button', { name: 'Cancel', exact: true }),
+      confirmPurgeButton: page.getByRole('button', { name: 'Purge', exact: true }).nth(1),
       /** @param {string} itemText */
       restoreButton(itemText) {
         return this.row(itemText).getByRole('button', { name: 'Restore', exact: true });

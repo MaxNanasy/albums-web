@@ -75,6 +75,18 @@ const el = {
   purgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
     document.getElementById('purge-removed-items-btn')
   ),
+  purgeRemovedItemsDialog: /** @type {HTMLDialogElement} */ (
+    document.getElementById('purge-removed-items-dialog')
+  ),
+  purgeRemovedItemsMessage: /** @type {HTMLParagraphElement} */ (
+    document.getElementById('purge-removed-items-message')
+  ),
+  cancelPurgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('cancel-purge-removed-items-btn')
+  ),
+  confirmPurgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('confirm-purge-removed-items-btn')
+  ),
   startBtn: /** @type {HTMLButtonElement} */ (document.getElementById('start-btn')),
   reattachBtn: /** @type {HTMLButtonElement} */ (document.getElementById('reattach-btn')),
   skipBtn: /** @type {HTMLButtonElement} */ (document.getElementById('skip-btn')),
@@ -265,6 +277,9 @@ function hookEvents() {
       importLocalStorageJson();
     },
   });
+
+  el.cancelPurgeRemovedItemsBtn.addEventListener('click', closePurgeRemovedItemsDialog);
+  el.confirmPurgeRemovedItemsBtn.addEventListener('click', confirmPurgeRemovedItems);
 }
 
 /** @param {string} rawUri */
@@ -374,6 +389,7 @@ function restoreRemovedItem(uri) {
 function clearRemovedItems() {
   removedItems.splice(0, removedItems.length);
   persistRemovedItems();
+  closePurgeRemovedItemsDialog();
   renderRemovedItems();
 }
 
@@ -381,7 +397,32 @@ function purgeRemovedItems() {
   if (removedItems.length === 0) return;
 
   const itemLabel = removedItems.length === 1 ? '1 item' : `${removedItems.length} items`;
-  if (!window.confirm(`Permanently remove ${itemLabel} from Removed Items?`)) {
+  el.purgeRemovedItemsMessage.textContent = `Permanently remove ${itemLabel} from Removed Items?`;
+
+  if (typeof el.purgeRemovedItemsDialog.showModal === 'function') {
+    if (!el.purgeRemovedItemsDialog.open) {
+      el.purgeRemovedItemsDialog.showModal();
+    }
+    return;
+  }
+
+  el.purgeRemovedItemsDialog.setAttribute('open', 'open');
+}
+
+function closePurgeRemovedItemsDialog() {
+  if (typeof el.purgeRemovedItemsDialog.close === 'function') {
+    if (el.purgeRemovedItemsDialog.open) {
+      el.purgeRemovedItemsDialog.close();
+    }
+    return;
+  }
+
+  el.purgeRemovedItemsDialog.removeAttribute('open');
+}
+
+function confirmPurgeRemovedItems() {
+  if (removedItems.length === 0) {
+    closePurgeRemovedItemsDialog();
     return;
   }
 

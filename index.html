@@ -85,6 +85,26 @@
       </section>
     </main>
 
+
+    <dialog
+      id="purge-removed-items-dialog"
+      aria-labelledby="purge-removed-items-title"
+      aria-describedby="purge-removed-items-message"
+    >
+      <div class="dialog-panel">
+        <h3 id="purge-removed-items-title">Purge Removed Items?</h3>
+        <p id="purge-removed-items-message"></p>
+        <div class="row dialog-actions">
+          <button type="button" id="cancel-purge-removed-items-btn" class="secondary">
+            Cancel
+          </button>
+          <button type="button" id="confirm-purge-removed-items-btn" class="danger">
+            Purge
+          </button>
+        </div>
+      </div>
+    </dialog>
+
     <div id="toast-stack" aria-live="polite" aria-atomic="false"></div>
 
     <script type="module" src="src/app.js"></script>
