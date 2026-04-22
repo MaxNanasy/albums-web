@@ -74,6 +74,7 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(ui.removedItems.row('One')).toBeVisible();
 
     await ui.storage.exportDataButton.click();
+    /** @type {Record<string, unknown>} */
     const exported = JSON.parse(await ui.storage.json.inputValue());
     await expect(exported['shuffle-by-album.items']).toEqual([
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },

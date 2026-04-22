@@ -70,6 +70,7 @@ export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
   if (!Array.isArray(maybeItems)) {
     return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array.' };
   }
+  const parsedItems = /** @type {unknown[]} */ (maybeItems);
 
   const maybeRemovedItems = parsedObject[removedItemsStorageKey];
   if (maybeRemovedItems !== undefined && !Array.isArray(maybeRemovedItems)) {
@@ -95,7 +96,9 @@ export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
 
   return {
     ok: true,
-    items: maybeItems.filter(itemFilter),
-    removedItems: Array.isArray(maybeRemovedItems) ? maybeRemovedItems.filter(itemFilter) : [],
+    items: parsedItems.filter(itemFilter),
+    removedItems: Array.isArray(maybeRemovedItems)
+      ? /** @type {unknown[]} */ (maybeRemovedItems).filter(itemFilter)
+      : [],
   };
 }
