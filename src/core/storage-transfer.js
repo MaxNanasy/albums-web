@@ -3,9 +3,16 @@
 /**
  * @param {string | null} rawItems
  * @param {string} itemsStorageKey
+ * @param {string | null} rawRecentlyRemoved
+ * @param {string} recentlyRemovedStorageKey
  * @returns {{ data: Record<string, unknown> | null; error: string | null }}
  */
-export function exportItemsData(rawItems, itemsStorageKey) {
+export function exportItemsData(
+  rawItems,
+  itemsStorageKey,
+  rawRecentlyRemoved,
+  recentlyRemovedStorageKey,
+) {
   /** @type {Record<string, unknown>} */
   const data = {};
 
@@ -19,15 +26,29 @@ export function exportItemsData(rawItems, itemsStorageKey) {
     data[itemsStorageKey] = [];
   }
 
+  if (rawRecentlyRemoved) {
+    try {
+      data[recentlyRemovedStorageKey] = JSON.parse(rawRecentlyRemoved);
+    } catch {
+      return {
+        data: null,
+        error: 'Unable to export Recently Removed because stored data is invalid JSON.',
+      };
+    }
+  } else {
+    data[recentlyRemovedStorageKey] = [];
+  }
+
   return { data, error: null };
 }
 
 /**
  * @param {string} raw
  * @param {string} itemsStorageKey
- * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[] }}
+ * @param {string} recentlyRemovedStorageKey
+ * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[]; recentlyRemoved: unknown[] }}
  */
-export function importItemsData(raw, itemsStorageKey) {
+export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey) {
   if (!raw.trim()) {
     return { ok: false, error: 'Paste a JSON object to import.' };
   }
@@ -50,6 +71,14 @@ export function importItemsData(raw, itemsStorageKey) {
     return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array.' };
   }
 
+  const maybeRecentlyRemoved = parsedObject[recentlyRemovedStorageKey];
+  if (maybeRecentlyRemoved !== undefined && !Array.isArray(maybeRecentlyRemoved)) {
+    return {
+      ok: false,
+      error: 'Import JSON must include a valid shuffle-by-album.recentlyRemoved array when provided.',
+    };
+  }
+
   /** @type {unknown[]} */
   const rawItems = maybeItems;
   const parsedItems = rawItems.filter(
@@ -70,5 +99,6 @@ export function importItemsData(raw, itemsStorageKey) {
   return {
     ok: true,
     items: parsedItems,
+    recentlyRemoved: Array.isArray(maybeRecentlyRemoved) ? maybeRecentlyRemoved : [],
   };
 }

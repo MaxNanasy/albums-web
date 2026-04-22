@@ -524,8 +524,10 @@ function importLocalStorageJson() {
   }
 
   stopSession('Data imported. Session reset.');
-  clearRecentlyRemoved();
+  recentlyRemovedItems.splice(0, recentlyRemovedItems.length, ...imported.recentlyRemoved);
+  nextRecentlyRemovedId = getNextRecentlyRemovedId(recentlyRemovedItems);
   renderItemList();
+  renderRecentlyRemoved();
   refreshAuthStatus();
   showToast('Imported saved items.', 'success');
 }

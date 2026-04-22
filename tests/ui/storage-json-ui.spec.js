@@ -62,6 +62,55 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(ui.playback.nextButton).toBeDisabled();
   });
 
+  test('Export includes Recently Removed and import restores it', async ({ context, page, ui }) => {
+    await seedItems(context, [
+      { type: 'album', uri: 'spotify:album:one', title: 'One' },
+      { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+    ]);
+
+    await page.goto('/');
+
+    await ui.savedItems.removeButton('One').click();
+    await expect(ui.recentlyRemoved.row('One')).toBeVisible();
+
+    await ui.storage.exportDataButton.click();
+    const exported = JSON.parse(await ui.storage.json.inputValue());
+    await expect(exported['shuffle-by-album.items']).toEqual([
+      { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+    ]);
+    await expect(exported['shuffle-by-album.recentlyRemoved']).toEqual([
+      {
+        id: 0,
+        item: { type: 'album', uri: 'spotify:album:one', title: 'One' },
+        index: 0,
+      },
+    ]);
+
+    await ui.storage.json.fill(JSON.stringify({
+      'shuffle-by-album.items': [
+        { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+      ],
+      'shuffle-by-album.recentlyRemoved': [
+        {
+          id: 12,
+          item: { type: 'album', uri: 'spotify:album:restorable', title: 'Restorable' },
+          index: 0,
+        },
+      ],
+    }));
+    await ui.storage.importDataButton.click();
+
+    await expect(ui.savedItems.row('Two')).toBeVisible();
+    await expect(ui.savedItems.row('One')).toHaveCount(0);
+    await expect(ui.recentlyRemoved.section).toBeVisible();
+    await expect(ui.recentlyRemoved.row('Restorable')).toBeVisible();
+    await expect(ui.recentlyRemoved.row('One')).toHaveCount(0);
+
+    await ui.recentlyRemoved.restoreButton('Restorable').click();
+    await expect(ui.savedItems.row('Restorable')).toBeVisible();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
+  });
+
   test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.items', '{bad-json');

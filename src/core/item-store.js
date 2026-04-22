@@ -67,19 +67,27 @@ export class ItemStore {
   /** @returns {{ data: Record<string, unknown> | null; error: string | null }} */
   exportData() {
     const rawItems = localStorage.getItem(this.#storageKeys.items);
-    return exportItemsData(rawItems, this.#storageKeys.items);
+    const rawRecentlyRemoved = localStorage.getItem(this.#storageKeys.recentlyRemoved);
+    return exportItemsData(
+      rawItems,
+      this.#storageKeys.items,
+      rawRecentlyRemoved,
+      this.#storageKeys.recentlyRemoved,
+    );
   }
 
   /**
    * @param {string} raw
-   * @returns {{ ok: false; error: string } | { ok: true; items: ShuffleItem[] }}
+   * @returns {{ ok: false; error: string } | { ok: true; items: ShuffleItem[]; recentlyRemoved: RecentlyRemovedEntry[] }}
    */
   importFromJson(raw) {
-    const parsed = importItemsData(raw, this.#storageKeys.items);
+    const parsed = importItemsData(raw, this.#storageKeys.items, this.#storageKeys.recentlyRemoved);
     if (!parsed.ok) return parsed;
     const items = normalizeItems(parsed.items);
+    const recentlyRemoved = normalizeRecentlyRemoved(parsed.recentlyRemoved);
     this.saveItems(items);
-    return { ok: true, items };
+    this.saveRecentlyRemoved(recentlyRemoved);
+    return { ok: true, items, recentlyRemoved };
   }
 
   /** @param {string} uri */
