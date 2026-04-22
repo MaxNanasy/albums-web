@@ -3,15 +3,15 @@
 /**
  * @param {string | null} rawItems
  * @param {string} itemsStorageKey
- * @param {string | null} rawRecentlyRemoved
- * @param {string} recentlyRemovedStorageKey
+ * @param {string | null} rawRemovedItems
+ * @param {string} removedItemsStorageKey
  * @returns {{ data: Record<string, unknown> | null; error: string | null }}
  */
 export function exportItemsData(
   rawItems,
   itemsStorageKey,
-  rawRecentlyRemoved,
-  recentlyRemovedStorageKey,
+  rawRemovedItems,
+  removedItemsStorageKey,
 ) {
   /** @type {Record<string, unknown>} */
   const data = {};
@@ -26,17 +26,17 @@ export function exportItemsData(
     data[itemsStorageKey] = [];
   }
 
-  if (rawRecentlyRemoved) {
+  if (rawRemovedItems) {
     try {
-      data[recentlyRemovedStorageKey] = JSON.parse(rawRecentlyRemoved);
+      data[removedItemsStorageKey] = JSON.parse(rawRemovedItems);
     } catch {
       return {
         data: null,
-        error: 'Unable to export Recently Removed because stored data is invalid JSON.',
+        error: 'Unable to export Removed Items because stored data is invalid JSON.',
       };
     }
   } else {
-    data[recentlyRemovedStorageKey] = [];
+    data[removedItemsStorageKey] = [];
   }
 
   return { data, error: null };
@@ -45,10 +45,10 @@ export function exportItemsData(
 /**
  * @param {string} raw
  * @param {string} itemsStorageKey
- * @param {string} recentlyRemovedStorageKey
- * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[]; recentlyRemoved: {type: ItemType; uri: string; title?: unknown}[] }}
+ * @param {string} removedItemsStorageKey
+ * @returns {{ ok: false; error: string } | { ok: true; items: {type: ItemType; uri: string; title?: unknown}[]; removedItems: {type: ItemType; uri: string; title?: unknown}[] }}
  */
-export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey) {
+export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
   if (!raw.trim()) {
     return { ok: false, error: 'Paste a JSON object to import.' };
   }
@@ -71,11 +71,11 @@ export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey)
     return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array.' };
   }
 
-  const maybeRecentlyRemoved = parsedObject[recentlyRemovedStorageKey];
-  if (maybeRecentlyRemoved !== undefined && !Array.isArray(maybeRecentlyRemoved)) {
+  const maybeRemovedItems = parsedObject[removedItemsStorageKey];
+  if (maybeRemovedItems !== undefined && !Array.isArray(maybeRemovedItems)) {
     return {
       ok: false,
-      error: 'Import JSON must include a valid shuffle-by-album.recentlyRemoved array when provided.',
+      error: 'Import JSON must include a valid shuffle-by-album.removedItems array when provided.',
     };
   }
 
@@ -96,6 +96,6 @@ export function importItemsData(raw, itemsStorageKey, recentlyRemovedStorageKey)
   return {
     ok: true,
     items: maybeItems.filter(itemFilter),
-    recentlyRemoved: Array.isArray(maybeRecentlyRemoved) ? maybeRecentlyRemoved.filter(itemFilter) : [],
+    removedItems: Array.isArray(maybeRemovedItems) ? maybeRemovedItems.filter(itemFilter) : [],
   };
 }

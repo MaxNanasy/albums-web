@@ -1,5 +1,5 @@
 /** @typedef {{uri: string; title: string}} ShuffleItem */
-/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement; recentlyRemovedSection: HTMLElement; recentlyRemovedCount: HTMLElement; recentlyRemovedList: HTMLUListElement; purgeRecentlyRemovedBtn: HTMLButtonElement;}} ItemsPanelElements */
+/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement; removedItemsSection: HTMLElement; removedItemsCount: HTMLElement; removedItemsList: HTMLUListElement; purgeRemovedItemsBtn: HTMLButtonElement;}} ItemsPanelElements */
 
 export class ItemsPanel {
   /** @type {ItemsPanelElements} */
@@ -7,16 +7,16 @@ export class ItemsPanel {
   /** @type {(uri: string) => void} */
   #onRemove;
   /** @type {(uri: string) => void} */
-  #onRestoreRecentlyRemoved;
+  #onRestoreRemovedItems;
   /** @type {() => void} */
-  #onPurgeRecentlyRemoved;
+  #onPurgeRemovedItems;
 
   /** @param {ItemsPanelElements} el */
   constructor(el) {
     this.#el = el;
     this.#onRemove = () => {};
-    this.#onRestoreRecentlyRemoved = () => {};
-    this.#onPurgeRecentlyRemoved = () => {};
+    this.#onRestoreRemovedItems = () => {};
+    this.#onPurgeRemovedItems = () => {};
   }
 
   /**
@@ -24,8 +24,8 @@ export class ItemsPanel {
    *  onAdd: (rawUri: string) => void;
    *  onImportPlaylist: () => void;
    *  onRemove: (uri: string) => void;
-   *  onRestoreRecentlyRemoved: (uri: string) => void;
-   *  onPurgeRecentlyRemoved: () => void;
+   *  onRestoreRemovedItems: (uri: string) => void;
+   *  onPurgeRemovedItems: () => void;
    * }} handlers
    */
   bind(handlers) {
@@ -35,12 +35,12 @@ export class ItemsPanel {
     });
 
     this.#el.importPlaylistBtn.addEventListener('click', handlers.onImportPlaylist);
-    this.#el.purgeRecentlyRemovedBtn.addEventListener('click', () => {
-      this.#onPurgeRecentlyRemoved();
+    this.#el.purgeRemovedItemsBtn.addEventListener('click', () => {
+      this.#onPurgeRemovedItems();
     });
     this.#onRemove = handlers.onRemove;
-    this.#onRestoreRecentlyRemoved = handlers.onRestoreRecentlyRemoved;
-    this.#onPurgeRecentlyRemoved = handlers.onPurgeRecentlyRemoved;
+    this.#onRestoreRemovedItems = handlers.onRestoreRemovedItems;
+    this.#onPurgeRemovedItems = handlers.onPurgeRemovedItems;
   }
 
   /** @param {ShuffleItem[]} items */
@@ -70,11 +70,11 @@ export class ItemsPanel {
   }
 
   /** @param {ShuffleItem[]} entries */
-  renderRecentlyRemoved(entries) {
-    this.#el.recentlyRemovedList.innerHTML = '';
-    this.#el.recentlyRemovedSection.hidden = entries.length === 0;
-    this.#el.recentlyRemovedCount.textContent = entries.length === 1 ? '1 item' : `${entries.length} items`;
-    this.#el.purgeRecentlyRemovedBtn.disabled = entries.length === 0;
+  renderRemovedItems(entries) {
+    this.#el.removedItemsList.innerHTML = '';
+    this.#el.removedItemsSection.hidden = entries.length === 0;
+    this.#el.removedItemsCount.textContent = entries.length === 1 ? '1 item' : `${entries.length} items`;
+    this.#el.purgeRemovedItemsBtn.disabled = entries.length === 0;
 
     for (const entry of entries) {
       const li = document.createElement('li');
@@ -88,12 +88,12 @@ export class ItemsPanel {
       restoreButton.type = 'button';
       restoreButton.textContent = 'Restore';
       restoreButton.addEventListener('click', () => {
-        this.#onRestoreRecentlyRemoved(entry.uri);
+        this.#onRestoreRemovedItems(entry.uri);
       });
 
       actions.appendChild(restoreButton);
       li.append(text, actions);
-      this.#el.recentlyRemovedList.appendChild(li);
+      this.#el.removedItemsList.appendChild(li);
     }
   }
 

@@ -62,7 +62,7 @@ test.describe('Storage JSON Import/Export', () => {
     await expect(ui.playback.nextButton).toBeDisabled();
   });
 
-  test('Export includes Recently Removed and import restores it with flattened items', async ({ context, page, ui }) => {
+  test('Export includes Removed Items and import restores it with flattened items', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
@@ -71,14 +71,14 @@ test.describe('Storage JSON Import/Export', () => {
     await page.goto('/');
 
     await ui.savedItems.removeButton('One').click();
-    await expect(ui.recentlyRemoved.row('One')).toBeVisible();
+    await expect(ui.removedItems.row('One')).toBeVisible();
 
     await ui.storage.exportDataButton.click();
     const exported = JSON.parse(await ui.storage.json.inputValue());
     await expect(exported['shuffle-by-album.items']).toEqual([
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
     ]);
-    await expect(exported['shuffle-by-album.recentlyRemoved']).toEqual([
+    await expect(exported['shuffle-by-album.removedItems']).toEqual([
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
     ]);
 
@@ -86,7 +86,7 @@ test.describe('Storage JSON Import/Export', () => {
       'shuffle-by-album.items': [
         { type: 'album', uri: 'spotify:album:two', title: 'Two' },
       ],
-      'shuffle-by-album.recentlyRemoved': [
+      'shuffle-by-album.removedItems': [
         { type: 'album', uri: 'spotify:album:restorable', title: 'Restorable' },
       ],
     }));
@@ -94,14 +94,14 @@ test.describe('Storage JSON Import/Export', () => {
 
     await expect(ui.savedItems.row('Two')).toBeVisible();
     await expect(ui.savedItems.row('One')).toHaveCount(0);
-    await expect(ui.recentlyRemoved.section).toBeVisible();
-    await expect(ui.recentlyRemoved.row('Restorable')).toBeVisible();
-    await expect(ui.recentlyRemoved.row('One')).toHaveCount(0);
+    await expect(ui.removedItems.section).toBeVisible();
+    await expect(ui.removedItems.row('Restorable')).toBeVisible();
+    await expect(ui.removedItems.row('One')).toHaveCount(0);
 
-    await ui.recentlyRemoved.restoreButton('Restorable').click();
+    await ui.removedItems.restoreButton('Restorable').click();
     await expect(ui.savedItems.row('Restorable')).toBeVisible();
     await expect(page.locator('#item-list > li > span')).toHaveText(['Two', 'Restorable']);
-    await expect(ui.recentlyRemoved.section).toBeHidden();
+    await expect(ui.removedItems.section).toBeHidden();
   });
 
   test('Export with invalid stored items JSON clears the textarea and shows an export error', async ({ context, page, ui }) => {

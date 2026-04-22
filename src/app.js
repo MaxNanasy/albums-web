@@ -49,7 +49,7 @@ const STORAGE_KEYS = {
   tokenExpiry: 'shuffle-by-album.tokenExpiry',
   tokenScope: 'shuffle-by-album.tokenScope',
   items: 'shuffle-by-album.items',
-  recentlyRemoved: 'shuffle-by-album.recentlyRemoved',
+  removedItems: 'shuffle-by-album.removedItems',
   runtime: 'shuffle-by-album.runtime',
 };
 
@@ -63,17 +63,17 @@ const el = {
     document.getElementById('import-playlist-btn')
   ),
   itemList: /** @type {HTMLUListElement} */ (document.getElementById('item-list')),
-  recentlyRemovedSection: /** @type {HTMLElement} */ (
-    document.getElementById('recently-removed-section')
+  removedItemsSection: /** @type {HTMLElement} */ (
+    document.getElementById('removed-items-section')
   ),
-  recentlyRemovedCount: /** @type {HTMLElement} */ (
-    document.getElementById('recently-removed-count')
+  removedItemsCount: /** @type {HTMLElement} */ (
+    document.getElementById('removed-items-count')
   ),
-  recentlyRemovedList: /** @type {HTMLUListElement} */ (
-    document.getElementById('recently-removed-list')
+  removedItemsList: /** @type {HTMLUListElement} */ (
+    document.getElementById('removed-items-list')
   ),
-  purgeRecentlyRemovedBtn: /** @type {HTMLButtonElement} */ (
-    document.getElementById('purge-recently-removed-btn')
+  purgeRemovedItemsBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('purge-removed-items-btn')
   ),
   startBtn: /** @type {HTMLButtonElement} */ (document.getElementById('start-btn')),
   reattachBtn: /** @type {HTMLButtonElement} */ (document.getElementById('reattach-btn')),
@@ -94,7 +94,7 @@ const el = {
 const toastPresenter = new ToastPresenter(el.toastStack);
 const itemStore = new ItemStore({
   items: STORAGE_KEYS.items,
-  recentlyRemoved: STORAGE_KEYS.recentlyRemoved,
+  removedItems: STORAGE_KEYS.removedItems,
 });
 const authPanel = new AuthPanel(el);
 const itemsPanel = new ItemsPanel(el);
@@ -150,7 +150,7 @@ const playerMonitor = new PlayerMonitor({
 sessionController.setPlayerMonitor(playerMonitor);
 
 /** @type {ShuffleItem[]} */
-const recentlyRemovedItems = itemStore.getRecentlyRemoved();
+const removedItems = itemStore.getRemovedItems();
 /** @type {Map<string, { item: ShuffleItem; index: number }>} */
 const pendingUndoRemovals = new Map();
 
@@ -168,7 +168,7 @@ async function bootstrap() {
   await handleAuthRedirect();
   await ensureValidAccessToken();
   renderItemList();
-  renderRecentlyRemoved();
+  renderRemovedItems();
   renderSessionQueue();
   renderPlaybackControls();
   refreshStartupAuthStatus();
@@ -216,11 +216,11 @@ function hookEvents() {
     onRemove: (uri) => {
       removeItemWithUndo(uri);
     },
-    onRestoreRecentlyRemoved: (uri) => {
-      restoreRecentlyRemovedEntry(uri);
+    onRestoreRemovedItems: (uri) => {
+      restoreRemovedItem(uri);
     },
-    onPurgeRecentlyRemoved: () => {
-      purgeRecentlyRemoved();
+    onPurgeRemovedItems: () => {
+      purgeRemovedItems();
     },
   });
 
@@ -277,8 +277,8 @@ async function addItemFromInput(rawUri) {
     }
     const items = getItems();
     if (items.some((item) => item.uri === parsed.uri)) {
-      removeRecentlyRemovedByUri(parsed.uri);
-      renderRecentlyRemoved();
+      removeRemovedItemByUri(parsed.uri);
+      renderRemovedItems();
       showToast('Item is already in your list.', 'info');
       return;
     }
@@ -297,9 +297,9 @@ async function addItemFromInput(rawUri) {
     items.push(titledItem);
     saveItems(items);
     itemsPanel.clearInput();
-    removeRecentlyRemovedByUri(titledItem.uri);
+    removeRemovedItemByUri(titledItem.uri);
     renderItemList();
-    renderRecentlyRemoved();
+    renderRemovedItems();
     showToast(`Added “${titledItem.title}”.`, 'success');
   } catch (error) {
     reportError(error, {
@@ -318,10 +318,10 @@ function removeItemWithUndo(uri) {
     item: removed.removedItem,
     index: removed.removedIndex,
   });
-  upsertRecentlyRemovedItem(removed.removedItem);
+  upsertRemovedItem(removed.removedItem);
 
   renderItemList();
-  renderRecentlyRemoved();
+  renderRemovedItems();
   showToast(`Removed “${removed.removedItem.title}”.`, 'info', {
     action: {
       actionLabel: 'Undo',
@@ -345,22 +345,22 @@ function undoRemovedItem(uri) {
     return;
   }
 
-  removeRecentlyRemovedByUri(uri);
+  removeRemovedItemByUri(uri);
   renderItemList();
-  renderRecentlyRemoved();
+  renderRemovedItems();
   showToast(`Restored “${pendingRemoval.item.title}”.`, 'success');
 }
 
 /** @param {string} uri */
-function restoreRecentlyRemovedEntry(uri) {
-  const entryIndex = recentlyRemovedItems.findIndex((item) => item.uri === uri);
+function restoreRemovedItem(uri) {
+  const entryIndex = removedItems.findIndex((item) => item.uri === uri);
   if (entryIndex < 0) return;
 
-  const [item] = recentlyRemovedItems.splice(entryIndex, 1);
-  persistRecentlyRemoved();
+  const [item] = removedItems.splice(entryIndex, 1);
+  persistRemovedItems();
   pendingUndoRemovals.delete(uri);
   const restore = itemStore.restoreItem(item, getItems().length);
-  renderRecentlyRemoved();
+  renderRemovedItems();
 
   if (!restore.ok) {
     showToast('Item is already in your list.', 'info');
@@ -371,55 +371,55 @@ function restoreRecentlyRemovedEntry(uri) {
   showToast(`Restored “${item.title}”.`, 'success');
 }
 
-function clearRecentlyRemoved() {
-  recentlyRemovedItems.splice(0, recentlyRemovedItems.length);
-  persistRecentlyRemoved();
-  renderRecentlyRemoved();
+function clearRemovedItems() {
+  removedItems.splice(0, removedItems.length);
+  persistRemovedItems();
+  renderRemovedItems();
 }
 
-function purgeRecentlyRemoved() {
-  if (recentlyRemovedItems.length === 0) return;
+function purgeRemovedItems() {
+  if (removedItems.length === 0) return;
 
-  const itemLabel = recentlyRemovedItems.length === 1 ? '1 item' : `${recentlyRemovedItems.length} items`;
-  if (!window.confirm(`Permanently remove ${itemLabel} from Recently Removed?`)) {
+  const itemLabel = removedItems.length === 1 ? '1 item' : `${removedItems.length} items`;
+  if (!window.confirm(`Permanently remove ${itemLabel} from Removed Items?`)) {
     return;
   }
 
-  clearRecentlyRemoved();
-  showToast('Purged Recently Removed.', 'info');
+  clearRemovedItems();
+  showToast('Purged Removed Items.', 'info');
 }
 
-function persistRecentlyRemoved() {
-  itemStore.saveRecentlyRemoved(recentlyRemovedItems);
+function persistRemovedItems() {
+  itemStore.saveRemovedItems(removedItems);
 }
 
 /** @param {ShuffleItem} item */
-function upsertRecentlyRemovedItem(item) {
-  removeRecentlyRemovedByUri(item.uri);
-  recentlyRemovedItems.unshift(item);
-  persistRecentlyRemoved();
+function upsertRemovedItem(item) {
+  removeRemovedItemByUri(item.uri);
+  removedItems.unshift(item);
+  persistRemovedItems();
 }
 
 /** @param {string} uri */
-function removeRecentlyRemovedByUri(uri) {
-  const entryIndex = recentlyRemovedItems.findIndex((item) => item.uri === uri);
+function removeRemovedItemByUri(uri) {
+  const entryIndex = removedItems.findIndex((item) => item.uri === uri);
   if (entryIndex < 0) return false;
 
-  recentlyRemovedItems.splice(entryIndex, 1);
-  persistRecentlyRemoved();
+  removedItems.splice(entryIndex, 1);
+  persistRemovedItems();
   return true;
 }
 
 /** @param {string[]} uris */
-function removeRecentlyRemovedByUris(uris) {
+function removeRemovedItemsByUris(uris) {
   if (uris.length === 0) return false;
 
   const uriSet = new Set(uris);
-  const remainingItems = recentlyRemovedItems.filter((item) => !uriSet.has(item.uri));
-  if (remainingItems.length === recentlyRemovedItems.length) return false;
+  const remainingItems = removedItems.filter((item) => !uriSet.has(item.uri));
+  if (remainingItems.length === removedItems.length) return false;
 
-  recentlyRemovedItems.splice(0, recentlyRemovedItems.length, ...remainingItems);
-  persistRecentlyRemoved();
+  removedItems.splice(0, removedItems.length, ...remainingItems);
+  persistRemovedItems();
   return true;
 }
 
@@ -563,9 +563,9 @@ function importLocalStorageJson() {
   }
 
   stopSession('Data imported. Session reset.');
-  recentlyRemovedItems.splice(0, recentlyRemovedItems.length, ...imported.recentlyRemoved);
+  removedItems.splice(0, removedItems.length, ...imported.removedItems);
   renderItemList();
-  renderRecentlyRemoved();
+  renderRemovedItems();
   refreshAuthStatus();
   showToast('Imported saved items.', 'success');
 }
@@ -592,8 +592,8 @@ function renderItemList() {
   itemsPanel.renderList(getItems());
 }
 
-function renderRecentlyRemoved() {
-  itemsPanel.renderRecentlyRemoved(recentlyRemovedItems);
+function renderRemovedItems() {
+  itemsPanel.renderRemovedItems(removedItems);
 }
 
 async function startShuffleSession() {
@@ -664,9 +664,9 @@ async function importAlbumsFromPlaylist() {
   }
 
   saveItems(existingItems);
-  removeRecentlyRemovedByUris(albumsFromPlaylist.map((album) => album.uri));
+  removeRemovedItemsByUris(albumsFromPlaylist.map((album) => album.uri));
   renderItemList();
-  renderRecentlyRemoved();
+  renderRemovedItems();
   showToast(
     `Imported ${added} album(s) from playlist (${albumsFromPlaylist.length} unique album(s) found).`,
     'success',

@@ -39,16 +39,16 @@ export function makeUi(page) {
         return this.row(itemText).getByRole('button', { name: 'Remove', exact: true });
       },
     },
-    recentlyRemoved: {
-      section: page.locator('#recently-removed-section'),
-      count: page.locator('#recently-removed-count'),
+    removedItems: {
+      section: page.locator('#removed-items-section'),
+      count: page.locator('#removed-items-count'),
       /** @param {string} text */
       row(text) {
-        return page.locator('#recently-removed-list > li').filter({
+        return page.locator('#removed-items-list > li').filter({
           has: page.getByText(text, { exact: true }),
         });
       },
-      purgeAllButton: page.getByRole('button', { name: 'Purge All', exact: true }),
+      purgeButton: page.getByRole('button', { name: 'Purge', exact: true }),
       /** @param {string} itemText */
       restoreButton(itemText) {
         return this.row(itemText).getByRole('button', { name: 'Restore', exact: true });
