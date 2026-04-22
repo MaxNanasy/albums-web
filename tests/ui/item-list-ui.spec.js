@@ -80,4 +80,40 @@ test.describe('Item List', () => {
     await expect(ui.toasts.instance('Restored “C”.')).toBeVisible();
     await expect(ui.recentlyRemoved.section).toBeHidden();
   });
+
+  test('Recently Removed persists across reload and purge all requires confirmation', async ({ context, page, ui }) => {
+    await seedItems(context, [
+      { type: 'album', uri: 'spotify:album:a', title: 'A' },
+      { type: 'album', uri: 'spotify:album:b', title: 'B' },
+    ]);
+
+    await page.goto('/');
+
+    await ui.savedItems.removeButton('A').click();
+    await expect(ui.recentlyRemoved.row('A')).toBeVisible();
+
+    await page.reload();
+    await expect(ui.recentlyRemoved.section).toBeVisible();
+    await expect(ui.recentlyRemoved.count).toHaveText('1 item');
+    await expect(ui.recentlyRemoved.row('A')).toBeVisible();
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toBe('Permanently remove 1 item from Recently Removed?');
+      await dialog.dismiss();
+    });
+    await ui.recentlyRemoved.purgeAllButton.click();
+    await expect(ui.recentlyRemoved.section).toBeVisible();
+    await expect(ui.recentlyRemoved.row('A')).toBeVisible();
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toBe('Permanently remove 1 item from Recently Removed?');
+      await dialog.accept();
+    });
+    await ui.recentlyRemoved.purgeAllButton.click();
+    await expect(ui.toasts.instance('Purged Recently Removed.')).toBeVisible();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
+
+    await page.reload();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
+  });
 });

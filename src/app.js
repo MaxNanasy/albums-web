@@ -56,6 +56,7 @@ const STORAGE_KEYS = {
   tokenExpiry: 'shuffle-by-album.tokenExpiry',
   tokenScope: 'shuffle-by-album.tokenScope',
   items: 'shuffle-by-album.items',
+  recentlyRemoved: 'shuffle-by-album.recentlyRemoved',
   runtime: 'shuffle-by-album.runtime',
 };
 
@@ -78,6 +79,9 @@ const el = {
   recentlyRemovedList: /** @type {HTMLUListElement} */ (
     document.getElementById('recently-removed-list')
   ),
+  purgeRecentlyRemovedBtn: /** @type {HTMLButtonElement} */ (
+    document.getElementById('purge-recently-removed-btn')
+  ),
   startBtn: /** @type {HTMLButtonElement} */ (document.getElementById('start-btn')),
   reattachBtn: /** @type {HTMLButtonElement} */ (document.getElementById('reattach-btn')),
   skipBtn: /** @type {HTMLButtonElement} */ (document.getElementById('skip-btn')),
@@ -95,7 +99,10 @@ const el = {
 };
 
 const toastPresenter = new ToastPresenter(el.toastStack);
-const itemStore = new ItemStore({ items: STORAGE_KEYS.items });
+const itemStore = new ItemStore({
+  items: STORAGE_KEYS.items,
+  recentlyRemoved: STORAGE_KEYS.recentlyRemoved,
+});
 const authPanel = new AuthPanel(el);
 const itemsPanel = new ItemsPanel(el);
 const sessionPanel = new SessionPanel(el);
@@ -150,8 +157,8 @@ const playerMonitor = new PlayerMonitor({
 sessionController.setPlayerMonitor(playerMonitor);
 
 /** @type {RecentlyRemovedEntry[]} */
-const recentlyRemovedItems = [];
-let nextRecentlyRemovedId = 0;
+const recentlyRemovedItems = itemStore.getRecentlyRemoved();
+let nextRecentlyRemovedId = getNextRecentlyRemovedId(recentlyRemovedItems);
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
@@ -217,6 +224,9 @@ function hookEvents() {
     },
     onRestoreRecentlyRemoved: (entryId) => {
       restoreRecentlyRemovedEntry(entryId);
+    },
+    onPurgeRecentlyRemoved: () => {
+      purgeRecentlyRemoved();
     },
   });
 
@@ -313,6 +323,7 @@ function removeItemWithUndo(uri) {
   };
   nextRecentlyRemovedId += 1;
   recentlyRemovedItems.unshift(entry);
+  persistRecentlyRemoved();
 
   renderItemList();
   renderRecentlyRemoved();
@@ -332,6 +343,7 @@ function restoreRecentlyRemovedEntry(entryId) {
   if (entryIndex < 0) return;
 
   const [entry] = recentlyRemovedItems.splice(entryIndex, 1);
+  persistRecentlyRemoved();
   const restore = itemStore.restoreItem(entry.item, entry.index);
   renderRecentlyRemoved();
 
@@ -346,7 +358,30 @@ function restoreRecentlyRemovedEntry(entryId) {
 
 function clearRecentlyRemoved() {
   recentlyRemovedItems.splice(0, recentlyRemovedItems.length);
+  nextRecentlyRemovedId = 0;
+  persistRecentlyRemoved();
   renderRecentlyRemoved();
+}
+
+function purgeRecentlyRemoved() {
+  if (recentlyRemovedItems.length === 0) return;
+
+  const itemLabel = recentlyRemovedItems.length === 1 ? '1 item' : `${recentlyRemovedItems.length} items`;
+  if (!window.confirm(`Permanently remove ${itemLabel} from Recently Removed?`)) {
+    return;
+  }
+
+  clearRecentlyRemoved();
+  showToast('Purged Recently Removed.', 'info');
+}
+
+function persistRecentlyRemoved() {
+  itemStore.saveRecentlyRemoved(recentlyRemovedItems);
+}
+
+/** @param {RecentlyRemovedEntry[]} entries */
+function getNextRecentlyRemovedId(entries) {
+  return entries.reduce((maxId, entry) => Math.max(maxId, entry.id), -1) + 1;
 }
 
 function refreshAuthStatus() {

@@ -100,9 +100,17 @@ ul {
   margin-bottom: 0.5rem;
 }
 
+.subpanel-header .row {
+  justify-content: flex-end;
+}
+
 .subpanel-header h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+#purge-recently-removed-btn {
+  margin-left: auto;
 }
 
 #recently-removed-list {

@@ -2,7 +2,8 @@ import { exportItemsData, importItemsData } from './storage-transfer.js';
 
 /** @typedef {'album' | 'playlist'} ItemType */
 /** @typedef {{uri: string; type: ItemType; title: string}} ShuffleItem */
-/** @typedef {{ items: string }} ItemStoreStorageKeys */
+/** @typedef {{id: number; item: ShuffleItem; index: number}} RecentlyRemovedEntry */
+/** @typedef {{ items: string; recentlyRemoved: string }} ItemStoreStorageKeys */
 
 export class ItemStore {
   /** @type {ItemStoreStorageKeys} */
@@ -31,6 +32,36 @@ export class ItemStore {
   /** @param {ShuffleItem[]} items */
   saveItems(items) {
     localStorage.setItem(this.#storageKeys.items, JSON.stringify(items));
+  }
+
+
+  /** @returns {RecentlyRemovedEntry[]} */
+  getRecentlyRemoved() {
+    const raw = localStorage.getItem(this.#storageKeys.recentlyRemoved);
+    if (!raw) return [];
+
+    try {
+      /** @type {unknown} */
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return normalizeRecentlyRemoved(parsed);
+    } catch {
+      return [];
+    }
+  }
+
+  /** @param {RecentlyRemovedEntry[]} entries */
+  saveRecentlyRemoved(entries) {
+    if (entries.length === 0) {
+      localStorage.removeItem(this.#storageKeys.recentlyRemoved);
+      return;
+    }
+
+    localStorage.setItem(this.#storageKeys.recentlyRemoved, JSON.stringify(entries));
+  }
+
+  clearRecentlyRemoved() {
+    localStorage.removeItem(this.#storageKeys.recentlyRemoved);
   }
 
   /** @returns {{ data: Record<string, unknown> | null; error: string | null }} */
@@ -99,4 +130,35 @@ function normalizeItems(parsedItems) {
       uri: item.uri,
       title: typeof item.title === 'string' ? item.title : item.uri,
     }));
+}
+
+
+/** @param {unknown[]} parsedEntries @returns {RecentlyRemovedEntry[]} */
+function normalizeRecentlyRemoved(parsedEntries) {
+  return parsedEntries
+    .filter(
+      /**
+       * @param {unknown} entry
+       * @returns {entry is {id: number; item: unknown; index: number}}
+       */
+      (entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+        const parsedEntry = /** @type {Record<string, unknown>} */ (entry);
+        return (
+          Number.isInteger(parsedEntry.id) &&
+          typeof parsedEntry.index === 'number' &&
+          Number.isFinite(parsedEntry.index) &&
+          parsedEntry.item !== undefined
+        );
+      },
+    )
+    .flatMap((entry) => {
+      const [item] = normalizeItems([entry.item]);
+      if (!item) return [];
+      return [{
+        id: entry.id,
+        item,
+        index: Math.max(0, Math.trunc(entry.index)),
+      }];
+    });
 }

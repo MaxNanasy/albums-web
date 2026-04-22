@@ -48,6 +48,7 @@ export function makeUi(page) {
           has: page.getByText(text, { exact: true }),
         });
       },
+      purgeAllButton: page.getByRole('button', { name: 'Purge All', exact: true }),
       /** @param {string} itemText */
       restoreButton(itemText) {
         return this.row(itemText).getByRole('button', { name: 'Restore', exact: true });

@@ -1,6 +1,6 @@
 /** @typedef {{uri: string; title: string}} ShuffleItem */
 /** @typedef {{id: number; item: ShuffleItem; index: number}} RecentlyRemovedEntry */
-/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement; recentlyRemovedSection: HTMLElement; recentlyRemovedCount: HTMLElement; recentlyRemovedList: HTMLUListElement;}} ItemsPanelElements */
+/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement; recentlyRemovedSection: HTMLElement; recentlyRemovedCount: HTMLElement; recentlyRemovedList: HTMLUListElement; purgeRecentlyRemovedBtn: HTMLButtonElement;}} ItemsPanelElements */
 
 export class ItemsPanel {
   /** @type {ItemsPanelElements} */
@@ -9,12 +9,15 @@ export class ItemsPanel {
   #onRemove;
   /** @type {(entryId: number) => void} */
   #onRestoreRecentlyRemoved;
+  /** @type {() => void} */
+  #onPurgeRecentlyRemoved;
 
   /** @param {ItemsPanelElements} el */
   constructor(el) {
     this.#el = el;
     this.#onRemove = () => {};
     this.#onRestoreRecentlyRemoved = () => {};
+    this.#onPurgeRecentlyRemoved = () => {};
   }
 
   /**
@@ -23,6 +26,7 @@ export class ItemsPanel {
    *  onImportPlaylist: () => void;
    *  onRemove: (uri: string) => void;
    *  onRestoreRecentlyRemoved: (entryId: number) => void;
+   *  onPurgeRecentlyRemoved: () => void;
    * }} handlers
    */
   bind(handlers) {
@@ -32,8 +36,12 @@ export class ItemsPanel {
     });
 
     this.#el.importPlaylistBtn.addEventListener('click', handlers.onImportPlaylist);
+    this.#el.purgeRecentlyRemovedBtn.addEventListener('click', () => {
+      this.#onPurgeRecentlyRemoved();
+    });
     this.#onRemove = handlers.onRemove;
     this.#onRestoreRecentlyRemoved = handlers.onRestoreRecentlyRemoved;
+    this.#onPurgeRecentlyRemoved = handlers.onPurgeRecentlyRemoved;
   }
 
   /** @param {ShuffleItem[]} items */
@@ -67,6 +75,7 @@ export class ItemsPanel {
     this.#el.recentlyRemovedList.innerHTML = '';
     this.#el.recentlyRemovedSection.hidden = entries.length === 0;
     this.#el.recentlyRemovedCount.textContent = entries.length === 1 ? '1 item' : `${entries.length} items`;
+    this.#el.purgeRecentlyRemovedBtn.disabled = entries.length === 0;
 
     for (const entry of entries) {
       const li = document.createElement('li');
