@@ -1,15 +1,20 @@
 /** @typedef {{uri: string; title: string}} ShuffleItem */
-/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement;}} ItemsPanelElements */
+/** @typedef {{id: number; item: ShuffleItem; index: number}} RecentlyRemovedEntry */
+/** @typedef {{addForm: HTMLFormElement; itemUri: HTMLInputElement; importPlaylistBtn: HTMLButtonElement; itemList: HTMLUListElement; recentlyRemovedSection: HTMLElement; recentlyRemovedCount: HTMLElement; recentlyRemovedList: HTMLUListElement;}} ItemsPanelElements */
 
 export class ItemsPanel {
   /** @type {ItemsPanelElements} */
   #el;
   /** @type {(uri: string) => void} */
   #onRemove;
+  /** @type {(entryId: number) => void} */
+  #onRestoreRecentlyRemoved;
+
   /** @param {ItemsPanelElements} el */
   constructor(el) {
     this.#el = el;
     this.#onRemove = () => {};
+    this.#onRestoreRecentlyRemoved = () => {};
   }
 
   /**
@@ -17,6 +22,7 @@ export class ItemsPanel {
    *  onAdd: (rawUri: string) => void;
    *  onImportPlaylist: () => void;
    *  onRemove: (uri: string) => void;
+   *  onRestoreRecentlyRemoved: (entryId: number) => void;
    * }} handlers
    */
   bind(handlers) {
@@ -27,6 +33,7 @@ export class ItemsPanel {
 
     this.#el.importPlaylistBtn.addEventListener('click', handlers.onImportPlaylist);
     this.#onRemove = handlers.onRemove;
+    this.#onRestoreRecentlyRemoved = handlers.onRestoreRecentlyRemoved;
   }
 
   /** @param {ShuffleItem[]} items */
@@ -52,6 +59,33 @@ export class ItemsPanel {
       actions.appendChild(removeButton);
       li.append(text, actions);
       this.#el.itemList.appendChild(li);
+    }
+  }
+
+  /** @param {RecentlyRemovedEntry[]} entries */
+  renderRecentlyRemoved(entries) {
+    this.#el.recentlyRemovedList.innerHTML = '';
+    this.#el.recentlyRemovedSection.hidden = entries.length === 0;
+    this.#el.recentlyRemovedCount.textContent = entries.length === 1 ? '1 item' : `${entries.length} items`;
+
+    for (const entry of entries) {
+      const li = document.createElement('li');
+      const text = document.createElement('span');
+      text.textContent = entry.item.title ? entry.item.title : entry.item.uri;
+
+      const actions = document.createElement('div');
+      actions.className = 'row';
+
+      const restoreButton = document.createElement('button');
+      restoreButton.type = 'button';
+      restoreButton.textContent = 'Restore';
+      restoreButton.addEventListener('click', () => {
+        this.#onRestoreRecentlyRemoved(entry.id);
+      });
+
+      actions.appendChild(restoreButton);
+      li.append(text, actions);
+      this.#el.recentlyRemovedList.appendChild(li);
     }
   }
 

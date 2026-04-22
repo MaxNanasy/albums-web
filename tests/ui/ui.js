@@ -39,6 +39,20 @@ export function makeUi(page) {
         return this.row(itemText).getByRole('button', { name: 'Remove', exact: true });
       },
     },
+    recentlyRemoved: {
+      section: page.locator('#recently-removed-section'),
+      count: page.locator('#recently-removed-count'),
+      /** @param {string} text */
+      row(text) {
+        return page.locator('#recently-removed-list > li').filter({
+          has: page.getByText(text, { exact: true }),
+        });
+      },
+      /** @param {string} itemText */
+      restoreButton(itemText) {
+        return this.row(itemText).getByRole('button', { name: 'Restore', exact: true });
+      },
+    },
     toasts: {
       /** @param {string} text */
       instance(text) {

@@ -7,7 +7,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Item List', () => {
-  test('Remove then undo restores original row position and duplicate-undo is prevented', async ({ context, page, ui }) => {
+  test('Remove then undo keeps Recently Removed in sync and duplicate-undo is prevented', async ({ context, page, ui }) => {
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:a', title: 'A' },
       { type: 'album', uri: 'spotify:album:b', title: 'B' },
@@ -28,6 +28,9 @@ test.describe('Item List', () => {
 
     await ui.savedItems.removeButton('A').click();
     await expect(ui.savedItems.row('A')).toHaveCount(0);
+    await expect(ui.recentlyRemoved.section).toBeVisible();
+    await expect(ui.recentlyRemoved.row('A')).toBeVisible();
+    await expect(ui.recentlyRemoved.count).toHaveText('1 item');
 
     await ui.savedItems.uriInput.fill('spotify:album:newone');
     await ui.savedItems.addButton.click();
@@ -35,11 +38,46 @@ test.describe('Item List', () => {
 
     await ui.toasts.undoButton('Removed “A”.').click();
     await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
+    await expect(ui.savedItems.row('A')).toBeVisible();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
 
     await ui.savedItems.removeButton('A').click();
+    await expect(ui.recentlyRemoved.row('A')).toBeVisible();
     await ui.savedItems.uriInput.fill('spotify:album:a');
     await ui.savedItems.addButton.click();
     await ui.toasts.undoButton('Removed “A”.').click();
     await expect(ui.toasts.instance('Item is already in your list.')).toBeVisible();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
+  });
+
+  test('Recently Removed tracks multiple removals and restores each item independently', async ({ context, page, ui }) => {
+    await seedItems(context, [
+      { type: 'album', uri: 'spotify:album:a', title: 'A' },
+      { type: 'album', uri: 'spotify:album:b', title: 'B' },
+      { type: 'album', uri: 'spotify:album:c', title: 'C' },
+    ]);
+
+    await page.goto('/');
+
+    await ui.savedItems.removeButton('A').click();
+    await ui.savedItems.removeButton('C').click();
+
+    await expect(ui.savedItems.row('A')).toHaveCount(0);
+    await expect(ui.savedItems.row('C')).toHaveCount(0);
+    await expect(ui.recentlyRemoved.section).toBeVisible();
+    await expect(ui.recentlyRemoved.count).toHaveText('2 items');
+    await expect(ui.recentlyRemoved.row('A')).toBeVisible();
+    await expect(ui.recentlyRemoved.row('C')).toBeVisible();
+
+    await ui.recentlyRemoved.restoreButton('A').click();
+    await expect(ui.savedItems.row('A')).toBeVisible();
+    await expect(ui.toasts.instance('Restored “A”.')).toBeVisible();
+    await expect(ui.recentlyRemoved.count).toHaveText('1 item');
+    await expect(ui.recentlyRemoved.row('C')).toBeVisible();
+
+    await ui.recentlyRemoved.restoreButton('C').click();
+    await expect(ui.savedItems.row('C')).toBeVisible();
+    await expect(ui.toasts.instance('Restored “C”.')).toBeVisible();
+    await expect(ui.recentlyRemoved.section).toBeHidden();
   });
 });

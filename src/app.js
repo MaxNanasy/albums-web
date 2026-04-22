@@ -32,6 +32,13 @@ import { StoragePanel } from './panels/storage-panel.js';
  * @property {boolean} observedCurrentContext
  */
 
+/**
+ * @typedef RecentlyRemovedEntry
+ * @property {number} id
+ * @property {ShuffleItem} item
+ * @property {number} index
+ */
+
 const SCOPES = [
   // control playback + read active playback context
   'user-modify-playback-state',
@@ -62,6 +69,15 @@ const el = {
     document.getElementById('import-playlist-btn')
   ),
   itemList: /** @type {HTMLUListElement} */ (document.getElementById('item-list')),
+  recentlyRemovedSection: /** @type {HTMLElement} */ (
+    document.getElementById('recently-removed-section')
+  ),
+  recentlyRemovedCount: /** @type {HTMLElement} */ (
+    document.getElementById('recently-removed-count')
+  ),
+  recentlyRemovedList: /** @type {HTMLUListElement} */ (
+    document.getElementById('recently-removed-list')
+  ),
   startBtn: /** @type {HTMLButtonElement} */ (document.getElementById('start-btn')),
   reattachBtn: /** @type {HTMLButtonElement} */ (document.getElementById('reattach-btn')),
   skipBtn: /** @type {HTMLButtonElement} */ (document.getElementById('skip-btn')),
@@ -133,6 +149,10 @@ const playerMonitor = new PlayerMonitor({
 });
 sessionController.setPlayerMonitor(playerMonitor);
 
+/** @type {RecentlyRemovedEntry[]} */
+const recentlyRemovedItems = [];
+let nextRecentlyRemovedId = 0;
+
 void runWithReportedError(bootstrap, {
   context: 'startup',
   fallbackMessage: 'The app failed to initialize.',
@@ -147,6 +167,7 @@ async function bootstrap() {
   await handleAuthRedirect();
   await ensureValidAccessToken();
   renderItemList();
+  renderRecentlyRemoved();
   renderSessionQueue();
   renderPlaybackControls();
   refreshStartupAuthStatus();
@@ -193,6 +214,9 @@ function hookEvents() {
     },
     onRemove: (uri) => {
       removeItemWithUndo(uri);
+    },
+    onRestoreRecentlyRemoved: (entryId) => {
+      restoreRecentlyRemovedEntry(entryId);
     },
   });
 
@@ -282,24 +306,48 @@ function removeItemWithUndo(uri) {
   const removed = itemStore.removeByUri(uri);
   if (!removed) return;
 
+  const entry = {
+    id: nextRecentlyRemovedId,
+    item: removed.removedItem,
+    index: removed.removedIndex,
+  };
+  nextRecentlyRemovedId += 1;
+  recentlyRemovedItems.unshift(entry);
+
   renderItemList();
+  renderRecentlyRemoved();
   showToast(`Removed “${removed.removedItem.title}”.`, 'info', {
     action: {
       actionLabel: 'Undo',
       onAction: () => {
-        const restore = itemStore.restoreItem(removed.removedItem, removed.removedIndex);
-        if (!restore.ok) {
-          showToast('Item is already in your list.', 'info');
-          return;
-        }
-
-        renderItemList();
-        showToast(`Restored “${removed.removedItem.title}”.`, 'success');
+        restoreRecentlyRemovedEntry(entry.id);
       },
     },
   });
 }
 
+/** @param {number} entryId */
+function restoreRecentlyRemovedEntry(entryId) {
+  const entryIndex = recentlyRemovedItems.findIndex((entry) => entry.id === entryId);
+  if (entryIndex < 0) return;
+
+  const [entry] = recentlyRemovedItems.splice(entryIndex, 1);
+  const restore = itemStore.restoreItem(entry.item, entry.index);
+  renderRecentlyRemoved();
+
+  if (!restore.ok) {
+    showToast('Item is already in your list.', 'info');
+    return;
+  }
+
+  renderItemList();
+  showToast(`Restored “${entry.item.title}”.`, 'success');
+}
+
+function clearRecentlyRemoved() {
+  recentlyRemovedItems.splice(0, recentlyRemovedItems.length);
+  renderRecentlyRemoved();
+}
 
 function refreshAuthStatus() {
   const token = getToken();
@@ -441,6 +489,7 @@ function importLocalStorageJson() {
   }
 
   stopSession('Data imported. Session reset.');
+  clearRecentlyRemoved();
   renderItemList();
   refreshAuthStatus();
   showToast('Imported saved items.', 'success');
@@ -466,6 +515,10 @@ function saveItems(items) {
 
 function renderItemList() {
   itemsPanel.renderList(getItems());
+}
+
+function renderRecentlyRemoved() {
+  itemsPanel.renderRecentlyRemoved(recentlyRemovedItems);
 }
 
 async function startShuffleSession() {
