@@ -65,7 +65,7 @@ export class AuthFlow {
 
     if (error) {
       const status = error === 'access_denied'
-        ? 'Spotify authorization denied.'
+        ? 'Spotify authorization denied'
         : `Spotify authorization error: ${error}`;
       this.#pendingRedirectStatus = status;
       this.#deps.setAuthStatus(status);
@@ -79,7 +79,7 @@ export class AuthFlow {
     const verifier = localStorage.getItem(this.#deps.storageKeys.verifier);
 
     if (!verifier) {
-      const status = 'Missing PKCE verifier. Try connecting again.';
+      const status = 'Missing PKCE verifier; try connecting again';
       this.#pendingRedirectStatus = status;
       this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
@@ -105,7 +105,7 @@ export class AuthFlow {
     } catch (error) {
       localStorage.removeItem(this.#deps.storageKeys.verifier);
       const status = tokenExchangeFailureStatus(
-        userFacingErrorMessage(error, 'Network error while contacting Spotify. Please try again.'),
+        userFacingErrorMessage(error, 'Network error while contacting Spotify; please try again'),
       );
       this.#pendingRedirectStatus = status;
       this.#deps.setAuthStatus(status);
@@ -117,7 +117,7 @@ export class AuthFlow {
 
     if (!response.ok) {
       const status = tokenExchangeFailureStatus(
-        spotifyStatusMessage(response.status, 'Network error while contacting Spotify. Please try again.'),
+        spotifyStatusMessage(response.status, 'Network error while contacting Spotify; please try again'),
       );
       this.#pendingRedirectStatus = status;
       this.#deps.setAuthStatus(status);
@@ -211,11 +211,11 @@ export class AuthFlow {
         body: formData,
       });
     } catch (error) {
-      this.#pendingRefreshFailureStatus = 'Network issue refreshing Spotify session. Please reconnect if this continues.';
+      this.#pendingRefreshFailureStatus = 'Network issue refreshing Spotify session; please reconnect if this continues';
       this.#deps.reportError(error, {
         context: 'auth',
-        fallbackMessage: 'Unable to restore Spotify session.',
-        authStatusMessage: 'Network issue refreshing Spotify session. Please reconnect if this continues.',
+        fallbackMessage: 'Unable to restore Spotify session',
+        authStatusMessage: 'Network issue refreshing Spotify session; please reconnect if this continues',
         toastMode: 'cooldown',
         toastKey: 'refresh-token-network',
       });
@@ -223,7 +223,7 @@ export class AuthFlow {
     }
 
     if (!response.ok) {
-      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session. Please reconnect.';
+      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session; please reconnect';
       return null;
     }
 
@@ -232,7 +232,7 @@ export class AuthFlow {
     try {
       data = /** @type {{access_token?: string; refresh_token?: string; expires_in?: number; scope?: string}} */ (await response.json());
     } catch {
-      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session. Please reconnect.';
+      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session; please reconnect';
       return null;
     }
     if (!(
@@ -240,7 +240,7 @@ export class AuthFlow {
       typeof data.expires_in === 'number' &&
       Number.isFinite(data.expires_in))
     ) {
-      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session. Please reconnect.';
+      this.#pendingRefreshFailureStatus = 'Unable to restore Spotify session; please reconnect';
       return null;
     }
     localStorage.setItem(this.#deps.storageKeys.token, data.access_token);
@@ -291,11 +291,5 @@ async function codeChallengeFromVerifier(verifier) {
 
 /** @param {string} detail */
 function tokenExchangeFailureStatus(detail) {
-  return `Spotify token exchange failed: ${ensureTrailingPeriod(detail)}`;
-}
-
-/** @param {string} message */
-function ensureTrailingPeriod(message) {
-  const trimmed = message.trim().replace(/[.!?]+$/u, '');
-  return `${trimmed}.`;
+  return `Spotify token exchange failed: ${detail.trim().replace(/[.!?]+$/u, '')}`;
 }

@@ -168,8 +168,8 @@ const pendingUndoRemovals = new Map();
 
 void runWithReportedError(bootstrap, {
   context: 'startup',
-  fallbackMessage: 'The app failed to initialize.',
-  authStatusMessage: 'Startup failed. Please refresh and reconnect Spotify.',
+  fallbackMessage: 'The app failed to initialize',
+  authStatusMessage: 'Startup failed; please refresh and reconnect Spotify',
   toastMode: 'cooldown',
   toastKey: 'startup',
 });
@@ -192,8 +192,8 @@ async function ensureValidAccessToken() {
     await getUsableAccessToken();
   }, {
     context: 'auth',
-    fallbackMessage: 'Unable to restore Spotify session.',
-    authStatusMessage: 'Unable to restore Spotify session. Please reconnect.',
+    fallbackMessage: 'Unable to restore Spotify session',
+    authStatusMessage: 'Unable to restore Spotify session; please reconnect',
     toastMode: 'cooldown',
     toastKey: 'auth-validate',
   });
@@ -204,14 +204,14 @@ function hookEvents() {
     onLogin: () => {
       void runWithReportedError(() => startLogin(), {
         context: 'auth',
-        fallbackMessage: 'Failed to start Spotify connection.',
-        authStatusMessage: 'Unable to connect right now. Please try again.',
+        fallbackMessage: 'Failed to start Spotify connection',
+        authStatusMessage: 'Unable to connect right now; please try again',
       });
     },
     onLogout: () => {
       clearAuth();
       refreshAuthStatus();
-      showToast('Disconnected from Spotify.', 'info');
+      showToast('Disconnected from Spotify', 'info');
     },
   });
 
@@ -222,7 +222,7 @@ function hookEvents() {
     onImportPlaylist: () => {
       void runWithReportedError(() => importAlbumsFromPlaylist(), {
         context: 'import',
-        fallbackMessage: 'Failed to import albums from playlist.',
+        fallbackMessage: 'Failed to import albums from playlist',
       });
     },
     onRemove: (uri) => {
@@ -240,8 +240,8 @@ function hookEvents() {
     onStart: () => {
       void runWithReportedError(() => startShuffleSession(), {
         context: 'playback',
-        fallbackMessage: 'Failed to start shuffle session.',
-        playbackStatusMessage: 'Unable to start session right now. Please try again.',
+        fallbackMessage: 'Failed to start shuffle session',
+        playbackStatusMessage: 'Unable to start session right now; please try again',
       });
     },
     onReattach: () => {
@@ -251,21 +251,21 @@ function hookEvents() {
         } catch (error) {
           reportError(error, {
             context: 'playback',
-            fallbackMessage: 'Failed to reattach.',
+            fallbackMessage: 'Failed to reattach',
           });
-          setPlaybackStatus(`Failed to reattach: ${errorDetailForStatus(error, 'Please try again')}.`);
+          setPlaybackStatus(`Failed to reattach: ${errorDetailForStatus(error, 'Please try again')}`);
         }
       })();
     },
     onSkip: () => {
       void runWithReportedError(() => goToNextItem(), {
         context: 'playback',
-        fallbackMessage: 'Failed to skip to the next item.',
-        playbackStatusMessage: 'Unable to skip right now. Please try again.',
+        fallbackMessage: 'Failed to skip to the next item',
+        playbackStatusMessage: 'Unable to skip right now; please try again',
       });
     },
     onStop: () => {
-      stopSession('Session stopped.');
+      stopSession('Session stopped');
     },
   });
 
@@ -287,25 +287,25 @@ async function addItemFromInput(rawUri) {
   try {
     const parsed = parseSpotifyUri(rawUri);
     if (!parsed) {
-      showToast('Enter a valid Spotify album/playlist URI or URL.', 'error');
+      showToast('Enter a valid Spotify album/playlist URI or URL', 'error');
       return;
     }
     const items = getItems();
     if (items.some((item) => item.uri === parsed.uri)) {
       removeRemovedItemByUri(parsed.uri);
       renderRemovedItems();
-      showToast('Item is already in your list.', 'info');
+      showToast('Item is already in your list', 'info');
       return;
     }
     const token = await getUsableAccessToken();
     if (!token) {
-      showToast('Connect Spotify first so the app can load item titles.', 'error');
+      showToast('Connect Spotify first so the app can load item titles', 'error');
       return;
     }
 
     const titledItem = await withItemTitle(parsed);
     if (!titledItem) {
-      showToast('Unable to load title for that item. Please try another URI.', 'error');
+      showToast('Unable to load title for that item; please try another URI', 'error');
       return;
     }
 
@@ -315,11 +315,11 @@ async function addItemFromInput(rawUri) {
     removeRemovedItemByUri(titledItem.uri);
     renderItemList();
     renderRemovedItems();
-    showToast(`Added “${titledItem.title}”.`, 'success');
+    showToast(`Added “${titledItem.title}”`, 'success');
   } catch (error) {
     reportError(error, {
       context: 'items',
-      fallbackMessage: 'Failed to add this item.',
+      fallbackMessage: 'Failed to add this item',
     });
   }
 }
@@ -337,7 +337,7 @@ function removeItemWithUndo(uri) {
 
   renderItemList();
   renderRemovedItems();
-  showToast(`Removed “${removed.removedItem.title}”.`, 'info', {
+  showToast(`Removed “${removed.removedItem.title}”`, 'info', {
     action: {
       actionLabel: 'Undo',
       onAction: () => {
@@ -356,14 +356,14 @@ function undoRemovedItem(uri) {
   pendingUndoRemovals.delete(uri);
 
   if (!restore.ok) {
-    showToast('Item is already in your list.', 'info');
+    showToast('Item is already in your list', 'info');
     return;
   }
 
   removeRemovedItemByUri(uri);
   renderItemList();
   renderRemovedItems();
-  showToast(`Restored “${pendingRemoval.item.title}”.`, 'success');
+  showToast(`Restored “${pendingRemoval.item.title}”`, 'success');
 }
 
 /** @param {string} uri */
@@ -378,12 +378,12 @@ function restoreRemovedItem(uri) {
   renderRemovedItems();
 
   if (!restore.ok) {
-    showToast('Item is already in your list.', 'info');
+    showToast('Item is already in your list', 'info');
     return;
   }
 
   renderItemList();
-  showToast(`Restored “${item.title}”.`, 'success');
+  showToast(`Restored “${item.title}”`, 'success');
 }
 
 function clearRemovedItems() {
@@ -427,7 +427,7 @@ function confirmPurgeRemovedItems() {
   }
 
   clearRemovedItems();
-  showToast('Purged Removed Items.', 'info');
+  showToast('Purged Removed Items', 'info');
 }
 
 function persistRemovedItems() {
@@ -467,17 +467,17 @@ function removeRemovedItemsByUris(uris) {
 function refreshAuthStatus() {
   const token = getToken();
   if (!token) {
-    setAuthStatus('Not connected.');
+    setAuthStatus('Not connected');
     return;
   }
   const scopeSet = getGrantedScopes();
   if (!scopeSet.has('playlist-read-private') || !scopeSet.has('playlist-read-collaborative')) {
     setAuthStatus(
-      `Connected, but token is missing playlist import scopes. Disconnect and reconnect.`,
+      `Connected, but token is missing playlist import scopes; disconnect and reconnect`,
     );
     return;
   }
-  setAuthStatus('Connected.');
+  setAuthStatus('Connected');
 }
 
 function refreshStartupAuthStatus() {
@@ -506,7 +506,7 @@ async function ensureStoredItemTitles() {
 
   const token = await runWithReportedError(() => getUsableAccessToken(), {
     context: 'items',
-    fallbackMessage: 'Unable to refresh saved item titles.',
+    fallbackMessage: 'Unable to refresh saved item titles',
     toastMode: 'cooldown',
     toastKey: 'item-title-refresh',
   });
@@ -541,8 +541,8 @@ async function ensureStoredItemTitles() {
 
 function handleAuthExpired() {
   clearAuth();
-  transitionToDetached('Spotify session expired. Please reconnect.');
-  setAuthStatus('Spotify session expired. Please reconnect.');
+  transitionToDetached('Spotify session expired; please reconnect');
+  setAuthStatus('Spotify session expired; please reconnect');
 }
 
 /** @param {string} message */
@@ -592,23 +592,23 @@ function exportLocalStorageJson() {
   }
 
   storagePanel.setJsonInput(JSON.stringify(exported.data, null, 2));
-  showToast('Exported saved items to JSON.', 'success');
+  showToast('Exported saved items to JSON', 'success');
 }
 
 function importLocalStorageJson() {
   const imported = itemStore.importFromJson(storagePanel.getJsonInput());
   if (!imported.ok) {
-    const error = imported.error ?? 'Import failed.';
+    const error = imported.error ?? 'Import failed';
     showToast(error, 'error');
     return;
   }
 
-  stopSession('Data imported. Session reset.');
+  stopSession('Data imported; session reset');
   removedItems.splice(0, removedItems.length, ...imported.removedItems);
   renderItemList();
   renderRemovedItems();
   refreshAuthStatus();
-  showToast('Imported saved items.', 'success');
+  showToast('Imported saved items', 'success');
 }
 
 function getToken() {
@@ -675,13 +675,13 @@ async function playCurrentItem() {
 async function importAlbumsFromPlaylist() {
   const token = await getUsableAccessToken();
   if (!token) {
-    showToast('Connect Spotify first so the app can import albums.', 'error');
+    showToast('Connect Spotify first so the app can import albums', 'error');
     return;
   }
 
   const parsedPlaylist = parseSpotifyPlaylistRef(itemsPanel.getUriInput());
   if (!parsedPlaylist) {
-    showToast('Enter a valid Spotify playlist URL, URI, or playlist ID.', 'error');
+    showToast('Enter a valid Spotify playlist URL, URI, or playlist ID', 'error');
     return;
   }
 
@@ -709,7 +709,7 @@ async function importAlbumsFromPlaylist() {
   renderItemList();
   renderRemovedItems();
   showToast(
-    `Imported ${added} album(s) from playlist (${albumsFromPlaylist.length} unique album(s) found).`,
+    `Imported ${added} album(s) from playlist (${albumsFromPlaylist.length} unique album(s) found)`,
     'success',
   );
 }
@@ -730,7 +730,7 @@ async function fetchPlaylistAlbums(playlistId) {
       const details = page.errorText ? `${page.status} ${page.errorText}` : String(page.status);
       return {
         albums: [],
-        errorMessage: `Error importing albums: ${details}.`,
+        errorMessage: `Error importing albums: ${details}`,
       };
     }
 
@@ -808,10 +808,10 @@ async function runWithReportedError(task, reportErrorOptions) {
 /** @param {unknown} error */
 function reportMonitorError(error) {
   if (error instanceof PlayerMonitorStatusError) {
-    const detail = spotifyStatusMessage(error.status, 'Could not check playback state.');
+    const detail = spotifyStatusMessage(error.status, 'Could not check playback state');
     reportError(error, {
       context: 'monitor',
-      fallbackMessage: 'Playback monitor encountered an error.',
+      fallbackMessage: 'Playback monitor encountered an error',
       playbackStatusMessage: `Playback monitor encountered an error: ${detail}`,
       toastMode: 'cooldown',
       toastKey: `monitor-http-${error.status}`,
@@ -821,8 +821,8 @@ function reportMonitorError(error) {
 
   reportError(error, {
     context: 'monitor',
-    fallbackMessage: 'Playback monitor encountered an error.',
-    playbackStatusMessage: 'Playback monitor encountered an error.',
+    fallbackMessage: 'Playback monitor encountered an error',
+    playbackStatusMessage: 'Playback monitor encountered an error',
     toastMode: 'cooldown',
     toastKey: 'monitor-loop',
   });

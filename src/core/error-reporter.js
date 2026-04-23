@@ -73,7 +73,7 @@ export class ErrorReporter {
 export function userFacingErrorMessage(error, fallbackMessage) {
   const raw = error instanceof Error ? error.message : String(error ?? '');
   if (raw && (/Failed to fetch/i.test(raw) || /NetworkError/i.test(raw))) {
-    return 'Network error while contacting Spotify. Please try again.';
+    return 'Network error while contacting Spotify; please try again';
   }
   return fallbackMessage;
 }
