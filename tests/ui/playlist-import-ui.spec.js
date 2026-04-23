@@ -74,7 +74,7 @@ test.describe('Playlist Album Import', () => {
     await expect(ui.savedItems.row('Existing Album')).toBeVisible();
     await expect(ui.savedItems.row('New Album One')).toBeVisible();
     await expect(ui.savedItems.row('New Album Two')).toBeVisible();
-    await expect(ui.toasts.instance('Imported 2 album(s) from playlist (3 unique album(s) found).')).toBeVisible();
+    await expect(ui.toasts.instance('Imported 2 album(s) from playlist (3 unique album(s) found)')).toBeVisible();
     expect(requests.map((request) => request.url)).toEqual([
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=50&additional_types=track&market=from_token',
@@ -102,7 +102,7 @@ test.describe('Playlist Album Import', () => {
     await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.savedItems.row('New Album One')).toBeVisible();
-    await expect(ui.toasts.instance('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
+    await expect(ui.toasts.instance('Imported 1 album(s) from playlist (1 unique album(s) found)')).toBeVisible();
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toBe(
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
@@ -130,7 +130,7 @@ test.describe('Playlist Album Import', () => {
     await ui.savedItems.importAlbumsButton.click();
 
     await expect(ui.savedItems.row('New Album Two')).toBeVisible();
-    await expect(ui.toasts.instance('Imported 1 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
+    await expect(ui.toasts.instance('Imported 1 album(s) from playlist (1 unique album(s) found)')).toBeVisible();
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toBe(
       'https://api.spotify.com/v1/playlists/playlist123/items?limit=50&offset=0&additional_types=track&market=from_token',
@@ -145,7 +145,7 @@ test.describe('Playlist Album Import', () => {
     await page.goto('/');
     await ui.savedItems.uriInput.fill('playlist123');
     await ui.savedItems.importAlbumsButton.click();
-    await expect(ui.toasts.instance('Connect Spotify first so the app can import albums.')).toBeVisible();
+    await expect(ui.toasts.instance('Connect Spotify first so the app can import albums')).toBeVisible();
 
     await seedConnectedAuth(context);
 
@@ -163,15 +163,15 @@ test.describe('Playlist Album Import', () => {
     await page.reload();
     await ui.savedItems.uriInput.fill('$$$');
     await ui.savedItems.importAlbumsButton.click();
-    await expect(ui.toasts.instance('Enter a valid Spotify playlist URL, URI, or playlist ID.')).toBeVisible();
+    await expect(ui.toasts.instance('Enter a valid Spotify playlist URL, URI, or playlist ID')).toBeVisible();
 
     await ui.savedItems.uriInput.fill('playlist123');
     await ui.savedItems.importAlbumsButton.click();
-    await expect(ui.toasts.instance('Error importing albums: 500 boom.')).toBeVisible();
+    await expect(ui.toasts.instance('Error importing albums: 500 boom')).toBeVisible();
 
     await ui.savedItems.uriInput.fill('emptyplaylist');
     await ui.savedItems.importAlbumsButton.click();
-    await expect(ui.toasts.instance('Imported 0 album(s) from playlist (0 unique album(s) found).')).toBeVisible();
+    await expect(ui.toasts.instance('Imported 0 album(s) from playlist (0 unique album(s) found)')).toBeVisible();
   });
 
   test('Importing playlist with all albums already saved keeps list unchanged', async ({ context, page, ui }) => {
@@ -194,7 +194,7 @@ test.describe('Playlist Album Import', () => {
     await ui.savedItems.uriInput.fill('playlist123');
     await ui.savedItems.importAlbumsButton.click();
 
-    await expect(ui.toasts.instance('Imported 0 album(s) from playlist (1 unique album(s) found).')).toBeVisible();
+    await expect(ui.toasts.instance('Imported 0 album(s) from playlist (1 unique album(s) found)')).toBeVisible();
     await expect(ui.savedItems.row('Existing Album')).toHaveCount(1);
   });
 });

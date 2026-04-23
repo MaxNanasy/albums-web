@@ -34,7 +34,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await ui.playback.startButton.click();
     await expect(ui.playback.status).toHaveText(
-      'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found. device missing.',
+      'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found device missing',
     );
     await expect(ui.playback.reattachButton).toBeVisible();
 
@@ -55,7 +55,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     });
     await page.reload();
     await ui.playback.reattachButton.click();
-    await expect(ui.playback.status).toHaveText('Spotify session expired. Please reconnect.');
+    await expect(ui.playback.status).toHaveText('Spotify session expired; please reconnect');
   });
 
   test('Reattach with matched context resumes without restarting playback', async ({ context, page, ui }) => {
@@ -109,9 +109,9 @@ test.describe('Detached Session and Runtime Restore', () => {
     await ui.playback.reattachButton.click();
 
     await expect(ui.playback.status).toHaveText(
-      'Failed to reattach: Unable to check current Spotify playback (500): server busy.',
+      'Failed to reattach: Unable to check current Spotify playback (500): server busy',
     );
-    await expect(ui.toasts.instance('Failed to reattach.')).toBeVisible();
+    await expect(ui.toasts.instance('Failed to reattach')).toBeVisible();
     await expect(ui.playback.reattachButton).toBeVisible();
   });
 
@@ -153,7 +153,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await ui.playback.reattachButton.click();
 
-    await expect(ui.playback.status).toHaveText('Playback failed. Session stopped.');
+    await expect(ui.playback.status).toHaveText('Playback failed; session stopped');
   });
 
   test('Restores active runtime state and ignores invalid runtime JSON', async ({ context, page, ui }) => {
@@ -175,7 +175,7 @@ test.describe('Detached Session and Runtime Restore', () => {
       localStorage.setItem('shuffle-by-album.runtime', '{bad json');
     });
     await page.reload();
-    await expect(ui.auth.status).toHaveText('Connected.');
+    await expect(ui.auth.status).toHaveText('Connected');
     const runtimeValue = await page.evaluate(() => localStorage.getItem('shuffle-by-album.runtime'));
     expect(runtimeValue).toBeNull();
   });
