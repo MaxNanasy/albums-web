@@ -75,7 +75,7 @@ test('goToNextItem stops session when queue is exhausted', async () => {
   await controller.goToNextItem();
 
   assert.equal(controller.getSession().activationState, 'inactive');
-  assert.equal(playbackStatuses.at(-1), 'Finished: all selected albums/playlists were played.');
+  assert.equal(playbackStatuses.at(-1), 'Finished: all selected albums/playlists were played');
 });
 
 test('restoreRuntimeState clears invalid runtime payload', () => {

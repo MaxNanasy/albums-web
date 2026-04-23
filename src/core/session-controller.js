@@ -70,7 +70,7 @@ export class SessionController {
     this.persistRuntimeState();
     this.#render();
 
-    this.#deps.setPlaybackStatus(`Session started with ${this.#session.queue.length} item(s).`);
+    this.#deps.setPlaybackStatus(`Session started with ${this.#session.queue.length} item(s)`);
     await this.playCurrentItem();
     if (this.#session.activationState === 'active') {
       this.#playerMonitor?.start();

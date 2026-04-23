@@ -110,7 +110,7 @@ test('monitor loop detaches when token is unavailable', async () => {
 
   await runMonitorCycle(monitor);
 
-  assert.deepEqual(detachedMessages, ['Spotify session expired. Please reconnect.']);
+  assert.deepEqual(detachedMessages, ['Spotify session expired; please reconnect']);
   assert.equal(spies.getPlayerState.mock.callCount(), 0);
 });
 
