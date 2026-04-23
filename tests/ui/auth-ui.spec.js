@@ -21,9 +21,9 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(ui.auth.status).toHaveText('Not connected.');
+    await expect(ui.auth.status).toHaveText('Not connected');
     await ui.auth.disconnectButton.click();
-    await expect(ui.toasts.instance('Disconnected from Spotify.')).toBeVisible();
+    await expect(ui.toasts.instance('Disconnected from Spotify')).toBeVisible();
   });
 
   test('Connect button stores a PKCE verifier and redirects to Spotify authorize', async ({ context, page, ui }) => {
@@ -85,7 +85,7 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(ui.auth.status).toHaveText('Connected.');
+    await expect(ui.auth.status).toHaveText('Connected');
 
     const authState = await page.evaluate(() => ({
       token: localStorage.getItem('shuffle-by-album.token'),
@@ -118,7 +118,7 @@ test.describe('Auth and Connection States', () => {
 
     await page.goto('/');
 
-    await expect(ui.auth.status).toHaveText('Unable to restore Spotify session. Please reconnect.');
+    await expect(ui.auth.status).toHaveText('Unable to restore Spotify session; please reconnect');
   });
 
   test('Missing playlist scopes shows reconnect warning', async ({ context, page, ui }) => {
@@ -129,7 +129,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/');
 
     await expect(ui.auth.status).toHaveText(
-      'Connected, but token is missing playlist import scopes. Disconnect and reconnect.',
+      'Connected, but token is missing playlist import scopes; disconnect and reconnect',
     );
   });
 
@@ -141,7 +141,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?error=access_denied');
 
     await expect(page).toHaveURL('/');
-    await expect(ui.auth.status).toHaveText('Spotify authorization denied.');
+    await expect(ui.auth.status).toHaveText('Spotify authorization denied');
   });
 
   test('Auth redirect with other error clears query and reports an explicit auth error', async ({ context, page, ui }) => {
@@ -163,7 +163,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/');
-    await expect(ui.auth.status).toHaveText('Missing PKCE verifier. Try connecting again.');
+    await expect(ui.auth.status).toHaveText('Missing PKCE verifier; try connecting again');
   });
 
   test('Successful code exchange stores tokens, clears verifier, and removes code from the URL', async ({ context, page, ui }) => {
@@ -190,7 +190,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/');
-    await expect(ui.auth.status).toHaveText('Connected.');
+    await expect(ui.auth.status).toHaveText('Connected');
 
     const authState = await page.evaluate(() => ({
       token: localStorage.getItem('shuffle-by-album.token'),
@@ -226,7 +226,7 @@ test.describe('Auth and Connection States', () => {
 
     await expect(page).toHaveURL('/');
     await expect(ui.auth.status).toHaveText(
-      'Spotify token exchange failed: Network error while contacting Spotify. Please try again.',
+      'Spotify token exchange failed: Network error while contacting Spotify; please try again',
     );
     const verifier = await page.evaluate(() => localStorage.getItem('shuffle-by-album.pkceVerifier'));
     expect(verifier).toBeNull();

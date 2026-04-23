@@ -91,7 +91,7 @@ test('refreshSpotifyAccessToken captures a validation failure status for non-ok 
   const token = await authFlow.refreshSpotifyAccessToken();
 
   assert.equal(token, null);
-  assert.equal(authFlow.consumePendingRefreshFailureStatus(), 'Unable to restore Spotify session. Please reconnect.');
+  assert.equal(authFlow.consumePendingRefreshFailureStatus(), 'Unable to restore Spotify session; please reconnect');
   assert.equal(authFlow.consumePendingRefreshFailureStatus(), null);
   fetchMock.mock.restore();
 });
@@ -134,7 +134,7 @@ test('handleAuthRedirect records an authorization error, clears the verifier, an
 
   await authFlow.handleAuthRedirect();
 
-  assert.deepEqual(statuses, ['Spotify authorization denied.']);
+  assert.deepEqual(statuses, ['Spotify authorization denied']);
   assert.equal(globalThis.localStorage.getItem('v'), null);
   assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
 });
@@ -153,7 +153,7 @@ test('handleAuthRedirect reports a missing verifier and clears the handled code 
 
   await authFlow.handleAuthRedirect();
 
-  assert.deepEqual(statuses, ['Missing PKCE verifier. Try connecting again.']);
+  assert.deepEqual(statuses, ['Missing PKCE verifier; try connecting again']);
   assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
 });
 
@@ -174,7 +174,7 @@ test('handleAuthRedirect reports exchange failures, clears the verifier, and rem
 
   await authFlow.handleAuthRedirect();
 
-  assert.deepEqual(statuses, ['Spotify token exchange failed: Network error while contacting Spotify. Please try again.']);
+  assert.deepEqual(statuses, ['Spotify token exchange failed: Network error while contacting Spotify; please try again']);
   assert.equal(globalThis.localStorage.getItem('v'), null);
   assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
   fetchMock.mock.restore();
@@ -197,7 +197,7 @@ test('handleAuthRedirect reports invalid token responses after a successful exch
 
   await authFlow.handleAuthRedirect();
 
-  assert.deepEqual(statuses, ['Spotify token exchange failed: invalid token response.']);
+  assert.deepEqual(statuses, ['Spotify token exchange failed: invalid token response']);
   assert.equal(globalThis.localStorage.getItem('v'), null);
   assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
   fetchMock.mock.restore();

@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/ui',
   fullyParallel: true,
-  timeout: 1_000_000,
+  timeout: 20_000,
   use: {
     baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',

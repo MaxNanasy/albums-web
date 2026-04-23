@@ -84,13 +84,13 @@ test.describe('Playback Controls', () => {
 
     await page.goto('/');
     await ui.playback.startButton.click();
-    await expect(ui.toasts.instance('Connect Spotify first.')).toBeVisible();
+    await expect(ui.toasts.instance('Connect Spotify first')).toBeVisible();
 
     await seedConnectedAuth(context);
 
     await page.reload();
     await ui.playback.startButton.click();
-    await expect(ui.toasts.instance('Add at least one album or playlist first.')).toBeVisible();
+    await expect(ui.toasts.instance('Add at least one album or playlist first')).toBeVisible();
 
     await seedItems(context, [
       { type: 'album', uri: 'spotify:album:one', title: 'One' },
@@ -127,11 +127,11 @@ test.describe('Playback Controls', () => {
     await ui.playback.nextButton.click();
     await expect(ui.playback.status).toHaveText('Now playing album 2 of 2: Two');
     await ui.playback.nextButton.click();
-    await expect(ui.playback.status).toHaveText('Finished: all selected albums/playlists were played.');
+    await expect(ui.playback.status).toHaveText('Finished: all selected albums/playlists were played');
 
     await ui.playback.startButton.click();
     await ui.playback.stopButton.click();
-    await expect(ui.playback.status).toHaveText('Session stopped.');
+    await expect(ui.playback.status).toHaveText('Session stopped');
   });
 
   test('Recoverable playback-start failure stops session instead of detaching', async ({ context, page, ui }) => {
@@ -161,7 +161,7 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await ui.playback.startButton.click();
 
-    await expect(ui.playback.status).toHaveText('Playback failed. Session stopped.');
+    await expect(ui.playback.status).toHaveText('Playback failed; session stopped');
     await expect(ui.playback.reattachButton).toBeHidden();
   });
 });
