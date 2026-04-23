@@ -73,7 +73,7 @@ export class PlayerMonitor {
 
     const token = await this.#deps.getUsableAccessToken();
     if (!token) {
-      this.#deps.transitionToDetached('Spotify session expired. Please reconnect.');
+      this.#deps.transitionToDetached('Spotify session expired; please reconnect');
       return;
     }
 
@@ -81,7 +81,7 @@ export class PlayerMonitor {
     if (!playerState.ok) {
       if (this.#deps.isUnrecoverableSpotifyStatus(playerState.status)) {
         this.#deps.transitionToDetached(
-          spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached.'),
+          spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached'),
         );
         return;
       }
@@ -109,7 +109,7 @@ export class PlayerMonitor {
 
     if (contextUri && contextUri !== session.currentUri) {
       this.#deps.transitionToDetached(
-        'Spotify is playing a different album/playlist than this app expects. Reattach to resume.',
+        'Spotify is playing a different album/playlist than this app expects; reattach to resume',
       );
     }
   }

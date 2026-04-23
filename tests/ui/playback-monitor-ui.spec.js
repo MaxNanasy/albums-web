@@ -131,7 +131,7 @@ test.describe('Playback Monitor Transitions', () => {
       if (typeof callback === 'function') await callback();
     });
     await expect(ui.playback.status).toHaveText(
-      'Spotify is playing a different album/playlist than this app expects. Reattach to resume.',
+      'Spotify is playing a different album/playlist than this app expects; reattach to resume',
     );
   });
 
@@ -184,8 +184,8 @@ test.describe('Playback Monitor Transitions', () => {
       if (typeof callback === 'function') await callback();
     });
 
-    await expect(ui.playback.status).toHaveText('Playback monitor encountered an error: Spotify rate limit reached. Please wait a moment and retry.');
-    await expect(ui.toasts.instance('Playback monitor encountered an error.')).toBeVisible();
+    await expect(ui.playback.status).toHaveText('Playback monitor encountered an error: Spotify rate limit reached; please wait a moment and retry');
+    await expect(ui.toasts.instance('Playback monitor encountered an error')).toBeVisible();
     await expect(ui.playback.reattachButton).toBeHidden();
     await expect(ui.playback.nextButton).toBeEnabled();
   });

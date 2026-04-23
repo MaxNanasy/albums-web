@@ -54,13 +54,13 @@ export class SessionController {
   async startShuffleSession() {
     const token = await this.#deps.getUsableAccessToken();
     if (!token) {
-      this.#deps.showToast('Connect Spotify first.', 'error');
+      this.#deps.showToast('Connect Spotify first', 'error');
       return;
     }
 
     const items = this.#deps.getItems();
     if (items.length === 0) {
-      this.#deps.showToast('Add at least one album or playlist first.', 'info');
+      this.#deps.showToast('Add at least one album or playlist first', 'info');
       return;
     }
 
@@ -70,7 +70,7 @@ export class SessionController {
     this.persistRuntimeState();
     this.#render();
 
-    this.#deps.setPlaybackStatus(`Session started with ${this.#session.queue.length} item(s).`);
+    this.#deps.setPlaybackStatus(`Session started with ${this.#session.queue.length} item(s)`);
     await this.playCurrentItem();
     if (this.#session.activationState === 'active') {
       this.#playerMonitor?.start();
@@ -109,14 +109,14 @@ export class SessionController {
 
   async goToNextItem() {
     if (this.#session.activationState !== 'active') {
-      this.#deps.setPlaybackStatus('No active session.');
+      this.#deps.setPlaybackStatus('No active session');
       return;
     }
 
     this.#session.index += 1;
     this.persistRuntimeState();
     if (this.#session.index >= this.#session.queue.length) {
-      this.stopSession('Finished: all selected albums/playlists were played.');
+      this.stopSession('Finished: all selected albums/playlists were played');
       return;
     }
     this.#deps.renderSessionQueue(this.#session);
@@ -130,20 +130,20 @@ export class SessionController {
     }
     const current = this.#session.queue[this.#session.index];
     if (!current) {
-      this.transitionToInactive('No queued item available to reattach.');
+      this.transitionToInactive('No queued item available to reattach');
       return;
     }
 
     const token = await this.#deps.getUsableAccessToken();
     if (!token) {
-      this.transitionToDetached('Spotify session expired. Please reconnect.');
+      this.transitionToDetached('Spotify session expired; please reconnect');
       return;
     }
 
     const playerState = await this.#deps.spotifyAppApi.getPlayerState();
     if (!playerState.ok) {
       if (this.#deps.isUnrecoverableSpotifyStatus(playerState.status)) {
-        this.transitionToDetached(this.#deps.spotifyStatusMessage(playerState.status, 'Unable to reattach playback state.'));
+        this.transitionToDetached(this.#deps.spotifyStatusMessage(playerState.status, 'Unable to reattach playback state'));
         return;
       }
       throw new Error(
@@ -172,7 +172,7 @@ export class SessionController {
   async playCurrentItem() {
     const current = this.#session.queue[this.#session.index];
     if (!current) {
-      this.transitionToInactive('Finished: all selected albums/playlists were played.');
+      this.transitionToInactive('Finished: all selected albums/playlists were played');
       return;
     }
     this.#session.currentUri = current.uri;
@@ -183,7 +183,7 @@ export class SessionController {
 
     const token = await this.#deps.getUsableAccessToken();
     if (!token) {
-      this.stopSession('Spotify session expired. Please reconnect.');
+      this.stopSession('Spotify session expired; please reconnect');
       return;
     }
 
@@ -194,20 +194,20 @@ export class SessionController {
     } catch (error) {
       this.#deps.reportError(error, {
         context: 'playback',
-        fallbackMessage: 'Unable to start playback on Spotify.',
-        playbackStatusMessage: 'Could not start playback. Ensure an active Spotify device is available.',
+        fallbackMessage: 'Unable to start playback on Spotify',
+        playbackStatusMessage: 'Could not start playback; ensure an active Spotify device is available',
       });
       if (this.#deps.isUnrecoverableSpotifyError(error)) {
         const rawDetail = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
         const normalizedDetail = userFacingErrorMessage(
           error,
-          rawDetail || 'Unable to start playback on Spotify.',
+          rawDetail || 'Unable to start playback on Spotify',
         );
         const cleanedDetail = normalizedDetail.trim().replace(/[.!?]+$/u, '') || 'Unknown error';
-        this.transitionToDetached(`Playback detached due to a Spotify error: ${cleanedDetail}.`);
+        this.transitionToDetached(`Playback detached due to a Spotify error: ${cleanedDetail}`);
         return;
       }
-      this.stopSession('Playback failed. Session stopped.');
+      this.stopSession('Playback failed; session stopped');
       return;
     }
 
