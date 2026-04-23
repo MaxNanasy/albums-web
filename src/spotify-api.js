@@ -73,7 +73,7 @@ export class SpotifyApi {
     if (!response.ok && throwOnError) {
       const body = await response.text();
       const message = spotifyStatusMessage(response.status, `Spotify API request failed for ${path}`);
-      throw new SpotifyApiHttpError(response.status, body ? `${message} ${body}` : message);
+      throw new SpotifyApiHttpError(response.status, body ? `${message}: ${body}` : message);
     }
 
     return response;

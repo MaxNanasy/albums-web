@@ -34,7 +34,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await ui.playback.startButton.click();
     await expect(ui.playback.status).toHaveText(
-      'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found device missing',
+      'Playback detached due to a Spotify error: Requested Spotify item or playback device was not found: device missing',
     );
     await expect(ui.playback.reattachButton).toBeVisible();
 
