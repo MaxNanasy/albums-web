@@ -147,7 +147,10 @@ export class SessionController {
         return;
       }
       throw new Error(
-        `Unable to check current Spotify playback (${playerState.status}): ${playerState.errorText}`,
+        this.#deps.spotifyStatusMessage(
+          playerState.status,
+          `Unable to check current Spotify playback (${playerState.status}): ${playerState.errorText}`,
+        ),
       );
     }
 
