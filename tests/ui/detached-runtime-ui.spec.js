@@ -115,7 +115,7 @@ test.describe('Detached Session and Runtime Restore', () => {
     await expect(ui.playback.reattachButton).toBeVisible();
   });
 
-  test('Reattach with mismatched context restarts expected item', async ({ context, page, ui }) => {
+  test('Reattach with mismatched context restarts expected item and detaches on play failure', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       localStorage.setItem('shuffle-by-album.runtime', JSON.stringify({
         activationState: 'detached',
@@ -153,7 +153,10 @@ test.describe('Detached Session and Runtime Restore', () => {
     await page.goto('/');
     await ui.playback.reattachButton.click();
 
-    await expect(ui.playback.status).toHaveText('Playback failed; session stopped');
+    await expect(ui.playback.status).toHaveText(
+      'Playback detached due to a Spotify error: Spotify is temporarily unavailable; please try again shortly: play failed',
+    );
+    await expect(ui.playback.reattachButton).toBeVisible();
   });
 
   test('Restores active runtime state and ignores invalid runtime JSON', async ({ context, page, ui }) => {

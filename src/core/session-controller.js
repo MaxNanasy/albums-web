@@ -200,17 +200,13 @@ export class SessionController {
         fallbackMessage: 'Unable to start playback on Spotify',
         playbackStatusMessage: 'Could not start playback; ensure an active Spotify device is available',
       });
-      if (this.#deps.isUnrecoverableSpotifyError(error)) {
-        const rawDetail = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
-        const normalizedDetail = userFacingErrorMessage(
-          error,
-          rawDetail || 'Unable to start playback on Spotify',
-        );
-        const cleanedDetail = normalizedDetail.trim().replace(/[.!?]+$/u, '') || 'Unknown error';
-        this.transitionToDetached(`Playback detached due to a Spotify error: ${cleanedDetail}`);
-        return;
-      }
-      this.stopSession('Playback failed; session stopped');
+      const rawDetail = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
+      const normalizedDetail = userFacingErrorMessage(
+        error,
+        rawDetail || 'Unable to start playback on Spotify',
+      );
+      const cleanedDetail = normalizedDetail.trim().replace(/[.!?]+$/u, '') || 'Unknown error';
+      this.transitionToDetached(`Playback detached due to a Spotify error: ${cleanedDetail}`);
       return;
     }
 

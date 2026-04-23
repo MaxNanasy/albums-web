@@ -134,7 +134,7 @@ test.describe('Playback Controls', () => {
     await expect(ui.playback.status).toHaveText('Session stopped');
   });
 
-  test('Recoverable playback-start failure stops session instead of detaching', async ({ context, page, ui }) => {
+  test('Recoverable playback-start failure detaches the session', async ({ context, page, ui }) => {
     await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
 
     installSpotifyRoutes(context, [
@@ -161,7 +161,9 @@ test.describe('Playback Controls', () => {
     await page.goto('/');
     await ui.playback.startButton.click();
 
-    await expect(ui.playback.status).toHaveText('Playback failed; session stopped');
-    await expect(ui.playback.reattachButton).toBeHidden();
+    await expect(ui.playback.status).toHaveText(
+      'Playback detached due to a Spotify error: Spotify rate limit reached; please wait a moment and retry: rate limited',
+    );
+    await expect(ui.playback.reattachButton).toBeVisible();
   });
 });
