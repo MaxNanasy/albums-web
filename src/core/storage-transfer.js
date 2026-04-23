@@ -20,7 +20,7 @@ export function exportItemsData(
     try {
       data[itemsStorageKey] = JSON.parse(rawItems);
     } catch {
-      return { data: null, error: 'Unable to export saved items because stored data is invalid JSON.' };
+      return { data: null, error: 'Unable to export saved items because stored data is invalid JSON' };
     }
   } else {
     data[itemsStorageKey] = [];
@@ -32,7 +32,7 @@ export function exportItemsData(
     } catch {
       return {
         data: null,
-        error: 'Unable to export Removed Items because stored data is invalid JSON.',
+        error: 'Unable to export Removed Items because stored data is invalid JSON',
       };
     }
   } else {
@@ -50,7 +50,7 @@ export function exportItemsData(
  */
 export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
   if (!raw.trim()) {
-    return { ok: false, error: 'Paste a JSON object to import.' };
+    return { ok: false, error: 'Paste a JSON object to import' };
   }
 
   /** @type {unknown} */
@@ -58,17 +58,17 @@ export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ok: false, error: 'Invalid JSON. Please provide a valid JSON object.' };
+    return { ok: false, error: 'Invalid JSON; please provide a valid JSON object' };
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: 'Import JSON must be an object of key/value pairs.' };
+    return { ok: false, error: 'Import JSON must be an object of key/value pairs' };
   }
 
   const parsedObject = /** @type {Record<string, unknown>} */ (parsed);
   const maybeItems = parsedObject[itemsStorageKey];
   if (!Array.isArray(maybeItems)) {
-    return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array.' };
+    return { ok: false, error: 'Import JSON must include a valid shuffle-by-album.items array' };
   }
   const parsedItems = /** @type {unknown[]} */ (maybeItems);
 
@@ -76,7 +76,7 @@ export function importItemsData(raw, itemsStorageKey, removedItemsStorageKey) {
   if (maybeRemovedItems !== undefined && !Array.isArray(maybeRemovedItems)) {
     return {
       ok: false,
-      error: 'Import JSON must include a valid shuffle-by-album.removedItems array when provided.',
+      error: 'Import JSON must include a valid shuffle-by-album.removedItems array when provided',
     };
   }
 
