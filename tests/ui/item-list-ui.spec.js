@@ -130,7 +130,7 @@ test.describe('Item List', () => {
     await ui.removedItems.purgeButton.click();
     await expect(ui.removedItems.purgeDialog).toBeVisible();
     await expect(ui.removedItems.purgeDialogMessage).toHaveText(
-      'Permanently remove 1 item from Removed Items?'
+      'Permanently remove 1 item?'
     );
 
     await ui.removedItems.cancelPurgeButton.click();

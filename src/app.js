@@ -397,7 +397,7 @@ function purgeRemovedItems() {
   if (removedItems.length === 0) return;
 
   const itemLabel = removedItems.length === 1 ? '1 item' : `${removedItems.length} items`;
-  el.purgeRemovedItemsMessage.textContent = `Permanently remove ${itemLabel} from Removed Items?`;
+  el.purgeRemovedItemsMessage.textContent = `Permanently remove ${itemLabel}?`;
 
   if (typeof el.purgeRemovedItemsDialog.showModal === 'function') {
     if (!el.purgeRemovedItemsDialog.open) {
