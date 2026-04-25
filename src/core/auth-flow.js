@@ -39,7 +39,7 @@ export class AuthFlow {
       redirect_uri: locationRef.origin + locationRef.pathname,
       code_challenge_method: 'S256',
       code_challenge: challenge,
-      show_dialog: 'true',
+      show_dialog: 'false',
     });
 
     locationRef.href = `https://accounts.spotify.com/authorize?${params.toString()}`;

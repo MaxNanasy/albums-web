@@ -57,7 +57,7 @@ test.describe('Auth and Connection States', () => {
     );
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('code_challenge')).toBeTruthy();
-    expect(url.searchParams.get('show_dialog')).toBe('true');
+    expect(url.searchParams.get('show_dialog')).toBe('false');
   });
 
   test('Expired access token with refresh token silently refreshes during bootstrap', async ({ context, page, ui }) => {
