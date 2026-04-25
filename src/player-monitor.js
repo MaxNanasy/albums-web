@@ -90,7 +90,7 @@ export class PlayerMonitor {
       return;
     }
 
-    if (playerState.status === 204) {
+    if (playerState.type === 'no-content') {
       return;
     }
 
