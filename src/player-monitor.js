@@ -90,6 +90,10 @@ export class PlayerMonitor {
       return;
     }
 
+    if (playerState.status === 204) {
+      return;
+    }
+
     const contextUri = playerState.contextUri;
 
     if (contextUri === session.currentUri) {

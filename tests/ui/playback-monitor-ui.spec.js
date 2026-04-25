@@ -49,8 +49,8 @@ test.describe('Playback Monitor Transitions', () => {
         match: (request) => isSpotifyApiRequest(request, 'GET', '/me/player'),
         handle: (route) =>
           route.fulfill({
-            status: monitorState === 'null' ? 204 : 200,
-            ...(monitorState === 'null' ? { body: '' } : { json: { context: { uri: 'spotify:album:one' } } }),
+            status: 200,
+            json: monitorState === 'null' ? { context: null } : { context: { uri: 'spotify:album:one' } },
           }),
       },
     ]);
@@ -71,6 +71,71 @@ test.describe('Playback Monitor Transitions', () => {
       if (typeof callback === 'function') await callback();
     });
     await expect(ui.playback.status).toHaveText('Now playing album 2 of 2: Two');
+  });
+
+  test('Monitor ignores 204 playback snapshots after observing current context', async ({ context, page, ui }) => {
+    await context.addInitScript(() => {
+      /** @type {Array<() => void>} */
+      const callbacks = [];
+      /** @type {TestGlobal} */ (globalThis).__monitorCallbacks = callbacks;
+      window.setInterval =
+        /** @type {typeof window.setInterval} */
+        ((/** @type {TimerHandler} */ handler) => {
+          if (typeof handler === 'function') {
+            callbacks.push(() => handler());
+          }
+          return /** @type {unknown} */ (callbacks.length);
+        });
+      window.clearInterval = () => {};
+      Math.random = () => 0.999;
+    });
+
+    await seedItems(context, [
+      { type: 'album', uri: 'spotify:album:one', title: 'One' },
+      { type: 'album', uri: 'spotify:album:two', title: 'Two' },
+    ]);
+
+    let monitorState = 'match-one';
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/repeat'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/play'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/me/player'),
+        handle: (route) =>
+          route.fulfill(
+            monitorState === 'no-content'
+              ? { status: 204, body: '' }
+              : { status: 200, json: { context: { uri: 'spotify:album:one' } } },
+          ),
+      },
+    ]);
+
+    await page.goto('/');
+    await ui.playback.startButton.click();
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 2: One');
+
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
+    await page.waitForTimeout(100);
+
+    monitorState = 'no-content';
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 2: One');
   });
 
   test('Monitor mismatch detaches session with mismatch message', async ({ context, page, ui }) => {
