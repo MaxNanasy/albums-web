@@ -11,7 +11,10 @@ import { PlayerMonitor, PlayerMonitorStatusError } from '#src/player-monitor.js'
  *   currentUri?: string | null;
  *   observedCurrentContext?: boolean;
  *   token?: string | null;
- *   playerState?: {ok: true; contextUri: string | null} | {ok: false; status: number; errorText: string};
+ *   playerState?:
+ *     | {type: 'snapshot'; contextUri: string | null}
+ *     | {type: 'no-snapshot-data'}
+ *     | {type: 'error'; status: number; errorText: string};
  *   playerStateError?: Error;
  *   isUnrecoverable?: (status: number) => boolean;
  * }} [options]
@@ -39,7 +42,7 @@ function createMonitor(options = {}) {
     if (options.playerStateError) {
       throw options.playerStateError;
     }
-    return options.playerState ?? { ok: true, contextUri: session.currentUri };
+    return options.playerState ?? { type: 'snapshot', contextUri: session.currentUri };
   });
 
   const deps = /** @type {PlayerMonitorDeps} */ ({
@@ -116,7 +119,7 @@ test('monitor loop detaches when token is unavailable', async () => {
 
 test('monitor loop reports recoverable player-state status errors', async () => {
   const { monitor, reportedErrors } = createMonitor({
-    playerState: { ok: false, status: 429, errorText: 'slow down' },
+    playerState: { type: 'error', status: 429, errorText: 'slow down' },
     isUnrecoverable: () => false,
   });
 
@@ -132,7 +135,7 @@ test('monitor loop reports recoverable player-state status errors', async () => 
 test('monitor loop advances when observed context becomes null', async () => {
   const { monitor, spies } = createMonitor({
     observedCurrentContext: true,
-    playerState: { ok: true, contextUri: null },
+    playerState: { type: 'snapshot', contextUri: null },
   });
 
   await runMonitorCycle(monitor);
