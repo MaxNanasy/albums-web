@@ -73,7 +73,7 @@ test.describe('Playback Monitor Transitions', () => {
     await expect(ui.playback.status).toHaveText('Now playing album 2 of 2: Two');
   });
 
-  test('Monitor ignores 204 playback snapshots after observing current context', async ({ context, page, ui }) => {
+  test('Monitor ignores 204 playback snapshots', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
       const callbacks = [];
@@ -95,7 +95,7 @@ test.describe('Playback Monitor Transitions', () => {
       { type: 'album', uri: 'spotify:album:two', title: 'Two' },
     ]);
 
-    let monitorState = 'match-one';
+    let monitorState = 'no-content';
     installSpotifyRoutes(context, [
       {
         match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
@@ -129,6 +129,15 @@ test.describe('Playback Monitor Transitions', () => {
       if (typeof callback === 'function') await callback();
     });
     await page.waitForTimeout(100);
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 2: One');
+
+    monitorState = 'match-one';
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
+    await page.waitForTimeout(100);
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 2: One');
 
     monitorState = 'no-content';
     await page.evaluate(async () => {
