@@ -141,7 +141,7 @@ export class SessionController {
     }
 
     const playerState = await this.#deps.spotifyAppApi.getPlayerState();
-    if (!playerState.ok) {
+    if (playerState.type === 'error') {
       if (this.#deps.isUnrecoverableSpotifyStatus(playerState.status)) {
         this.transitionToDetached(this.#deps.spotifyStatusMessage(playerState.status, 'Unable to reattach playback state'));
         return;
@@ -154,7 +154,7 @@ export class SessionController {
       );
     }
 
-    const contextUri = playerState.contextUri;
+    const contextUri = playerState.type === 'snapshot' ? playerState.contextUri : null;
 
     if (contextUri !== current.uri) {
       this.#session.activationState = 'active';

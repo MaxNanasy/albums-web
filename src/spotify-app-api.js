@@ -3,20 +3,26 @@
 /** @typedef {'album' | 'playlist'} ItemType */
 
 /**
- * @typedef PlayerStateSuccess
- * @property {true} ok
+ * @typedef PlayerStateSnapshot
+ * @property {'snapshot'} type
  * @property {number} status
  * @property {string | null} contextUri
  */
 
 /**
- * @typedef PlayerStateFailure
- * @property {false} ok
+ * @typedef PlayerStateNoSnapshotData
+ * @property {'no-snapshot-data'} type
+ * @property {204} status
+ */
+
+/**
+ * @typedef PlayerStateError
+ * @property {'error'} type
  * @property {number} status
  * @property {string} errorText
  */
 
-/** @typedef {PlayerStateSuccess | PlayerStateFailure} PlayerStateResponse */
+/** @typedef {PlayerStateSnapshot | PlayerStateNoSnapshotData | PlayerStateError} PlayerStateResponse */
 
 /**
  * @typedef PlaylistAlbum
@@ -54,14 +60,14 @@ export class SpotifyAppApi {
   async getPlayerState() {
     const response = await this.#spotifyApi.request('/me/player', { method: 'GET' }, false);
     if (response.status === 204) {
-      return { ok: true, status: response.status, contextUri: null };
+      return { type: 'no-snapshot-data', status: 204 };
     }
     if (!response.ok) {
-      return { ok: false, status: response.status, errorText: await response.text() };
+      return { type: 'error', status: response.status, errorText: await response.text() };
     }
 
     const data = /** @type {{context?: {uri?: string} | null}} */ (await response.json());
-    return { ok: true, status: response.status, contextUri: data.context?.uri ?? null };
+    return { type: 'snapshot', status: response.status, contextUri: data.context?.uri ?? null };
   }
 
   /** @returns {Promise<void>} */
