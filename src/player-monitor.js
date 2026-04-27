@@ -78,7 +78,7 @@ export class PlayerMonitor {
     }
 
     const playerState = await this.#deps.spotifyAppApi.getPlayerState();
-    if (!playerState.ok) {
+    if (playerState.type === 'error') {
       if (this.#deps.isUnrecoverableSpotifyStatus(playerState.status)) {
         this.#deps.transitionToDetached(
           spotifyStatusMessage(playerState.status, 'Spotify playback monitor detached'),
@@ -90,7 +90,7 @@ export class PlayerMonitor {
       return;
     }
 
-    if (playerState.type === 'no-content') {
+    if (playerState.type === 'no-snapshot-data') {
       return;
     }
 

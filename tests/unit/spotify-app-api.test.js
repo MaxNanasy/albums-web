@@ -25,20 +25,20 @@ function createAppApi(handler) {
   return { appApi, calls };
 }
 
-test('getPlayerState returns a no-content type for 204 responses', async () => {
+test('getPlayerState returns a no-snapshot-data type for 204 responses', async () => {
   const { appApi, calls } = createAppApi(async () => new Response(null, { status: 204 }));
 
   const state = await appApi.getPlayerState();
 
-  assert.deepEqual(state, { ok: true, status: 204, type: 'no-content' });
+  assert.deepEqual(state, { type: 'no-snapshot-data', status: 204 });
   assert.deepEqual(calls[0], { path: '/me/player', requestInit: { method: 'GET' }, throwOnError: false });
 });
 
-test('getPlayerState returns error payload for non-ok responses', async () => {
+test('getPlayerState returns an error type for non-ok responses', async () => {
   const { appApi } = createAppApi(async () => new Response('device unavailable', { status: 404 }));
 
   const state = await appApi.getPlayerState();
-  assert.deepEqual(state, { ok: false, status: 404, errorText: 'device unavailable' });
+  assert.deepEqual(state, { type: 'error', status: 404, errorText: 'device unavailable' });
 });
 
 test('getPlayerState returns a snapshot type with context uri from response body', async () => {
@@ -47,14 +47,14 @@ test('getPlayerState returns a snapshot type with context uri from response body
   );
 
   const state = await appApi.getPlayerState();
-  assert.deepEqual(state, { ok: true, status: 200, type: 'snapshot', contextUri: 'spotify:playlist:abc' });
+  assert.deepEqual(state, { type: 'snapshot', status: 200, contextUri: 'spotify:playlist:abc' });
 });
 
 test('getPlayerState returns a snapshot type with null context from response body', async () => {
   const { appApi } = createAppApi(async () => new Response('{"context":null}', { status: 200 }));
 
   const state = await appApi.getPlayerState();
-  assert.deepEqual(state, { ok: true, status: 200, type: 'snapshot', contextUri: null });
+  assert.deepEqual(state, { type: 'snapshot', status: 200, contextUri: null });
 });
 
 test('disableShuffle and disableRepeat call expected endpoints', async () => {
