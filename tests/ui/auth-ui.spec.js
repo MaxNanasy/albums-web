@@ -163,7 +163,7 @@ test.describe('Auth and Connection States', () => {
     await page.goto('/?code=abc123');
 
     await expect(page).toHaveURL('/');
-    await expect(ui.auth.status).toHaveText('Missing PKCE verifier; try connecting again');
+    await expect(ui.auth.status).toHaveText('Spotify authorization failed: Missing PKCE verifier');
   });
 
   test('Successful code exchange stores tokens, clears verifier, and removes code from the URL', async ({ context, page, ui }) => {

@@ -153,7 +153,7 @@ test('handleAuthRedirect reports a missing verifier and clears the handled code 
 
   await authFlow.handleAuthRedirect();
 
-  assert.deepEqual(statuses, ['Missing PKCE verifier; try connecting again']);
+  assert.deepEqual(statuses, ['Spotify authorization failed: Missing PKCE verifier']);
   assert.equal(globalThis.location.href, 'http://127.0.0.1:4173/');
 });
 

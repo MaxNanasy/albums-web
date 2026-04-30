@@ -79,7 +79,7 @@ export class AuthFlow {
     const verifier = localStorage.getItem(this.#deps.storageKeys.verifier);
 
     if (!verifier) {
-      const status = 'Missing PKCE verifier; try connecting again';
+      const status = 'Spotify authorization failed: Missing PKCE verifier';
       this.#pendingRedirectStatus = status;
       this.#deps.setAuthStatus(status);
       clearHandledRedirectUrl();
