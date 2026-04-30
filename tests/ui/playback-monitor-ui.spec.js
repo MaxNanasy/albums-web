@@ -8,7 +8,7 @@ test.beforeEach(async ({ context }) => {
   await seedConnectedAuth(context);
 });
 
-test.describe('Playback Monitor Transitions', () => {
+test.describe('Playback Monitor', () => {
   test('Monitor advances on null context after observing current context', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
