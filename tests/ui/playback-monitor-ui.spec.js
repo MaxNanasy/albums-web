@@ -9,6 +9,72 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe('Playback Monitor', () => {
+  test('Monitor polls only when harness triggers it', async ({ context, page, ui }) => {
+    await context.addInitScript(() => {
+      /** @type {Array<() => void>} */
+      const callbacks = [];
+      /** @type {TestGlobal} */ (globalThis).__monitorCallbacks = callbacks;
+      window.setInterval =
+        /** @type {typeof window.setInterval} */
+        ((/** @type {TimerHandler} */ handler) => {
+          if (typeof handler === 'function') {
+            callbacks.push(() => handler());
+          }
+          return /** @type {unknown} */ (callbacks.length);
+        });
+      window.clearInterval = () => {};
+      Math.random = () => 0.999;
+    });
+
+    await seedItems(context, [{ type: 'album', uri: 'spotify:album:one', title: 'One' }]);
+
+    /** @type {string[]} */
+    const requests = [];
+    installSpotifyRoutes(context, [
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/shuffle'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/repeat'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'PUT', '/me/player/play'),
+        handle: (route) => route.fulfill({ status: 204, body: '' }),
+      },
+      {
+        match: (request) => isSpotifyApiRequest(request, 'GET', '/me/player'),
+        handle: (route, request) => {
+          requests.push(request.url());
+          return route.fulfill({ status: 204, body: '' });
+        },
+      },
+    ]);
+
+    await page.goto('/');
+    await ui.playback.startButton.click();
+    await expect(ui.playback.status).toHaveText('Now playing album 1 of 1: One');
+
+    await page.waitForFunction(
+      () => Array.isArray((/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks)
+        && (/** @type {TestGlobal} */ (globalThis)).__monitorCallbacks.length > 0,
+    );
+    expect(requests).toHaveLength(0);
+
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
+    await expect.poll(() => requests.length).toBe(1);
+
+    await page.evaluate(async () => {
+      const callback = /** @type {TestGlobal} */ (globalThis).__monitorCallbacks[0];
+      if (typeof callback === 'function') await callback();
+    });
+    await expect.poll(() => requests.length).toBe(2);
+  });
+
   test('Monitor advances on null context after observing current context', async ({ context, page, ui }) => {
     await context.addInitScript(() => {
       /** @type {Array<() => void>} */
