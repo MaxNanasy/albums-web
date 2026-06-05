@@ -7,12 +7,13 @@ import sys
 from pathlib import Path
 
 
-def ui_test_list(ref: str, *, cross_platform: bool = False) -> list[str]:
+def ui_test_list(ref: str | None, *, cross_platform: bool = False) -> list[str]:
     script = Path(__file__).with_name('ui-test-list')
     command = [sys.executable, str(script)]
     if cross_platform:
         command.append('--cross-platform')
-    command.append(ref)
+    if ref is not None:
+        command.append(ref)
     result = subprocess.run(
         command,
         check=True,
@@ -97,27 +98,49 @@ def suite_aware_unified_diff(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Show UI test list changes.')
-    parser.add_argument('base_ref', help='Base git ref to compare')
-    parser.add_argument('head_ref', help='Head git ref to compare')
+    parser.add_argument(
+        'base_or_head_ref',
+        metavar='revision',
+        help=(
+            'Git ref to compare; with one ref, compare the working copy test files against that revision'
+        ),
+    )
+    parser.add_argument(
+        'head_ref',
+        nargs='?',
+        metavar='revision',
+        help='Optional head git ref; when provided, the first revision is the base',
+    )
     parser.add_argument(
         '--cross-platform',
         action='store_true',
         help='Forward --cross-platform to ui-test-list for normalized suite headings',
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.head_ref is None:
+        args.base_ref = args.base_or_head_ref
+        args.head_ref = None
+    else:
+        args.base_ref = args.base_or_head_ref
+    del args.base_or_head_ref
+    return args
 
 
 def main() -> int:
     args = parse_args()
-    base_lines = ui_test_list(args.base_ref, cross_platform=args.cross_platform)
-    head_lines = ui_test_list(args.head_ref, cross_platform=args.cross_platform)
+    base_ref = args.base_ref
+    head_ref = args.head_ref
+    head_name = 'working copy' if head_ref is None else head_ref
+
+    base_lines = ui_test_list(base_ref, cross_platform=args.cross_platform)
+    head_lines = ui_test_list(head_ref, cross_platform=args.cross_platform)
 
     diff = ''.join(
         suite_aware_unified_diff(
             base_lines,
             head_lines,
-            fromfile=f'{args.base_ref} test-list',
-            tofile=f'{args.head_ref} test-list',
+            fromfile=f'{base_ref} test-list',
+            tofile=f'{head_name} test-list',
             n=1,
         )
     )
